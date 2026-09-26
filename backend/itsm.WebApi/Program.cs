@@ -1,6 +1,7 @@
 using Scalar.AspNetCore;
 using itsm.Infrastructure;
 
+DotEnvLoader.LoadIfPresent();
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.

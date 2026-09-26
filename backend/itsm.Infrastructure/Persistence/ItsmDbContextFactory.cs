@@ -7,8 +7,8 @@ public sealed class ItsmDbContextFactory : IDesignTimeDbContextFactory<ItsmDbCon
 {
     public ItsmDbContext CreateDbContext(string[] args)
     {
-        var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection")
-            ?? "Host=localhost;Database=itsm;Username=itsm;Password=itsm";
+        DotEnvLoader.LoadIfPresent();
+        var connectionString = DatabaseConfiguration.GetConnectionString(Environment.GetEnvironmentVariable);
 
         var options = new DbContextOptionsBuilder<ItsmDbContext>()
             .UseNpgsql(connectionString)

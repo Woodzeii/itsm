@@ -3,12 +3,10 @@ services:
     image: postgres:16-alpine
     container_name: itsm_postgres
     restart: unless-stopped
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER:-app}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me}
-      POSTGRES_DB: ${POSTGRES_DB:-itsm}
+    env_file:
+      - ./backend/.env
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "${POSTGRES_PORT:-5433}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -21,12 +19,15 @@ services:
     build: ./backend
     container_name: itsm_backend
     restart: unless-stopped
+    env_file:
+      - ./backend/.env
     depends_on:
       postgres:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-itsm};Username=${POSTGRES_USER:-app};Password=${POSTGRES_PASSWORD:-change_me}"
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
     ports:
       - "${BACKEND_PORT:-5062}:8080"
 
