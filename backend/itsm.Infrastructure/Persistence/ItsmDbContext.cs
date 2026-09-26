@@ -1,5 +1,32 @@
-protected override void OnModelCreating(ModelBuilder modelBuilder)
+using itsm.Domain.Entities;
+using Microsoft.EntityFrameworkCore;
+
+namespace itsm.Infrastructure.Persistence;
+
+public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(options)
 {
+    public DbSet<User> Users => Set<User>();
+    public DbSet<SystemRole> SystemRoles => Set<SystemRole>();
+    public DbSet<UserRoleMapping> UserRoleMappings => Set<UserRoleMapping>();
+    public DbSet<AgentGroup> AgentGroups => Set<AgentGroup>();
+    public DbSet<ServiceCatalog> ServiceCatalog => Set<ServiceCatalog>();
+    public DbSet<FormTemplate> FormTemplates => Set<FormTemplate>();
+    public DbSet<TicketType> TicketTypes => Set<TicketType>();
+    public DbSet<TicketStatus> TicketStatuses => Set<TicketStatus>();
+    public DbSet<SlaPolicy> SlaPolicies => Set<SlaPolicy>();
+    public DbSet<CalendarException> CalendarExceptions => Set<CalendarException>();
+    public DbSet<Asset> Assets => Set<Asset>();
+    public DbSet<AssetHistoryLog> AssetHistoryLogs => Set<AssetHistoryLog>();
+    public DbSet<Ticket> Tickets => Set<Ticket>();
+    public DbSet<TicketAssetMapping> TicketAssetMappings => Set<TicketAssetMapping>();
+    public DbSet<ReleaseTicketMapping> ReleaseTicketMappings => Set<ReleaseTicketMapping>();
+    public DbSet<TicketApproval> TicketApprovals => Set<TicketApproval>();
+    public DbSet<KnowledgeBaseArticle> KnowledgeBaseArticles => Set<KnowledgeBaseArticle>();
+    public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
+    public DbSet<TicketAuditLog> TicketAuditLogs => Set<TicketAuditLog>();
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
     base.OnModelCreating(modelBuilder);
 
     modelBuilder.HasDefaultSchema("public");
@@ -208,5 +235,6 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
             continue; // Сохраняем Cascade для промежуточных таблиц (маппингов)
             
         foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
+    }
     }
 }
