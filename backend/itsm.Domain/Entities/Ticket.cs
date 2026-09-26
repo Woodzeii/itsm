@@ -18,12 +18,12 @@ public class Ticket
 	public int? SlaPolicyId { get; set; }
 	public DateTimeOffset? SlaReactionDeadline { get; set; }
 	public DateTimeOffset? SlaResolutionDeadline { get; set; }
-	public bool? IsReactionEscalated { get; set; }
-	public bool? IsResolutionEscalated { get; set; }
+	public bool IsReactionEscalated { get; set; } =false;
+	public bool IsResolutionEscalated { get; set; } = false;
 	public DateTimeOffset? ActualReactionTime { get; set; }
 	public DateTimeOffset? ActualResolutionTime { get; set; }
-	public bool? SlaTimerPaused { get; set; }
-	public int? SlaAccumulatedPauseMinutes { get; set; }
+	public bool SlaTimerPaused { get; set; } = false;
+	public int SlaAccumulatedPauseMinutes { get; set; } =0;
 	public string? TargetSystem { get; set; }
 	public DateTimeOffset? PlannedStart { get; set; }
 	public DateTimeOffset? PlannedEnd { get; set; }
