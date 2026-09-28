@@ -6,6 +6,7 @@ export type UserRole = 'user' | 'admin';
 export class AuthService {
     private readonly authKey = 'itsm_is_authenticated';
     private readonly roleKey = 'itsm_user_role';
+    private readonly tokenKey = 'itsm_access_token';
 
     isAuthenticated(): boolean {
         return localStorage.getItem(this.authKey) === 'true';
@@ -19,6 +20,10 @@ export class AuthService {
         return this.getRole() === 'admin';
     }
 
+    getToken(): string | null {
+        return localStorage.getItem(this.tokenKey);
+    }
+
     login(role: UserRole = 'user'): void {
         localStorage.setItem(this.authKey, 'true');
         localStorage.setItem(this.roleKey, role);
@@ -27,5 +32,6 @@ export class AuthService {
     logout(): void {
         localStorage.removeItem(this.authKey);
         localStorage.removeItem(this.roleKey);
+        localStorage.removeItem(this.tokenKey);
     }
 }
