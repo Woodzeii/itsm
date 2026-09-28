@@ -1,18 +1,31 @@
 import { Injectable } from '@angular/core';
 
+export type UserRole = 'user' | 'admin';
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-    private readonly storageKey = 'itsm_is_authenticated';
+    private readonly authKey = 'itsm_is_authenticated';
+    private readonly roleKey = 'itsm_user_role';
 
     isAuthenticated(): boolean {
-        return localStorage.getItem(this.storageKey) === 'true';
+        return localStorage.getItem(this.authKey) === 'true';
     }
 
-    login(): void {
-        localStorage.setItem(this.storageKey, 'true');
+    getRole(): UserRole {
+        return (localStorage.getItem(this.roleKey) as UserRole) || 'user';
+    }
+
+    isAdmin(): boolean {
+        return this.getRole() === 'admin';
+    }
+
+    login(role: UserRole = 'user'): void {
+        localStorage.setItem(this.authKey, 'true');
+        localStorage.setItem(this.roleKey, role);
     }
 
     logout(): void {
-        localStorage.removeItem(this.storageKey);
+        localStorage.removeItem(this.authKey);
+        localStorage.removeItem(this.roleKey);
     }
 }

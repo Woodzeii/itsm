@@ -1,7 +1,7 @@
 import { Component } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService } from '../../core/auth/auth.service';
+import { AuthService, UserRole } from '../../core/auth/auth.service';
 
 @Component({
     selector: 'app-login',
@@ -21,6 +21,14 @@ import { AuthService } from '../../core/auth/auth.service';
         <label>
           <span>Пароль</span>
           <input type="password" [(ngModel)]="password" name="password" placeholder="Введите пароль" required />
+        </label>
+
+        <label>
+          <span>Роль</span>
+          <select [(ngModel)]="selectedRole" name="role">
+            <option value="user">Пользователь</option>
+            <option value="admin">Администратор</option>
+          </select>
         </label>
 
         <button type="submit" [disabled]="isSubmitting">
@@ -92,6 +100,15 @@ import { AuthService } from '../../core/auth/auth.service';
         box-shadow: 0 0 0 3px rgba(63, 81, 181, 0.16);
       }
 
+      select {
+        padding: 12px 14px;
+        border: 1px solid #d1d5db;
+        border-radius: 10px;
+        font-size: 1rem;
+        background: #ffffff;
+        color: #111827;
+      }
+
       button {
         margin-top: 8px;
         padding: 12px 16px;
@@ -119,6 +136,7 @@ import { AuthService } from '../../core/auth/auth.service';
 export class LoginComponent {
     loginValue = '';
     password = '';
+    selectedRole: UserRole = 'user';
     errorMessage = '';
     isSubmitting = false;
 
@@ -140,7 +158,7 @@ export class LoginComponent {
         this.errorMessage = '';
 
         setTimeout(() => {
-            this.authService.login();
+            this.authService.login(this.selectedRole);
             this.isSubmitting = false;
             this.router.navigateByUrl('/dashboard');
         }, 300);
