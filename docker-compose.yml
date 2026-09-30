@@ -29,6 +29,8 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
+    volumes:
+      - ./logs:/app/logs
     ports:
       - "${BACKEND_PORT:-5062}:8080"
 
