@@ -20,6 +20,7 @@ public static class DependencyInjection
 
         services.AddMemoryCache();
         services.AddSingleton<ITwoFactorService, TwoFactorService>();
+        services.AddScoped<ILdapService, MockLdapService>();
 
         return services;
     }
