@@ -5,6 +5,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
 namespace itsm.Infrastructure.Identity;
+
 public class TwoFactorService : ITwoFactorService
 {
     private static readonly TimeSpan CodeLifetime = TimeSpan.FromMinutes(5);
@@ -18,12 +19,19 @@ public class TwoFactorService : ITwoFactorService
         _logger = logger;
     }
 
-    public string GenerateCode(int userId)
+    public string GenerateCode(int userId, string login, string email)
     {
         var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
         var cacheKey = GetCacheKey(userId);
 
-        _cache.Set(cacheKey, code, new MemoryCacheEntryOptions
+        var payload = new TwoFactorUserData
+        {
+            UserId = userId,
+            Login = login,
+            Email = email
+        };
+
+        _cache.Set(cacheKey, (Code: code, Data: payload), new MemoryCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = CodeLifetime
         });
@@ -35,40 +43,40 @@ public class TwoFactorService : ITwoFactorService
         return code;
     }
 
-    public bool ValidateCode(int userId, string code)
+    public TwoFactorUserData? ValidateCode(int userId, string code)
     {
         if (string.IsNullOrWhiteSpace(code))
-            return false;
+            return null;
 
         var cacheKey = GetCacheKey(userId);
 
-        if (!_cache.TryGetValue<string>(cacheKey, out var storedCode))
+        if (!_cache.TryGetValue<(string Code, TwoFactorUserData Data)>(cacheKey, out var entry))
         {
             _logger.LogWarning("2FA: код для пользователя {UserId} не найден или истёк", userId);
-            return false;
+            return null;
         }
 
-        if (string.IsNullOrEmpty(storedCode))
+        if (string.IsNullOrEmpty(entry.Code))
         {
-            _logger.LogWarning("2FA: код для пользователя {UserId} пуст", userId);
             _cache.Remove(cacheKey);
-            return false;
+            return null;
         }
 
         var isValid = CryptographicOperations.FixedTimeEquals(
-            Encoding.UTF8.GetBytes(storedCode),
+            Encoding.UTF8.GetBytes(entry.Code),
             Encoding.UTF8.GetBytes(code));
 
         if (!isValid)
         {
             _logger.LogWarning("2FA: неверный код для пользователя {UserId}", userId);
-            return false;
+            return null;
         }
 
+        // Код одноразовый — удаляем после успешной проверки
         _cache.Remove(cacheKey);
         _logger.LogInformation("2FA: код для пользователя {UserId} успешно проверен", userId);
 
-        return true;
+        return entry.Data;
     }
 
     public void InvalidateCode(int userId)
