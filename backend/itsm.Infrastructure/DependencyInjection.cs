@@ -1,4 +1,5 @@
 using itsm.Application.Common.Interfaces;
+using itsm.Application.Common.Models;
 using itsm.Infrastructure.Identity;
 using itsm.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
@@ -19,8 +20,12 @@ public static class DependencyInjection
             options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention());
 
         services.AddMemoryCache();
-        services.AddSingleton<ITwoFactorService, TwoFactorService>();
+
         services.AddScoped<ILdapService, MockLdapService>();
+        services.AddSingleton<ITwoFactorService, TwoFactorService>();
+
+        services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
+        services.AddSingleton<IJwtService, JwtService>();
 
         return services;
     }
