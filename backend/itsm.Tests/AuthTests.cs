@@ -8,9 +8,28 @@ using Moq;
 
 namespace itsm.Tests;
 
-public class AuthTests : IClassFixture<CustomWebApplicationFactory>
+[Collection(IntegrationTestCollection.Name)]
+public class AuthTests
 {
     private readonly CustomWebApplicationFactory _factory;
+
+    static AuthTests()
+    {
+        // Program.cs читает Jwt:Key до того, как WebApplicationFactory подменит конфиг.
+        // Задаём через env-переменные — WebApplication.CreateBuilder их подхватит.
+        Environment.SetEnvironmentVariable("Jwt__Key", CustomWebApplicationFactory.TestJwtKey);
+        Environment.SetEnvironmentVariable("Jwt__Issuer", "itsm-api");
+        Environment.SetEnvironmentVariable("Jwt__Audience", "itsm-client");
+        Environment.SetEnvironmentVariable("Jwt__ExpiresMinutes", "60");
+
+        // Заглушки для строки подключения — реально не используются,
+        // потому что DbContext подменяется фабрикой на Testcontainers.
+        Environment.SetEnvironmentVariable("POSTGRES_DB", "itsm_tests");
+        Environment.SetEnvironmentVariable("POSTGRES_USER", "test");
+        Environment.SetEnvironmentVariable("POSTGRES_PASSWORD", "test");
+        Environment.SetEnvironmentVariable("POSTGRES_HOST", "localhost");
+        Environment.SetEnvironmentVariable("POSTGRES_PORT", "5432");
+    }
 
     public AuthTests(CustomWebApplicationFactory factory)
     {
@@ -18,11 +37,6 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
         ResetTwoFactorMock();
     }
 
-    /// <summary>
-    /// Сбрасывает мок ITwoFactorService к дефолтному поведению.
-    /// Нужно, потому что тест QA.5 перезаписывает setup, и без сброса
-    /// это сломает последующие тесты (общая фабрика).
-    /// </summary>
     private void ResetTwoFactorMock()
     {
         _factory.TwoFactorMock.Reset();
@@ -78,7 +92,7 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
         verify.ExpiresIn.Should().BeGreaterThan(0);
     }
 
-    // ============ AUTH-QA.3: блокировка неверного пароля ============
+    // ============ AUTH-QA.3 ============
     [Fact]
     public async Task Login_WithWrongPassword_Returns401_AndNoSession()
     {
@@ -93,7 +107,7 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
         body.Should().NotContain("eyJ");
     }
 
-    // ============ AUTH-QA.4: неверный 2FA-код ============
+    // ============ AUTH-QA.4 ============
     [Fact]
     public async Task Verify2Fa_WithWrongCode_Returns401_AndNoJwt()
     {
@@ -114,7 +128,7 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
         body.Should().NotContain("eyJ");
     }
 
-    // ============ AUTH-QA.5: сгорание кода ============
+    // ============ AUTH-QA.5 ============
     [Fact]
     public async Task Verify2Fa_WithExpiredCode_Returns401()
     {
@@ -125,7 +139,6 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
         var login = await loginResponse.Content.ReadFromJsonAsync<LoginResponse>();
         login.Should().NotBeNull();
 
-        // Эмулируем сгорание: мок начинает возвращать null для этого userId.
         _factory.TwoFactorMock
             .Setup(x => x.ValidateCode(login!.UserId, It.IsAny<string>()))
             .Returns((TwoFactorUserData?)null);
@@ -140,7 +153,7 @@ public class AuthTests : IClassFixture<CustomWebApplicationFactory>
         verifyResponse.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
-    // ============ AUTH-QA.6: структура JWT ============
+    // ============ AUTH-QA.6 ============
     [Fact]
     public async Task Verify2Fa_ReturnsJwtWithRequiredClaims()
     {

@@ -16,10 +16,15 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-    builder.Host.UseSerilog((context, services, configuration) => configuration
-        .ReadFrom.Configuration(context.Configuration)
-        .ReadFrom.Services(services)
-        .Enrich.FromLogContext());
+    // В тестах Serilog не подключаем через UseSerilog — WebApplicationFactory
+    // создаёт хост много раз, и ReloadableLogger падает с "The logger is already frozen".
+    if (!builder.Environment.IsEnvironment("Testing"))
+    {
+        builder.Host.UseSerilog((context, services, configuration) => configuration
+            .ReadFrom.Configuration(context.Configuration)
+            .ReadFrom.Services(services)
+            .Enrich.FromLogContext());
+    }
 
     builder.Services.AddOpenApi();
     builder.Services.AddControllers();
@@ -50,7 +55,12 @@ try
 
     var app = builder.Build();
 
-    app.UseSerilogRequestLogging();
+    // Serilog request logging требует DiagnosticContext, который регистрируется UseSerilog.
+    // В тестах мы Serilog не подключаем — поэтому middleware тоже пропускаем.
+		if (!app.Environment.IsEnvironment("Testing"))
+		{
+			app.UseSerilogRequestLogging();
+		}
 
     if (app.Environment.IsDevelopment())
     {

@@ -11,6 +11,10 @@ public class User
     public int? ManagerId { get; set; }
     public bool IsActive { get; set; } = true;
     public string? TwoFaSecret { get; set; }
+    public string Status { get; set; } = "Unverified";
+    public string? PasswordHash { get; set; }
+    public string? VerificationTokenHash { get; set; }
+    public DateTimeOffset? VerificationTokenExpiresAt { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public User? Manager { get; set; }
