@@ -1,3 +1,5 @@
+using itsm.Application.Common.Interfaces;
+using itsm.Infrastructure.Identity;
 using itsm.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -15,6 +17,8 @@ public static class DependencyInjection
 
         services.AddDbContext<ItsmDbContext>(options =>
             options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention());
+
+        services.AddScoped<ILdapService, MockLdapService>();
 
         return services;
     }
