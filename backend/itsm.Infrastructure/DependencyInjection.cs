@@ -18,6 +18,8 @@ public static class DependencyInjection
         services.AddDbContext<ItsmDbContext>(options =>
             options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention());
 
+        services.AddMemoryCache();
+        services.AddSingleton<ITwoFactorService, TwoFactorService>();
         services.AddScoped<ILdapService, MockLdapService>();
 
         return services;
