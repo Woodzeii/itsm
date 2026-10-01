@@ -3,6 +3,7 @@ using System;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using itsm.Infrastructure.Persistence;
@@ -12,9 +13,11 @@ using itsm.Infrastructure.Persistence;
 namespace itsm.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ItsmDbContext))]
-    partial class ItsmDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261001102902_AddSeedData")]
+    partial class AddSeedData
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

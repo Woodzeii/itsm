@@ -499,6 +499,92 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
             entity.HasOne(x => x.User).WithMany(u => u.AuditLogs).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
         });
 
+        // --- 8. SEED DATA (ТЗ) ---
+        var seedDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+        modelBuilder.Entity<Tenant>().HasData(
+            new Tenant { Id = 1, Code = "default", Name = "Default Tenant", IsActive = true, CreatedAt = seedDate }
+        );
+
+        modelBuilder.Entity<SystemRole>().HasData(
+            new SystemRole { Id = 1, Code = "tenant_admin", Name = "Администратор тенантов" },
+            new SystemRole { Id = 2, Code = "admin", Name = "Администратор" },
+            new SystemRole { Id = 3, Code = "agent", Name = "Инженер ТП" },
+            new SystemRole { Id = 4, Code = "manager", Name = "Руководитель" },
+            new SystemRole { Id = 5, Code = "portal_user", Name = "Пользователь портала" }
+        );
+
+        modelBuilder.Entity<CriticalityLevel>().HasData(
+            new CriticalityLevel { Id = 1, Code = "low", Name = "Низкий", SortOrder = 1, IsActive = true, CreatedAt = seedDate },
+            new CriticalityLevel { Id = 2, Code = "medium", Name = "Средний", SortOrder = 2, IsActive = true, CreatedAt = seedDate },
+            new CriticalityLevel { Id = 3, Code = "high", Name = "Высокий", SortOrder = 3, IsActive = true, CreatedAt = seedDate }
+        );
+
+        modelBuilder.Entity<TicketType>().HasData(
+            new TicketType { Id = 1, Code = "incident", Name = "Инцидент", IsBuiltIn = false, IsPortalAvailable = true },
+            new TicketType { Id = 2, Code = "service_request", Name = "Запрос на обслуживание", IsBuiltIn = false, IsPortalAvailable = true },
+            new TicketType { Id = 3, Code = "change", Name = "Изменение", IsBuiltIn = false, IsPortalAvailable = true },
+            new TicketType { Id = 4, Code = "access", Name = "Запрос на доступ", IsBuiltIn = false, IsPortalAvailable = true },
+            new TicketType { Id = 5, Code = "repair", Name = "Тикет на ремонт", IsBuiltIn = true, IsPortalAvailable = false }
+        );
+
+        modelBuilder.Entity<TicketStatus>().HasData(
+            new TicketStatus { Id = 1, Code = "new", Name = "Открыта", IsSlaPausing = false, SortOrder = 1 },
+            new TicketStatus { Id = 2, Code = "pending", Name = "Ожидает выполнения", IsSlaPausing = false, SortOrder = 2 },
+            new TicketStatus { Id = 3, Code = "in_progress", Name = "В работе", IsSlaPausing = false, SortOrder = 3 },
+            new TicketStatus { Id = 4, Code = "review", Name = "Проверка", IsSlaPausing = true, SortOrder = 4 },
+            new TicketStatus { Id = 5, Code = "closed", Name = "Закрыта", IsSlaPausing = false, SortOrder = 5 }
+        );
+
+        modelBuilder.Entity<TicketStatusTransition>().HasData(
+            new TicketStatusTransition { Id = 1, FromStatusId = 1, ToStatusId = 2, CreatedAt = seedDate },
+            new TicketStatusTransition { Id = 2, FromStatusId = 2, ToStatusId = 3, CreatedAt = seedDate },
+            new TicketStatusTransition { Id = 3, FromStatusId = 3, ToStatusId = 4, CreatedAt = seedDate },
+            new TicketStatusTransition { Id = 4, FromStatusId = 4, ToStatusId = 5, CreatedAt = seedDate },
+            new TicketStatusTransition { Id = 5, FromStatusId = 4, ToStatusId = 2, CreatedAt = seedDate }
+        );
+
+        modelBuilder.Entity<Dictionary>().HasData(
+            new Dictionary { Id = 1, Code = "warehouses", Name = "Склады", IsSystem = true, CreatedAt = seedDate },
+            new Dictionary { Id = 2, Code = "locations", Name = "Места", IsSystem = true, CreatedAt = seedDate },
+            new Dictionary { Id = 3, Code = "departments", Name = "Подразделения", IsSystem = true, CreatedAt = seedDate }
+        );
+
+        modelBuilder.Entity<DictionaryValue>().HasData(
+            new DictionaryValue { Id = 1, DictionaryId = 1, Code = "main", Name = "Основной склад", IsArchived = false, SortOrder = 1, CreatedAt = seedDate },
+            new DictionaryValue { Id = 2, DictionaryId = 1, Code = "spare", Name = "Резервный склад", IsArchived = false, SortOrder = 2, CreatedAt = seedDate },
+            new DictionaryValue { Id = 3, DictionaryId = 2, Code = "office_msk", Name = "Москва, офис", IsArchived = false, SortOrder = 1, CreatedAt = seedDate },
+            new DictionaryValue { Id = 4, DictionaryId = 2, Code = "office_spb", Name = "СПб, офис", IsArchived = false, SortOrder = 2, CreatedAt = seedDate },
+            new DictionaryValue { Id = 5, DictionaryId = 3, Code = "it", Name = "IT", IsArchived = false, SortOrder = 1, CreatedAt = seedDate },
+            new DictionaryValue { Id = 6, DictionaryId = 3, Code = "finance", Name = "Бухгалтерия", IsArchived = false, SortOrder = 2, CreatedAt = seedDate },
+            new DictionaryValue { Id = 7, DictionaryId = 3, Code = "sales", Name = "Отдел продаж", IsArchived = false, SortOrder = 3, CreatedAt = seedDate }
+        );
+
+        modelBuilder.Entity<PasswordPolicy>().HasData(
+            new PasswordPolicy
+            {
+                Id = 1,
+                MinLength = 8,
+                RequireDigit = true,
+                RequireUppercase = false,
+                RequireLowercase = true,
+                RequireSpecial = false,
+                ExpirationDays = null,
+                MaxFailedAttempts = 5,
+                LockoutMinutes = 15,
+                UpdatedAt = seedDate
+            }
+        );
+
+        modelBuilder.Entity<AssignmentSetting>().HasData(
+            new AssignmentSetting { Id = 1, Mode = "auto", ManualAssignerUserId = null, UpdatedAt = seedDate }
+        );
+
+        modelBuilder.Entity<WorkingSchedule>().HasData(
+            new WorkingSchedule { Id = 1, Name = "24x7", ScheduleType = "24x7", IsActive = true, CreatedAt = seedDate },
+            new WorkingSchedule { Id = 2, Name = "8x5 Стандартный", ScheduleType = "work_hours", IsActive = true, CreatedAt = seedDate }
+        );
+
         foreach (var foreignKey in modelBuilder.Model.GetEntityTypes().SelectMany(x => x.GetForeignKeys()))
         {
             if (foreignKey.DeleteBehavior == DeleteBehavior.Cascade)
