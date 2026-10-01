@@ -41,6 +41,9 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         entity.HasIndex(x => x.Email).IsUnique();
         entity.Property(x => x.IsActive).HasDefaultValue(true);
         entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+		entity.Property(x => x.Status).HasDefaultValue("Unverified");
+		entity.Property(x => x.VerificationTokenHash).HasMaxLength(128);
+		entity.HasIndex(x => x.VerificationTokenHash);
         
         // Жесткая иерархия Руководитель -> Подчиненные (для шага 1 согласования доступов)
         entity.HasOne(x => x.Manager)
