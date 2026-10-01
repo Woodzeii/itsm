@@ -71,6 +71,33 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
             entity.HasOne(x => x.Manager).WithMany(x => x.DirectReports).HasForeignKey(x => x.ManagerId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Tenant).WithMany(t => t.Users).HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
         });
+    // --- 1. ПОЛЬЗОВАТЕЛИ И ИЕРАРХИЯ ---
+    modelBuilder.Entity<User>(entity =>
+    {
+        entity.ToTable("users");
+        entity.HasKey(x => x.Id);
+        entity.HasIndex(x => x.ObjectSid).IsUnique();
+        entity.HasIndex(x => x.Username).IsUnique();
+        entity.HasIndex(x => x.Email).IsUnique();
+        entity.Property(x => x.IsActive).HasDefaultValue(true);
+        entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+		entity.Property(x => x.Status).HasDefaultValue("Unverified");
+		entity.Property(x => x.VerificationTokenHash).HasMaxLength(128);
+		entity.HasIndex(x => x.VerificationTokenHash);
+        
+        // Жесткая иерархия Руководитель -> Подчиненные (для шага 1 согласования доступов)
+        entity.HasOne(x => x.Manager)
+              .WithMany(x => x.DirectReports)
+              .HasForeignKey(x => x.ManagerId)
+              .OnDelete(DeleteBehavior.Restrict);
+    });
+
+    modelBuilder.Entity<SystemRole>(entity =>
+    {
+        entity.ToTable("system_roles");
+        entity.HasKey(x => x.Id);
+        entity.HasIndex(x => x.Code).IsUnique();
+    });
 
         modelBuilder.Entity<SystemRole>(entity =>
         {
