@@ -16,7 +16,7 @@ public class ItsmDbContextTests
         using var context = new ItsmDbContext(options);
         var model = context.Model;
 
-        Assert.Equal(19, model.GetEntityTypes().Count());
+        Assert.Equal(40, model.GetEntityTypes().Count());
         Assert.Equal(
             new[] { nameof(TicketAssetMapping.TicketId), nameof(TicketAssetMapping.AssetId) },
             model.FindEntityType(typeof(TicketAssetMapping))!.FindPrimaryKey()!.Properties.Select(x => x.Name));

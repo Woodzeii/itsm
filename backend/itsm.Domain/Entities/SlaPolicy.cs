@@ -7,6 +7,4 @@ public class SlaPolicy
     public string? ScheduleType { get; set; }
     public int ReactionTimeMinutes { get; set; }
     public int ResolutionTimeMinutes { get; set; }
-
-    public ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
 }
