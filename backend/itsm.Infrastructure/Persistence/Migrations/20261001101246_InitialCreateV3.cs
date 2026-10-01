@@ -8,7 +8,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace itsm.Infrastructure.Persistence.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreateV2 : Migration
+    public partial class InitialCreateV3 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -219,7 +219,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     code = table.Column<string>(type: "text", nullable: true),
-                    name = table.Column<string>(type: "text", nullable: false)
+                    name = table.Column<string>(type: "text", nullable: false),
+                    is_built_in = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    is_portal_available = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true)
                 },
                 constraints: table =>
                 {
@@ -294,29 +296,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         column: x => x.dictionary_id,
                         principalSchema: "public",
                         principalTable: "dictionaries",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "form_templates",
-                schema: "public",
-                columns: table => new
-                {
-                    id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    service_id = table.Column<int>(type: "integer", nullable: false),
-                    fields_schema = table.Column<JsonElement>(type: "jsonb", nullable: false),
-                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, defaultValueSql: "now()")
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("pk_form_templates", x => x.id);
-                    table.ForeignKey(
-                        name: "fk_form_templates_service_catalog_service_id",
-                        column: x => x.service_id,
-                        principalSchema: "public",
-                        principalTable: "service_catalog",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Cascade);
                 });
@@ -419,6 +398,70 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         column: x => x.to_status_id,
                         principalSchema: "public",
                         principalTable: "ticket_statuses",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "escalation_rules",
+                schema: "public",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    ticket_type_id = table.Column<int>(type: "integer", nullable: false),
+                    on_sla_breach = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    on_manual = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    is_active = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_escalation_rules", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_escalation_rules_ticket_types_ticket_type_id",
+                        column: x => x.ticket_type_id,
+                        principalSchema: "public",
+                        principalTable: "ticket_types",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "form_templates",
+                schema: "public",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    service_id = table.Column<int>(type: "integer", nullable: false),
+                    ticket_type_id = table.Column<int>(type: "integer", nullable: true),
+                    fields_schema = table.Column<JsonElement>(type: "jsonb", nullable: false),
+                    updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true, defaultValueSql: "now()"),
+                    service_catalog_id = table.Column<int>(type: "integer", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_form_templates", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_form_templates_service_catalog_service_catalog_id",
+                        column: x => x.service_catalog_id,
+                        principalSchema: "public",
+                        principalTable: "service_catalog",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "fk_form_templates_service_catalog_service_id",
+                        column: x => x.service_id,
+                        principalSchema: "public",
+                        principalTable: "service_catalog",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_form_templates_ticket_types_ticket_type_id",
+                        column: x => x.ticket_type_id,
+                        principalSchema: "public",
+                        principalTable: "ticket_types",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                 });
@@ -626,6 +669,46 @@ namespace itsm.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "form_fields",
+                schema: "public",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    form_template_id = table.Column<int>(type: "integer", nullable: false),
+                    code = table.Column<string>(type: "text", nullable: false),
+                    name = table.Column<string>(type: "text", nullable: false),
+                    field_type = table.Column<string>(type: "text", nullable: false, defaultValue: "string"),
+                    is_required = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    default_value = table.Column<string>(type: "text", nullable: true),
+                    validation_rules = table.Column<string>(type: "text", nullable: true),
+                    hint = table.Column<string>(type: "text", nullable: true),
+                    is_built_in = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    is_engineer_only = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    dictionary_id = table.Column<int>(type: "integer", nullable: true),
+                    sort_order = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_form_fields", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_form_fields_dictionaries_dictionary_id",
+                        column: x => x.dictionary_id,
+                        principalSchema: "public",
+                        principalTable: "dictionaries",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "fk_form_fields_form_templates_form_template_id",
+                        column: x => x.form_template_id,
+                        principalSchema: "public",
+                        principalTable: "form_templates",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "asset_history_logs",
                 schema: "public",
                 columns: table => new
@@ -767,8 +850,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
                     updated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()"),
                     service_catalog_id = table.Column<int>(type: "integer", nullable: true),
-                    sla_policy_id1 = table.Column<int>(type: "integer", nullable: true),
-                    ticket_type_id = table.Column<int>(type: "integer", nullable: true)
+                    sla_policy_id1 = table.Column<int>(type: "integer", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -830,13 +912,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
                     table.ForeignKey(
-                        name: "fk_tickets_ticket_types_ticket_type_id",
-                        column: x => x.ticket_type_id,
-                        principalSchema: "public",
-                        principalTable: "ticket_types",
-                        principalColumn: "id",
-                        onDelete: ReferentialAction.Restrict);
-                    table.ForeignKey(
                         name: "fk_tickets_ticket_types_type_id",
                         column: x => x.type_id,
                         principalSchema: "public",
@@ -857,6 +932,64 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         principalTable: "users",
                         principalColumn: "id",
                         onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "form_field_visibilities",
+                schema: "public",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    form_field_id = table.Column<int>(type: "integer", nullable: false),
+                    role_code = table.Column<string>(type: "text", nullable: false),
+                    is_visible = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    is_editable = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_form_field_visibilities", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_form_field_visibilities_form_fields_form_field_id",
+                        column: x => x.form_field_id,
+                        principalSchema: "public",
+                        principalTable: "form_fields",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "notifications",
+                schema: "public",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    user_id = table.Column<int>(type: "integer", nullable: false),
+                    type = table.Column<string>(type: "text", nullable: false),
+                    title = table.Column<string>(type: "text", nullable: false),
+                    body = table.Column<string>(type: "text", nullable: true),
+                    ticket_id = table.Column<int>(type: "integer", nullable: true),
+                    is_read = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    created_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_notifications", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_notifications_tickets_ticket_id",
+                        column: x => x.ticket_id,
+                        principalSchema: "public",
+                        principalTable: "tickets",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_notifications_users_user_id",
+                        column: x => x.user_id,
+                        principalSchema: "public",
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -980,6 +1113,54 @@ namespace itsm.Infrastructure.Persistence.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "ticket_escalations",
+                schema: "public",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    ticket_id = table.Column<int>(type: "integer", nullable: false),
+                    initiator_user_id = table.Column<int>(type: "integer", nullable: true),
+                    reason = table.Column<string>(type: "text", nullable: false),
+                    from_criticality_level_id = table.Column<int>(type: "integer", nullable: true),
+                    to_criticality_level_id = table.Column<int>(type: "integer", nullable: true),
+                    notified_user_ids = table.Column<string>(type: "text", nullable: true),
+                    escalated_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_ticket_escalations", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_ticket_escalations_criticality_levels_from_criticality_leve",
+                        column: x => x.from_criticality_level_id,
+                        principalSchema: "public",
+                        principalTable: "criticality_levels",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "fk_ticket_escalations_criticality_levels_to_criticality_level_",
+                        column: x => x.to_criticality_level_id,
+                        principalSchema: "public",
+                        principalTable: "criticality_levels",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                    table.ForeignKey(
+                        name: "fk_ticket_escalations_tickets_ticket_id",
+                        column: x => x.ticket_id,
+                        principalSchema: "public",
+                        principalTable: "tickets",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_ticket_escalations_users_initiator_user_id",
+                        column: x => x.initiator_user_id,
+                        principalSchema: "public",
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "ticket_messages",
                 schema: "public",
                 columns: table => new
@@ -1006,6 +1187,40 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     table.ForeignKey(
                         name: "fk_ticket_messages_users_author_id",
                         column: x => x.author_id,
+                        principalSchema: "public",
+                        principalTable: "users",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "attachments",
+                schema: "public",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    ticket_message_id = table.Column<int>(type: "integer", nullable: false),
+                    file_name = table.Column<string>(type: "text", nullable: false),
+                    file_path = table.Column<string>(type: "text", nullable: false),
+                    content_type = table.Column<string>(type: "text", nullable: false),
+                    size_bytes = table.Column<long>(type: "bigint", nullable: false),
+                    uploaded_by_id = table.Column<int>(type: "integer", nullable: false),
+                    uploaded_at = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false, defaultValueSql: "now()")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("pk_attachments", x => x.id);
+                    table.ForeignKey(
+                        name: "fk_attachments_ticket_messages_ticket_message_id",
+                        column: x => x.ticket_message_id,
+                        principalSchema: "public",
+                        principalTable: "ticket_messages",
+                        principalColumn: "id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "fk_attachments_users_uploaded_by_id",
+                        column: x => x.uploaded_by_id,
                         principalSchema: "public",
                         principalTable: "users",
                         principalColumn: "id",
@@ -1119,6 +1334,18 @@ namespace itsm.Infrastructure.Persistence.Migrations
                 column: "manual_assigner_user_id");
 
             migrationBuilder.CreateIndex(
+                name: "ix_attachments_ticket_message_id",
+                schema: "public",
+                table: "attachments",
+                column: "ticket_message_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_attachments_uploaded_by_id",
+                schema: "public",
+                table: "attachments",
+                column: "uploaded_by_id");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_audit_logs_created_at",
                 schema: "public",
                 table: "audit_logs",
@@ -1165,10 +1392,48 @@ namespace itsm.Infrastructure.Persistence.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "ix_escalation_rules_ticket_type_id",
+                schema: "public",
+                table: "escalation_rules",
+                column: "ticket_type_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_form_field_visibilities_form_field_id_role_code",
+                schema: "public",
+                table: "form_field_visibilities",
+                columns: new[] { "form_field_id", "role_code" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_form_fields_dictionary_id",
+                schema: "public",
+                table: "form_fields",
+                column: "dictionary_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_form_fields_form_template_id_code",
+                schema: "public",
+                table: "form_fields",
+                columns: new[] { "form_template_id", "code" },
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "ix_form_templates_service_catalog_id",
+                schema: "public",
+                table: "form_templates",
+                column: "service_catalog_id");
+
+            migrationBuilder.CreateIndex(
                 name: "ix_form_templates_service_id",
                 schema: "public",
                 table: "form_templates",
                 column: "service_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_form_templates_ticket_type_id",
+                schema: "public",
+                table: "form_templates",
+                column: "ticket_type_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_knowledge_base_articles_service_id",
@@ -1193,6 +1458,24 @@ namespace itsm.Infrastructure.Persistence.Migrations
                 schema: "public",
                 table: "login_audits",
                 column: "username");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_notifications_created_at",
+                schema: "public",
+                table: "notifications",
+                column: "created_at");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_notifications_ticket_id",
+                schema: "public",
+                table: "notifications",
+                column: "ticket_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_notifications_user_id_is_read",
+                schema: "public",
+                table: "notifications",
+                columns: new[] { "user_id", "is_read" });
 
             migrationBuilder.CreateIndex(
                 name: "ix_release_ticket_mappings_task_ticket_id",
@@ -1262,6 +1545,36 @@ namespace itsm.Infrastructure.Persistence.Migrations
                 schema: "public",
                 table: "ticket_audit_logs",
                 column: "user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_ticket_escalations_escalated_at",
+                schema: "public",
+                table: "ticket_escalations",
+                column: "escalated_at");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_ticket_escalations_from_criticality_level_id",
+                schema: "public",
+                table: "ticket_escalations",
+                column: "from_criticality_level_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_ticket_escalations_initiator_user_id",
+                schema: "public",
+                table: "ticket_escalations",
+                column: "initiator_user_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_ticket_escalations_ticket_id",
+                schema: "public",
+                table: "ticket_escalations",
+                column: "ticket_id");
+
+            migrationBuilder.CreateIndex(
+                name: "ix_ticket_escalations_to_criticality_level_id",
+                schema: "public",
+                table: "ticket_escalations",
+                column: "to_criticality_level_id");
 
             migrationBuilder.CreateIndex(
                 name: "ix_ticket_messages_author_id",
@@ -1363,12 +1676,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                 column: "status_id");
 
             migrationBuilder.CreateIndex(
-                name: "ix_tickets_ticket_type_id",
-                schema: "public",
-                table: "tickets",
-                column: "ticket_type_id");
-
-            migrationBuilder.CreateIndex(
                 name: "ix_tickets_type_id",
                 schema: "public",
                 table: "tickets",
@@ -1447,6 +1754,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                 schema: "public");
 
             migrationBuilder.DropTable(
+                name: "attachments",
+                schema: "public");
+
+            migrationBuilder.DropTable(
                 name: "audit_logs",
                 schema: "public");
 
@@ -1459,7 +1770,11 @@ namespace itsm.Infrastructure.Persistence.Migrations
                 schema: "public");
 
             migrationBuilder.DropTable(
-                name: "form_templates",
+                name: "escalation_rules",
+                schema: "public");
+
+            migrationBuilder.DropTable(
+                name: "form_field_visibilities",
                 schema: "public");
 
             migrationBuilder.DropTable(
@@ -1468,6 +1783,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "login_audits",
+                schema: "public");
+
+            migrationBuilder.DropTable(
+                name: "notifications",
                 schema: "public");
 
             migrationBuilder.DropTable(
@@ -1495,7 +1814,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                 schema: "public");
 
             migrationBuilder.DropTable(
-                name: "ticket_messages",
+                name: "ticket_escalations",
                 schema: "public");
 
             migrationBuilder.DropTable(
@@ -1511,11 +1830,11 @@ namespace itsm.Infrastructure.Persistence.Migrations
                 schema: "public");
 
             migrationBuilder.DropTable(
-                name: "dictionaries",
+                name: "ticket_messages",
                 schema: "public");
 
             migrationBuilder.DropTable(
-                name: "tickets",
+                name: "form_fields",
                 schema: "public");
 
             migrationBuilder.DropTable(
@@ -1524,6 +1843,18 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
             migrationBuilder.DropTable(
                 name: "working_schedules",
+                schema: "public");
+
+            migrationBuilder.DropTable(
+                name: "tickets",
+                schema: "public");
+
+            migrationBuilder.DropTable(
+                name: "dictionaries",
+                schema: "public");
+
+            migrationBuilder.DropTable(
+                name: "form_templates",
                 schema: "public");
 
             migrationBuilder.DropTable(
@@ -1539,15 +1870,15 @@ namespace itsm.Infrastructure.Persistence.Migrations
                 schema: "public");
 
             migrationBuilder.DropTable(
-                name: "service_catalog",
-                schema: "public");
-
-            migrationBuilder.DropTable(
                 name: "sla_policies",
                 schema: "public");
 
             migrationBuilder.DropTable(
                 name: "ticket_statuses",
+                schema: "public");
+
+            migrationBuilder.DropTable(
+                name: "service_catalog",
                 schema: "public");
 
             migrationBuilder.DropTable(

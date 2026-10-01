@@ -5,6 +5,6 @@ public class TicketType
     public int Id { get; set; }
     public string? Code { get; set; }
     public string Name { get; set; } = string.Empty;
-
-    public ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
+    public bool IsBuiltIn { get; set; } = false;
+    public bool IsPortalAvailable { get; set; } = true;
 }

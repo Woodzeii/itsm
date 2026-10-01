@@ -13,8 +13,8 @@ using itsm.Infrastructure.Persistence;
 namespace itsm.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ItsmDbContext))]
-    [Migration("20261001095802_InitialCreateV2")]
-    partial class InitialCreateV2
+    [Migration("20261001101246_InitialCreateV3")]
+    partial class InitialCreateV3
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -434,6 +434,60 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.ToTable("assignment_settings", "public");
                 });
 
+            modelBuilder.Entity("itsm.Domain.Entities.Attachment", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("content_type");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("file_path");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<int>("TicketMessageId")
+                        .HasColumnType("integer")
+                        .HasColumnName("ticket_message_id");
+
+                    b.Property<DateTimeOffset>("UploadedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<int>("UploadedById")
+                        .HasColumnType("integer")
+                        .HasColumnName("uploaded_by_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_attachments");
+
+                    b.HasIndex("TicketMessageId")
+                        .HasDatabaseName("ix_attachments_ticket_message_id");
+
+                    b.HasIndex("UploadedById")
+                        .HasDatabaseName("ix_attachments_uploaded_by_id");
+
+                    b.ToTable("attachments", "public");
+                });
+
             modelBuilder.Entity("itsm.Domain.Entities.AuditLog", b =>
                 {
                     b.Property<int>("Id")
@@ -664,6 +718,181 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.ToTable("dictionary_values", "public");
                 });
 
+            modelBuilder.Entity("itsm.Domain.Entities.EscalationRule", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<bool>("OnManual")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("on_manual");
+
+                    b.Property<bool>("OnSlaBreach")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("on_sla_breach");
+
+                    b.Property<int>("TicketTypeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("ticket_type_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_escalation_rules");
+
+                    b.HasIndex("TicketTypeId")
+                        .HasDatabaseName("ix_escalation_rules_ticket_type_id");
+
+                    b.ToTable("escalation_rules", "public");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.FormField", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("code");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<string>("DefaultValue")
+                        .HasColumnType("text")
+                        .HasColumnName("default_value");
+
+                    b.Property<int?>("DictionaryId")
+                        .HasColumnType("integer")
+                        .HasColumnName("dictionary_id");
+
+                    b.Property<string>("FieldType")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("string")
+                        .HasColumnName("field_type");
+
+                    b.Property<int>("FormTemplateId")
+                        .HasColumnType("integer")
+                        .HasColumnName("form_template_id");
+
+                    b.Property<string>("Hint")
+                        .HasColumnType("text")
+                        .HasColumnName("hint");
+
+                    b.Property<bool>("IsBuiltIn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_built_in");
+
+                    b.Property<bool>("IsEngineerOnly")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_engineer_only");
+
+                    b.Property<bool>("IsRequired")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_required");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("name");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("sort_order");
+
+                    b.Property<string>("ValidationRules")
+                        .HasColumnType("text")
+                        .HasColumnName("validation_rules");
+
+                    b.HasKey("Id")
+                        .HasName("pk_form_fields");
+
+                    b.HasIndex("DictionaryId")
+                        .HasDatabaseName("ix_form_fields_dictionary_id");
+
+                    b.HasIndex("FormTemplateId", "Code")
+                        .IsUnique()
+                        .HasDatabaseName("ix_form_fields_form_template_id_code");
+
+                    b.ToTable("form_fields", "public");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.FormFieldVisibility", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("FormFieldId")
+                        .HasColumnType("integer")
+                        .HasColumnName("form_field_id");
+
+                    b.Property<bool>("IsEditable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_editable");
+
+                    b.Property<bool>("IsVisible")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_visible");
+
+                    b.Property<string>("RoleCode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("role_code");
+
+                    b.HasKey("Id")
+                        .HasName("pk_form_field_visibilities");
+
+                    b.HasIndex("FormFieldId", "RoleCode")
+                        .IsUnique()
+                        .HasDatabaseName("ix_form_field_visibilities_form_field_id_role_code");
+
+                    b.ToTable("form_field_visibilities", "public");
+                });
+
             modelBuilder.Entity("itsm.Domain.Entities.FormTemplate", b =>
                 {
                     b.Property<int>("Id")
@@ -677,9 +906,17 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("fields_schema");
 
+                    b.Property<int?>("ServiceCatalogId")
+                        .HasColumnType("integer")
+                        .HasColumnName("service_catalog_id");
+
                     b.Property<int>("ServiceId")
                         .HasColumnType("integer")
                         .HasColumnName("service_id");
+
+                    b.Property<int?>("TicketTypeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("ticket_type_id");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -690,8 +927,14 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_form_templates");
 
+                    b.HasIndex("ServiceCatalogId")
+                        .HasDatabaseName("ix_form_templates_service_catalog_id");
+
                     b.HasIndex("ServiceId")
                         .HasDatabaseName("ix_form_templates_service_id");
+
+                    b.HasIndex("TicketTypeId")
+                        .HasDatabaseName("ix_form_templates_ticket_type_id");
 
                     b.ToTable("form_templates", "public");
                 });
@@ -801,6 +1044,64 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_login_audits_username");
 
                     b.ToTable("login_audits", "public");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Body")
+                        .HasColumnType("text")
+                        .HasColumnName("body");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<bool>("IsRead")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_read");
+
+                    b.Property<int?>("TicketId")
+                        .HasColumnType("integer")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("type");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_notifications");
+
+                    b.HasIndex("CreatedAt")
+                        .HasDatabaseName("ix_notifications_created_at");
+
+                    b.HasIndex("TicketId")
+                        .HasDatabaseName("ix_notifications_ticket_id");
+
+                    b.HasIndex("UserId", "IsRead")
+                        .HasDatabaseName("ix_notifications_user_id_is_read");
+
+                    b.ToTable("notifications", "public");
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.PasswordPolicy", b =>
@@ -1216,10 +1517,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("target_system");
 
-                    b.Property<int?>("TicketTypeId")
-                        .HasColumnType("integer")
-                        .HasColumnName("ticket_type_id");
-
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text")
@@ -1267,9 +1564,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("StatusId")
                         .HasDatabaseName("ix_tickets_status_id");
-
-                    b.HasIndex("TicketTypeId")
-                        .HasDatabaseName("ix_tickets_ticket_type_id");
 
                     b.HasIndex("TypeId")
                         .HasDatabaseName("ix_tickets_type_id");
@@ -1389,6 +1683,67 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_ticket_audit_logs_user_id");
 
                     b.ToTable("ticket_audit_logs", "public");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.TicketEscalation", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("EscalatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("escalated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<int?>("FromCriticalityLevelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("from_criticality_level_id");
+
+                    b.Property<int?>("InitiatorUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("initiator_user_id");
+
+                    b.Property<string>("NotifiedUserIds")
+                        .HasColumnType("text")
+                        .HasColumnName("notified_user_ids");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("reason");
+
+                    b.Property<int>("TicketId")
+                        .HasColumnType("integer")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<int?>("ToCriticalityLevelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("to_criticality_level_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticket_escalations");
+
+                    b.HasIndex("EscalatedAt")
+                        .HasDatabaseName("ix_ticket_escalations_escalated_at");
+
+                    b.HasIndex("FromCriticalityLevelId")
+                        .HasDatabaseName("ix_ticket_escalations_from_criticality_level_id");
+
+                    b.HasIndex("InitiatorUserId")
+                        .HasDatabaseName("ix_ticket_escalations_initiator_user_id");
+
+                    b.HasIndex("TicketId")
+                        .HasDatabaseName("ix_ticket_escalations_ticket_id");
+
+                    b.HasIndex("ToCriticalityLevelId")
+                        .HasDatabaseName("ix_ticket_escalations_to_criticality_level_id");
+
+                    b.ToTable("ticket_escalations", "public");
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.TicketMessage", b =>
@@ -1535,6 +1890,18 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Property<string>("Code")
                         .HasColumnType("text")
                         .HasColumnName("code");
+
+                    b.Property<bool>("IsBuiltIn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_built_in");
+
+                    b.Property<bool>("IsPortalAvailable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_portal_available");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1883,6 +2250,27 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("ManualAssigner");
                 });
 
+            modelBuilder.Entity("itsm.Domain.Entities.Attachment", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.TicketMessage", "TicketMessage")
+                        .WithMany("Attachments")
+                        .HasForeignKey("TicketMessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_attachments_ticket_messages_ticket_message_id");
+
+                    b.HasOne("itsm.Domain.Entities.User", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_attachments_users_uploaded_by_id");
+
+                    b.Navigation("TicketMessage");
+
+                    b.Navigation("UploadedBy");
+                });
+
             modelBuilder.Entity("itsm.Domain.Entities.AuditLog", b =>
                 {
                     b.HasOne("itsm.Domain.Entities.User", "User")
@@ -1906,16 +2294,74 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("Dictionary");
                 });
 
+            modelBuilder.Entity("itsm.Domain.Entities.EscalationRule", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.TicketType", "TicketType")
+                        .WithMany()
+                        .HasForeignKey("TicketTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_escalation_rules_ticket_types_ticket_type_id");
+
+                    b.Navigation("TicketType");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.FormField", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.Dictionary", "Dictionary")
+                        .WithMany()
+                        .HasForeignKey("DictionaryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_form_fields_dictionaries_dictionary_id");
+
+                    b.HasOne("itsm.Domain.Entities.FormTemplate", "FormTemplate")
+                        .WithMany("Fields")
+                        .HasForeignKey("FormTemplateId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_form_fields_form_templates_form_template_id");
+
+                    b.Navigation("Dictionary");
+
+                    b.Navigation("FormTemplate");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.FormFieldVisibility", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.FormField", "FormField")
+                        .WithMany("Visibilities")
+                        .HasForeignKey("FormFieldId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_form_field_visibilities_form_fields_form_field_id");
+
+                    b.Navigation("FormField");
+                });
+
             modelBuilder.Entity("itsm.Domain.Entities.FormTemplate", b =>
                 {
-                    b.HasOne("itsm.Domain.Entities.ServiceCatalog", "Service")
+                    b.HasOne("itsm.Domain.Entities.ServiceCatalog", null)
                         .WithMany("FormTemplates")
+                        .HasForeignKey("ServiceCatalogId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_form_templates_service_catalog_service_catalog_id");
+
+                    b.HasOne("itsm.Domain.Entities.ServiceCatalog", "Service")
+                        .WithMany()
                         .HasForeignKey("ServiceId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_form_templates_service_catalog_service_id");
 
+                    b.HasOne("itsm.Domain.Entities.TicketType", "TicketType")
+                        .WithMany()
+                        .HasForeignKey("TicketTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_form_templates_ticket_types_ticket_type_id");
+
                     b.Navigation("Service");
+
+                    b.Navigation("TicketType");
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.KnowledgeBaseArticle", b =>
@@ -1936,6 +2382,26 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_login_audits_users_user_id");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.Notification", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.Ticket", "Ticket")
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_notifications_tickets_ticket_id");
+
+                    b.HasOne("itsm.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_notifications_users_user_id");
+
+                    b.Navigation("Ticket");
 
                     b.Navigation("User");
                 });
@@ -2057,12 +2523,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasConstraintName("fk_tickets_ticket_statuses_status_id");
 
-                    b.HasOne("itsm.Domain.Entities.TicketType", null)
-                        .WithMany("Tickets")
-                        .HasForeignKey("TicketTypeId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_tickets_ticket_types_ticket_type_id");
-
                     b.HasOne("itsm.Domain.Entities.TicketType", "Type")
                         .WithMany()
                         .HasForeignKey("TypeId")
@@ -2150,6 +2610,42 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("Ticket");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.TicketEscalation", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.CriticalityLevel", "FromCriticalityLevel")
+                        .WithMany()
+                        .HasForeignKey("FromCriticalityLevelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_ticket_escalations_criticality_levels_from_criticality_leve");
+
+                    b.HasOne("itsm.Domain.Entities.User", "Initiator")
+                        .WithMany()
+                        .HasForeignKey("InitiatorUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_ticket_escalations_users_initiator_user_id");
+
+                    b.HasOne("itsm.Domain.Entities.Ticket", "Ticket")
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_escalations_tickets_ticket_id");
+
+                    b.HasOne("itsm.Domain.Entities.CriticalityLevel", "ToCriticalityLevel")
+                        .WithMany()
+                        .HasForeignKey("ToCriticalityLevelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_ticket_escalations_criticality_levels_to_criticality_level_");
+
+                    b.Navigation("FromCriticalityLevel");
+
+                    b.Navigation("Initiator");
+
+                    b.Navigation("Ticket");
+
+                    b.Navigation("ToCriticalityLevel");
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.TicketMessage", b =>
@@ -2272,6 +2768,16 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("Values");
                 });
 
+            modelBuilder.Entity("itsm.Domain.Entities.FormField", b =>
+                {
+                    b.Navigation("Visibilities");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.FormTemplate", b =>
+                {
+                    b.Navigation("Fields");
+                });
+
             modelBuilder.Entity("itsm.Domain.Entities.ServiceCatalog", b =>
                 {
                     b.Navigation("Children");
@@ -2313,9 +2819,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("ReleaseMappings");
                 });
 
-            modelBuilder.Entity("itsm.Domain.Entities.TicketType", b =>
+            modelBuilder.Entity("itsm.Domain.Entities.TicketMessage", b =>
                 {
-                    b.Navigation("Tickets");
+                    b.Navigation("Attachments");
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.User", b =>

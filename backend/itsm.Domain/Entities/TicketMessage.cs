@@ -12,4 +12,5 @@ public class TicketMessage
 
     public Ticket Ticket { get; set; } = null!;
     public User Author { get; set; } = null!;
+    public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
 }
