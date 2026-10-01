@@ -13,8 +13,8 @@ using itsm.Infrastructure.Persistence;
 namespace itsm.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ItsmDbContext))]
-    [Migration("20261001094347_AddServiceDeskSchema")]
-    partial class AddServiceDeskSchema
+    [Migration("20261001095802_InitialCreateV2")]
+    partial class InitialCreateV2
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
