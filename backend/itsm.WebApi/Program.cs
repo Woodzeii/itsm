@@ -1,5 +1,6 @@
 using System.Text;
 using Scalar.AspNetCore;
+using itsm.Application.Common.Interfaces;
 using itsm.Infrastructure;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -57,10 +58,18 @@ try
 
     // Serilog request logging требует DiagnosticContext, который регистрируется UseSerilog.
     // В тестах мы Serilog не подключаем — поэтому middleware тоже пропускаем.
-		if (!app.Environment.IsEnvironment("Testing"))
-		{
-			app.UseSerilogRequestLogging();
-		}
+    if (!app.Environment.IsEnvironment("Testing"))
+    {
+        app.UseSerilogRequestLogging();
+    }
+
+    // Инициализация тестовых пользователей в Development
+    if (app.Environment.IsDevelopment())
+    {
+        using var scope = app.Services.CreateScope();
+        var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
+        seeder.SeedAsync().GetAwaiter().GetResult();
+    }
 
     if (app.Environment.IsDevelopment())
     {
@@ -84,4 +93,5 @@ finally
     Log.CloseAndFlush();
 }
 
+// Маркер для WebApplicationFactory<Program> в интеграционных тестах.
 public partial class Program { }
