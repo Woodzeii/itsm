@@ -52,7 +52,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         base.OnModelCreating(modelBuilder);
         modelBuilder.HasDefaultSchema("public");
 
-        // --- 1. ПОЛЬЗОВАТЕЛИ ---
+        // --- 1. ПОЛЬЗОВАТЕЛИ И ИЕРАРХИЯ ---
         modelBuilder.Entity<User>(entity =>
         {
             entity.ToTable("users");
@@ -60,44 +60,25 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
             entity.HasIndex(x => x.ObjectSid).IsUnique();
             entity.HasIndex(x => x.Username).IsUnique();
             entity.HasIndex(x => x.Email).IsUnique();
+            entity.HasIndex(x => x.VerificationTokenHash);
+
             entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.Property(x => x.Status).HasDefaultValue("Unverified");
             entity.Property(x => x.FailedLoginAttempts).HasDefaultValue(0);
             entity.Property(x => x.IsManager).HasDefaultValue(false);
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             entity.Property(x => x.VerificationTokenHash).HasMaxLength(128);
-            entity.HasIndex(x => x.VerificationTokenHash);
 
-            entity.HasOne(x => x.Manager).WithMany(x => x.DirectReports).HasForeignKey(x => x.ManagerId).OnDelete(DeleteBehavior.Restrict);
-            entity.HasOne(x => x.Tenant).WithMany(t => t.Users).HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Manager)
+                  .WithMany(x => x.DirectReports)
+                  .HasForeignKey(x => x.ManagerId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.Tenant)
+                  .WithMany(t => t.Users)
+                  .HasForeignKey(x => x.TenantId)
+                  .OnDelete(DeleteBehavior.Restrict);
         });
-    // --- 1. ПОЛЬЗОВАТЕЛИ И ИЕРАРХИЯ ---
-    modelBuilder.Entity<User>(entity =>
-    {
-        entity.ToTable("users");
-        entity.HasKey(x => x.Id);
-        entity.HasIndex(x => x.ObjectSid).IsUnique();
-        entity.HasIndex(x => x.Username).IsUnique();
-        entity.HasIndex(x => x.Email).IsUnique();
-        entity.Property(x => x.IsActive).HasDefaultValue(true);
-        entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
-		entity.Property(x => x.Status).HasDefaultValue("Unverified");
-		entity.Property(x => x.VerificationTokenHash).HasMaxLength(128);
-		entity.HasIndex(x => x.VerificationTokenHash);
-        
-        // Жесткая иерархия Руководитель -> Подчиненные (для шага 1 согласования доступов)
-        entity.HasOne(x => x.Manager)
-              .WithMany(x => x.DirectReports)
-              .HasForeignKey(x => x.ManagerId)
-              .OnDelete(DeleteBehavior.Restrict);
-    });
-
-    modelBuilder.Entity<SystemRole>(entity =>
-    {
-        entity.ToTable("system_roles");
-        entity.HasKey(x => x.Id);
-        entity.HasIndex(x => x.Code).IsUnique();
-    });
 
         modelBuilder.Entity<SystemRole>(entity =>
         {
@@ -353,6 +334,12 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         {
             entity.ToTable("asset_history_logs");
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.AssetId);
+            entity.HasIndex(x => x.ChangedAt);
+            entity.HasIndex(x => x.ActionType);
+
+            entity.Property(x => x.ActionType).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.Details).HasColumnType("jsonb");
             entity.Property(x => x.ChangedAt).HasDefaultValueSql("now()");
 
             entity.HasOne(x => x.Asset).WithMany(a => a.HistoryLogs).HasForeignKey(x => x.AssetId).OnDelete(DeleteBehavior.Cascade);

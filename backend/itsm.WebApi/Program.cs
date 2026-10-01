@@ -29,6 +29,13 @@ try
 
     builder.Services.AddOpenApi();
     builder.Services.AddControllers();
+	builder.Services.AddCors(options =>
+	{
+		options.AddPolicy("DevCors", policy =>
+			policy.WithOrigins("http://localhost:4200")
+				  .AllowAnyHeader()
+				  .AllowAnyMethod());
+	});
     builder.Services.AddInfrastructure(builder.Configuration);
 
     var jwtSection = builder.Configuration.GetSection("Jwt");
@@ -55,6 +62,7 @@ try
     builder.Services.AddAuthorization();
 
     var app = builder.Build();
+	app.UseCors("DevCors");
 
     // Serilog request logging требует DiagnosticContext, который регистрируется UseSerilog.
     // В тестах мы Serilog не подключаем — поэтому middleware тоже пропускаем.
