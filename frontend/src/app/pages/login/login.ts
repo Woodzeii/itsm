@@ -1,7 +1,7 @@
-import { Component } from '@angular/core';
+import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AuthService, UserRole } from '../../core/auth/auth.service';
+import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
     selector: 'app-login',
@@ -9,36 +9,52 @@ import { AuthService, UserRole } from '../../core/auth/auth.service';
     imports: [FormsModule],
     template: `
     <section class="page">
-      <form class="login-card" (ngSubmit)="login()">
+      <div class="card">
         <h1>Авторизация</h1>
-        <p>Введите данные для входа в систему</p>
 
-        <label>
-          <span>Логин</span>
-          <input type="text" [(ngModel)]="loginValue" name="login" placeholder="Введите логин" required />
-        </label>
+        @if (step === 1) {
+          <p>Шаг 1: логин и пароль</p>
 
-        <label>
-          <span>Пароль</span>
-          <input type="password" [(ngModel)]="password" name="password" placeholder="Введите пароль" required />
-        </label>
+          <input
+            type="text"
+            name="username"
+            [(ngModel)]="username"
+            placeholder="Логин" />
 
-        <label>
-          <span>Роль</span>
-          <select [(ngModel)]="selectedRole" name="role">
-            <option value="user">Пользователь</option>
-            <option value="admin">Администратор</option>
-          </select>
-        </label>
+          <input
+            type="password"
+            name="password"
+            [(ngModel)]="password"
+            placeholder="Пароль" />
 
-        <button type="submit" [disabled]="isSubmitting">
-          {{ isSubmitting ? 'Вход...' : 'Войти' }}
-        </button>
-
-        @if (errorMessage) {
-          <small class="error">{{ errorMessage }}</small>
+          <button type="button" (click)="doLogin()" [disabled]="busy">
+            {{ busy ? '...' : 'Войти' }}
+          </button>
         }
-      </form>
+
+        @if (step === 2) {
+          <p>Шаг 2: 6-значный код из логов backend</p>
+
+          <input
+            type="text"
+            name="code"
+            [(ngModel)]="code"
+            maxlength="6"
+            placeholder="000000" />
+
+          <button type="button" (click)="doVerify()" [disabled]="busy">
+            {{ busy ? '...' : 'Подтвердить' }}
+          </button>
+        }
+
+        @if (error) {
+          <div class="err">{{ error }}</div>
+        }
+
+        @if (info) {
+          <div class="ok">{{ info }}</div>
+        }
+      </div>
     </section>
   `,
     styles: [
@@ -48,119 +64,126 @@ import { AuthService, UserRole } from '../../core/auth/auth.service';
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, #eef4ff 0%, #f5f7fb 100%);
-        padding: 24px;
+        background: #eef4ff;
         font-family: Arial, sans-serif;
+        padding: 20px;
       }
-
-      .login-card {
+      .card {
+        background: #fff;
+        padding: 30px;
+        border-radius: 14px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
         width: 100%;
-        max-width: 420px;
-        background: #ffffff;
-        border-radius: 16px;
-        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
-        padding: 32px 28px;
+        max-width: 380px;
         display: flex;
         flex-direction: column;
-        gap: 18px;
+        gap: 14px;
       }
-
-      h1 {
-        margin: 0;
-        font-size: 2rem;
-        text-align: center;
-        color: #1f2937;
-      }
-
-      p {
-        margin: 0;
-        text-align: center;
-        color: #4b5563;
-      }
-
-      label {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        font-size: 0.95rem;
-        color: #374151;
-      }
-
+      h1 { margin: 0 0 10px; text-align: center; font-size: 1.6rem; }
+      p { margin: 0; text-align: center; color: #666; font-size: 0.9rem; }
       input {
-        padding: 12px 14px;
-        border: 1px solid #d1d5db;
-        border-radius: 10px;
+        padding: 12px;
+        border: 1px solid #ccc;
+        border-radius: 8px;
         font-size: 1rem;
-        outline: none;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease;
       }
-
-      input:focus {
-        border-color: #3f51b5;
-        box-shadow: 0 0 0 3px rgba(63, 81, 181, 0.16);
-      }
-
-      select {
-        padding: 12px 14px;
-        border: 1px solid #d1d5db;
-        border-radius: 10px;
-        font-size: 1rem;
-        background: #ffffff;
-        color: #111827;
-      }
-
+      input:focus { border-color: #3f51b5; outline: none; }
       button {
-        margin-top: 8px;
-        padding: 12px 16px;
+        padding: 12px;
         border: none;
-        border-radius: 10px;
+        border-radius: 8px;
         background: #3f51b5;
-        color: white;
+        color: #fff;
         font-size: 1rem;
         cursor: pointer;
-        transition: opacity 0.2s ease;
       }
-
-      button:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
-      }
-
-      .error {
-        color: #b91c1c;
-        font-size: 0.85rem;
-      }
+      button:disabled { opacity: 0.6; cursor: wait; }
+      .err { color: #c00; text-align: center; font-size: 0.9rem; }
+      .ok { color: #080; text-align: center; font-size: 0.9rem; }
     `,
     ],
 })
 export class LoginComponent {
-    loginValue = '';
-    password = '';
-    selectedRole: UserRole = 'user';
-    errorMessage = '';
-    isSubmitting = false;
+    private readonly auth = inject(AuthService);
+    private readonly router = inject(Router);
+    private readonly cdr = inject(ChangeDetectorRef);
 
-    constructor(
-        private readonly authService: AuthService,
-        private readonly router: Router,
-    ) { }
+    step: 1 | 2 = 1;
+    username = 'admin';
+    password = 'admin123';
+    code = '';
+    userId = 0;
+    busy = false;
+    error = '';
+    info = '';
 
-    login(): void {
-        const loginTrimmed = this.loginValue.trim();
-        const passwordTrimmed = this.password.trim();
+    doLogin(): void {
+        if (this.busy) return;
 
-        if (!loginTrimmed || !passwordTrimmed) {
-            this.errorMessage = 'Введите логин и пароль';
+        const u = this.username.trim();
+        const p = this.password.trim();
+
+        if (!u || !p) {
+            this.error = 'Введите логин и пароль';
             return;
         }
 
-        this.isSubmitting = true;
-        this.errorMessage = '';
+        this.busy = true;
+        this.error = '';
+        this.info = '';
 
-        setTimeout(() => {
-            this.authService.login(this.selectedRole);
-            this.isSubmitting = false;
-            this.router.navigateByUrl('/dashboard');
-        }, 300);
+        console.log('[LOGIN] отправляю запрос');
+
+        this.auth.login(u, p).subscribe({
+            next: (res) => {
+                console.log('[LOGIN] ответ', res);
+                this.userId = res.userId;
+                this.step = 2;
+                this.busy = false;
+                this.info = 'Код отправлен. Смотрите логи backend.';
+                this.cdr.detectChanges();
+            },
+            error: (err) => {
+                console.log('[LOGIN] ошибка', err);
+                this.error = err.status === 401
+                    ? 'Неверный логин или пароль'
+                    : 'Ошибка: ' + err.status;
+                this.busy = false;
+                this.cdr.detectChanges();
+            },
+        });
+    }
+
+    doVerify(): void {
+        if (this.busy) return;
+
+        const c = this.code.trim();
+        if (!c) {
+            this.error = 'Введите код';
+            return;
+        }
+
+        this.busy = true;
+        this.error = '';
+        this.info = '';
+
+        console.log('[VERIFY] отправляю запрос', { userId: this.userId });
+
+        this.auth.verifyTwoFactor(this.userId, c).subscribe({
+            next: (res) => {
+                console.log('[VERIFY] успех');
+                this.busy = false;
+                this.cdr.detectChanges();
+                this.router.navigateByUrl('/dashboard');
+            },
+            error: (err) => {
+                console.log('[VERIFY] ошибка', err);
+                this.error = err.status === 401
+                    ? 'Неверный или истёкший код'
+                    : 'Ошибка: ' + err.status;
+                this.busy = false;
+                this.cdr.detectChanges();
+            },
+        });
     }
 }

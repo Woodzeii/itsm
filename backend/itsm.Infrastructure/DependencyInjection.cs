@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IUserService, UserService>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         services.AddScoped<IDictionaryService, DictionaryService>();
+        services.AddScoped<IAssetClassService, AssetClassService>();
         services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
 
         return services;

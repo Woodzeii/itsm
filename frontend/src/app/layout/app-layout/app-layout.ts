@@ -16,6 +16,10 @@ import { AuthService } from '../../core/auth/auth.service';
 
         <nav class="nav">
           <a routerLink="/dashboard" routerLinkActive="active">Главная</a>
+          <a routerLink="/dictionaries" routerLinkActive="active">Справочники</a>
+          @if (isAdminOrAgent) {
+            <a routerLink="/asset-classes" routerLinkActive="active">Классы активов</a>
+          }
           @if (isAdmin) {
             <a routerLink="/admin" routerLinkActive="active">Админка</a>
           }
@@ -170,6 +174,7 @@ import { AuthService } from '../../core/auth/auth.service';
 })
 export class AppLayoutComponent implements OnInit {
     isAdmin = false;
+    isAdminOrAgent = false;
     userInitial = 'П';
     userTitle = 'Пользователь';
     userEmail = 'user@itsm.local';
@@ -178,11 +183,19 @@ export class AppLayoutComponent implements OnInit {
 
     ngOnInit(): void {
         this.isAdmin = this.authService.isAdmin();
+        this.isAdminOrAgent = this.authService.canRead();
 
         if (this.isAdmin) {
             this.userInitial = 'А';
             this.userTitle = 'Администратор';
             this.userEmail = 'admin@itsm.local';
+            return;
+        }
+
+        if (this.isAdminOrAgent) {
+            this.userInitial = 'И';
+            this.userTitle = 'Инженер ТП';
+            this.userEmail = 'agent@itsm.local';
             return;
         }
 

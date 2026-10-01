@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>ITSM Dev Panel</title>
+    <style>
+        body { font-family: monospace; max-width: 900px; margin: 20px auto; padding: 0 10px; background: #f5f7fb; }
+        input, button { padding: 8px; margin: 3px 0; font-family: monospace; border-radius: 6px; border: 1px solid #ccc; font-size: 14px; }
+        input { width: 280px; }
+        .section { background: #fff; border-radius: 10px; padding: 16px; margin: 12px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .error { color: red; } .success { color: green; }
+        pre { background: #f5f5f5; padding: 10px; overflow: auto; max-height: 300px; border-radius: 6px; }
+        button { background: #3f51b5; color: white; cursor: pointer; }
+        h2 { margin-top: 0; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h1>ITSM Dev Panel</h1>
+
+    <div class="section">
+        <h2>1. Login</h2>
+        <input id="username" value="admin"> <input id="password" type="password" value="admin123">
+        <button onclick="login()">Login</button>
+        <div id="loginResult"></div>
+
+        <h2 style="margin-top:16px">2. Verify 2FA</h2>
+        <input id="userId" placeholder="userId"> <input id="code" placeholder="2FA код">
+        <button onclick="verify()">Verify</button>
+        <div id="verifyResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>3. Справочники</h2>
+        <button onclick="list()">Показать</button>
+        <div id="dictList"></div>
+    </div>
+
+    <div class="section">
+        <h2>4. Токен</h2>
+        <pre id="tokenView">—</pre>
+        <button onclick="clearToken()">Очистить</button>
+    </div>
+
+    <script>
+        const API = 'http://localhost:5062';
+        let token = localStorage.getItem('itsm_token') || '';
+        document.getElementById('tokenView').textContent = token || '—';
+
+        function setToken(t) {
+            token = t || '';
+            if (t) localStorage.setItem('itsm_token', t);
+            else localStorage.removeItem('itsm_token');
+            document.getElementById('tokenView').textContent = t || '—';
+        }
+
+        async function login() {
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const res = await fetch(API + '/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+            const data = await res.json();
+            const el = document.getElementById('loginResult');
+            if (res.ok) {
+                el.textContent = '✓ userId=' + data.userId + '. Возьми код из логов backend.';
+                el.className = 'success';
+                document.getElementById('userId').value = data.userId;
+            } else {
+                el.textContent = '✗ ' + res.status + ': ' + JSON.stringify(data);
+                el.className = 'error';
+            }
+        }
+
+        async function verify() {
+            const userId = parseInt(document.getElementById('userId').value);
+            const code = document.getElementById('code').value;
+            const res = await fetch(API + '/api/auth/verify-2fa', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, code })
+            });
+            const data = await res.json();
+            const el = document.getElementById('verifyResult');
+            if (res.ok) {
+                setToken(data.accessToken);
+                el.textContent = '✓ JWT получен (' + data.accessToken.length + ' символов)';
+                el.className = 'success';
+            } else {
+                el.textContent = '✗ ' + res.status + ': ' + JSON.stringify(data);
+                el.className = 'error';
+            }
+        }
+
+        async function list() {
+            if (!token) { alert('Сначала получи токен'); return; }
+            const res = await fetch(API + '/api/dictionaries', {
+                headers: { 'Authorization': 'Bearer ' + token }
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                document.getElementById('dictList').innerHTML = '<span class="error">✗ ' + res.status + '</span>';
+                return;
+            }
+            let html = '<table border="1" cellpadding="6" style="border-collapse:collapse">';
+            html += '<tr><th>Id</th><th>Code</th><th>Name</th><th>Values</th></tr>';
+            for (const d of data) html += '<tr><td>' + d.id + '</td><td>' + d.code + '</td><td>' + d.name + '</td><td>' + d.valuesCount + '</td></tr>';
+            html += '</table>';
+            document.getElementById('dictList').innerHTML = html;
+        }
+
+        function clearToken() { setToken(null); }
+    </script>
+</body>
+</html>
