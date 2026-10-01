@@ -16,6 +16,9 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
     public DbSet<SlaPolicy> SlaPolicies => Set<SlaPolicy>();
     public DbSet<CalendarException> CalendarExceptions => Set<CalendarException>();
     public DbSet<Asset> Assets => Set<Asset>();
+    public DbSet<AssetClass> AssetClasses => Set<AssetClass>();
+    public DbSet<AssetClassAttribute> AssetClassAttributes => Set<AssetClassAttribute>();
+    public DbSet<AssetMovement> AssetMovements => Set<AssetMovement>();
     public DbSet<AssetHistoryLog> AssetHistoryLogs => Set<AssetHistoryLog>();
     public DbSet<Ticket> Tickets => Set<Ticket>();
     public DbSet<TicketAssetMapping> TicketAssetMappings => Set<TicketAssetMapping>();
@@ -133,16 +136,77 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         });
 
         // --- 3. АКТИВЫ (ITAM) ---
+        modelBuilder.Entity<AssetClass>(entity =>
+        {
+            entity.ToTable("asset_classes");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.Code).IsUnique();
+            entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+        });
+
+        modelBuilder.Entity<AssetClassAttribute>(entity =>
+        {
+            entity.ToTable("asset_class_attributes");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => new { x.AssetClassId, x.Code }).IsUnique();
+            entity.Property(x => x.DataType).HasDefaultValue("string");
+            entity.Property(x => x.IsRequired).HasDefaultValue(false);
+            entity.Property(x => x.SortOrder).HasDefaultValue(0);
+            entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+
+            entity.HasOne(x => x.AssetClass)
+                  .WithMany(c => c.Attributes)
+                  .HasForeignKey(x => x.AssetClassId)
+                  .OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<Asset>(entity =>
         {
             entity.ToTable("assets");
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => x.InventoryNumber).IsUnique();
+            entity.HasIndex(x => x.LifecycleStage);
+            entity.Property(x => x.LifecycleStage).HasDefaultValue("Purchased");
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
 
             entity.HasOne(x => x.AssignedUser)
                   .WithMany(u => u.AssignedAssets)
                   .HasForeignKey(x => x.AssignedUserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.AssetClass)
+                  .WithMany(c => c.Assets)
+                  .HasForeignKey(x => x.AssetClassId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AssetMovement>(entity =>
+        {
+            entity.ToTable("asset_movements");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.AssetId);
+            entity.HasIndex(x => x.PerformedAt);
+            entity.Property(x => x.PerformedAt).HasDefaultValueSql("now()");
+
+            entity.HasOne(x => x.Asset)
+                  .WithMany(a => a.Movements)
+                  .HasForeignKey(x => x.AssetId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(x => x.FromUser)
+                  .WithMany()
+                  .HasForeignKey(x => x.FromUserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.ToUser)
+                  .WithMany()
+                  .HasForeignKey(x => x.ToUserId)
+                  .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(x => x.PerformedBy)
+                  .WithMany()
+                  .HasForeignKey(x => x.PerformedById)
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -151,6 +215,11 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
             entity.ToTable("asset_history_logs");
             entity.HasKey(x => x.Id);
             entity.Property(x => x.ChangedAt).HasDefaultValueSql("now()");
+
+            entity.HasOne(x => x.Asset)
+                  .WithMany(a => a.HistoryLogs)
+                  .HasForeignKey(x => x.AssetId)
+                  .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasOne(x => x.User).WithMany(u => u.AssetHistoryActions).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.OldAssignedUser).WithMany(u => u.PreviousAssetAssignments).HasForeignKey(x => x.OldAssignedUserId).OnDelete(DeleteBehavior.Restrict);
@@ -319,7 +388,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
                   .OnDelete(DeleteBehavior.Restrict);
         });
 
-        // ПОСТ-ОБРАБОТКА: безопасный Restrict по умолчанию для всех оставшихся внешних ключей
+        // ПОСТ-ОБРАБОТКА: безопасный Restrict по умолчанию
         foreach (var foreignKey in modelBuilder.Model.GetEntityTypes().SelectMany(x => x.GetForeignKeys()))
         {
             if (foreignKey.DeleteBehavior == DeleteBehavior.Cascade)
