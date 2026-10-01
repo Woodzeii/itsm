@@ -13,8 +13,8 @@ using itsm.Infrastructure.Persistence;
 namespace itsm.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ItsmDbContext))]
-    [Migration("20261001101246_InitialCreateV3")]
-    partial class InitialCreateV3
+    [Migration("20261001105040_AddSeedData")]
+    partial class AddSeedData
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -432,6 +432,14 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_assignment_settings_manual_assigner_user_id");
 
                     b.ToTable("assignment_settings", "public");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Mode = "auto",
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        });
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.Attachment", b =>
@@ -624,6 +632,35 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_criticality_levels_code");
 
                     b.ToTable("criticality_levels", "public");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "low",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            Name = "Низкий",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "medium",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            Name = "Средний",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Code = "high",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            Name = "Высокий",
+                            SortOrder = 3
+                        });
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.Dictionary", b =>
@@ -665,6 +702,32 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_dictionaries_code");
 
                     b.ToTable("dictionaries", "public");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "warehouses",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsSystem = true,
+                            Name = "Склады"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "locations",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsSystem = true,
+                            Name = "Места"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Code = "departments",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsSystem = true,
+                            Name = "Подразделения"
+                        });
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.DictionaryValue", b =>
@@ -716,6 +779,78 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_dictionary_values_dictionary_id_code");
 
                     b.ToTable("dictionary_values", "public");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "main",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DictionaryId = 1,
+                            IsArchived = false,
+                            Name = "Основной склад",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "spare",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DictionaryId = 1,
+                            IsArchived = false,
+                            Name = "Резервный склад",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Code = "office_msk",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DictionaryId = 2,
+                            IsArchived = false,
+                            Name = "Москва, офис",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Code = "office_spb",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DictionaryId = 2,
+                            IsArchived = false,
+                            Name = "СПб, офис",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Code = "it",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DictionaryId = 3,
+                            IsArchived = false,
+                            Name = "IT",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Code = "finance",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DictionaryId = 3,
+                            IsArchived = false,
+                            Name = "Бухгалтерия",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 7,
+                            Code = "sales",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            DictionaryId = 3,
+                            IsArchived = false,
+                            Name = "Отдел продаж",
+                            SortOrder = 3
+                        });
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.EscalationRule", b =>
@@ -1169,6 +1304,20 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasName("pk_password_policies");
 
                     b.ToTable("password_policies", "public");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            LockoutMinutes = 15,
+                            MaxFailedAttempts = 5,
+                            MinLength = 8,
+                            RequireDigit = true,
+                            RequireLowercase = true,
+                            RequireSpecial = false,
+                            RequireUppercase = false,
+                            UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
+                        });
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.ReleaseTicketMapping", b =>
@@ -1335,6 +1484,38 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_system_roles_code");
 
                     b.ToTable("system_roles", "public");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "tenant_admin",
+                            Name = "Администратор тенантов"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "admin",
+                            Name = "Администратор"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Code = "agent",
+                            Name = "Инженер ТП"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Code = "manager",
+                            Name = "Руководитель"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Code = "portal_user",
+                            Name = "Пользователь портала"
+                        });
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.Tenant", b =>
@@ -1376,6 +1557,16 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_tenants_code");
 
                     b.ToTable("tenants", "public");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "default",
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            Name = "Default Tenant"
+                        });
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.Ticket", b =>
@@ -1483,10 +1674,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sla_policy_id");
 
-                    b.Property<int?>("SlaPolicyId1")
-                        .HasColumnType("integer")
-                        .HasColumnName("sla_policy_id1");
-
                     b.Property<DateTimeOffset?>("SlaReactionDeadline")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("sla_reaction_deadline");
@@ -1558,9 +1745,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SlaPolicyId")
                         .HasDatabaseName("ix_tickets_sla_policy_id");
-
-                    b.HasIndex("SlaPolicyId1")
-                        .HasDatabaseName("ix_tickets_sla_policy_id1");
 
                     b.HasIndex("StatusId")
                         .HasDatabaseName("ix_tickets_status_id");
@@ -1836,6 +2020,48 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_ticket_statuses_code");
 
                     b.ToTable("ticket_statuses", "public");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "new",
+                            IsSlaPausing = false,
+                            Name = "Открыта",
+                            SortOrder = 1
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "pending",
+                            IsSlaPausing = false,
+                            Name = "Ожидает выполнения",
+                            SortOrder = 2
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Code = "in_progress",
+                            IsSlaPausing = false,
+                            Name = "В работе",
+                            SortOrder = 3
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Code = "review",
+                            IsSlaPausing = true,
+                            Name = "Проверка",
+                            SortOrder = 4
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Code = "closed",
+                            IsSlaPausing = false,
+                            Name = "Закрыта",
+                            SortOrder = 5
+                        });
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.TicketStatusTransition", b =>
@@ -1876,6 +2102,43 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_ticket_status_transitions_from_status_id_to_status_id");
 
                     b.ToTable("ticket_status_transitions", "public");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            FromStatusId = 1,
+                            ToStatusId = 2
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            FromStatusId = 2,
+                            ToStatusId = 3
+                        },
+                        new
+                        {
+                            Id = 3,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            FromStatusId = 3,
+                            ToStatusId = 4
+                        },
+                        new
+                        {
+                            Id = 4,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            FromStatusId = 4,
+                            ToStatusId = 5
+                        },
+                        new
+                        {
+                            Id = 5,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            FromStatusId = 4,
+                            ToStatusId = 2
+                        });
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.TicketType", b =>
@@ -1916,6 +2179,48 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_ticket_types_code");
 
                     b.ToTable("ticket_types", "public");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Code = "incident",
+                            IsBuiltIn = false,
+                            IsPortalAvailable = true,
+                            Name = "Инцидент"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            Code = "service_request",
+                            IsBuiltIn = false,
+                            IsPortalAvailable = true,
+                            Name = "Запрос на обслуживание"
+                        },
+                        new
+                        {
+                            Id = 3,
+                            Code = "change",
+                            IsBuiltIn = false,
+                            IsPortalAvailable = true,
+                            Name = "Изменение"
+                        },
+                        new
+                        {
+                            Id = 4,
+                            Code = "access",
+                            IsBuiltIn = false,
+                            IsPortalAvailable = true,
+                            Name = "Запрос на доступ"
+                        },
+                        new
+                        {
+                            Id = 5,
+                            Code = "repair",
+                            IsBuiltIn = true,
+                            IsPortalAvailable = false,
+                            Name = "Тикет на ремонт"
+                        });
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.User", b =>
@@ -2132,6 +2437,24 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasName("pk_working_schedules");
 
                     b.ToTable("working_schedules", "public");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            Name = "24x7",
+                            ScheduleType = "24x7"
+                        },
+                        new
+                        {
+                            Id = 2,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsActive = true,
+                            Name = "8x5 Стандартный",
+                            ScheduleType = "work_hours"
+                        });
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.Asset", b =>
@@ -2510,12 +2833,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_tickets_sla_policies_sla_policy_id");
 
-                    b.HasOne("itsm.Domain.Entities.SlaPolicy", null)
-                        .WithMany("Tickets")
-                        .HasForeignKey("SlaPolicyId1")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_tickets_sla_policies_sla_policy_id1");
-
                     b.HasOne("itsm.Domain.Entities.TicketStatus", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId")
@@ -2786,11 +3103,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.Navigation("KnowledgeBaseArticles");
 
-                    b.Navigation("Tickets");
-                });
-
-            modelBuilder.Entity("itsm.Domain.Entities.SlaPolicy", b =>
-                {
                     b.Navigation("Tickets");
                 });
 

@@ -13,8 +13,8 @@ using itsm.Infrastructure.Persistence;
 namespace itsm.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(ItsmDbContext))]
-    [Migration("20261001102902_AddSeedData")]
-    partial class AddSeedData
+    [Migration("20261001105007_InitialCreateV3")]
+    partial class InitialCreateV3
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -1674,10 +1674,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("sla_policy_id");
 
-                    b.Property<int?>("SlaPolicyId1")
-                        .HasColumnType("integer")
-                        .HasColumnName("sla_policy_id1");
-
                     b.Property<DateTimeOffset?>("SlaReactionDeadline")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("sla_reaction_deadline");
@@ -1749,9 +1745,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("SlaPolicyId")
                         .HasDatabaseName("ix_tickets_sla_policy_id");
-
-                    b.HasIndex("SlaPolicyId1")
-                        .HasDatabaseName("ix_tickets_sla_policy_id1");
 
                     b.HasIndex("StatusId")
                         .HasDatabaseName("ix_tickets_status_id");
@@ -2840,12 +2833,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_tickets_sla_policies_sla_policy_id");
 
-                    b.HasOne("itsm.Domain.Entities.SlaPolicy", null)
-                        .WithMany("Tickets")
-                        .HasForeignKey("SlaPolicyId1")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_tickets_sla_policies_sla_policy_id1");
-
                     b.HasOne("itsm.Domain.Entities.TicketStatus", "Status")
                         .WithMany()
                         .HasForeignKey("StatusId")
@@ -3116,11 +3103,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.Navigation("KnowledgeBaseArticles");
 
-                    b.Navigation("Tickets");
-                });
-
-            modelBuilder.Entity("itsm.Domain.Entities.SlaPolicy", b =>
-                {
                     b.Navigation("Tickets");
                 });
 
