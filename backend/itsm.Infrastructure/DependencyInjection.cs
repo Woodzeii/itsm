@@ -1,5 +1,6 @@
 using FluentValidation;
 using itsm.Application.Common.Interfaces;
+using itsm.Infrastructure.Persistence.Services;
 using itsm.Application.Common.Models;
 using itsm.Application.Common.Validators;
 using itsm.Infrastructure.Identity;
@@ -35,6 +36,7 @@ public static class DependencyInjection
         services.AddScoped<IEmailService, LoggingEmailService>();
         services.AddScoped<IUserService, UserService>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
+        services.AddScoped<IDictionaryService, DictionaryService>();
         services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
 
         return services;
