@@ -84,6 +84,24 @@ public class AuthController : ControllerBase
         });
     }
 
+    // ================= CONFIRM EMAIL =================
+
+    [AllowAnonymous]
+    [HttpPost("confirm-email")]
+    public async Task<IActionResult> ConfirmEmail([FromBody] ConfirmEmailRequest request, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.Token))
+            return BadRequest(new { message = "Токен обязателен" });
+
+        var result = await _userService.ConfirmEmailAsync(request.Token, ct);
+
+        return result.Status switch
+        {
+            ConfirmEmailStatus.Success => Ok(new ConfirmEmailResponse { Message = result.Message }),
+            _ => BadRequest(new { message = result.Message })
+        };
+    }
+
     // ================= LOGIN =================
 
     [AllowAnonymous]
@@ -104,7 +122,11 @@ public class AuthController : ControllerBase
         if (ldapUser is null)
             return Unauthorized(new { message = "Пользователь не найден" });
 
-        var userId = Math.Abs(ldapUser.Username.GetHashCode());
+        // Ищем реальный id в БД: он нужен для ролей и 2FA.
+        // Если пользователя нет — fallback на хеш (для LDAP без синхронизации с БД).
+        var userId = await _userService.FindIdByUsernameAsync(ldapUser.Username, HttpContext.RequestAborted)
+            ?? Math.Abs(ldapUser.Username.GetHashCode());
+
         var code = _twoFactor.GenerateCode(userId, ldapUser.Username, ldapUser.Email);
 
         _logger.LogWarning("DEV ONLY: 2FA код для {Username}: {Code}", request.Username, code);
@@ -121,7 +143,7 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("verify-2fa")]
-    public IActionResult VerifyTwoFactor([FromBody] VerifyTwoFactorRequest request)
+    public async Task<IActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorRequest request)
     {
         if (request.UserId <= 0 || string.IsNullOrWhiteSpace(request.Code))
             return BadRequest(new { message = "UserId и Code обязательны" });
@@ -133,9 +155,11 @@ public class AuthController : ControllerBase
             return Unauthorized(new { message = "Неверный или истёкший код" });
         }
 
-        var token = _jwt.GenerateToken(userData.UserId, userData.Login, userData.Email);
+        var roles = await _userService.GetRolesAsync(userData.UserId, HttpContext.RequestAborted);
+        var token = _jwt.GenerateToken(userData.UserId, userData.Login, userData.Email, roles);
 
-        _logger.LogInformation("JWT выпущен для {Login} (userId={UserId})", userData.Login, userData.UserId);
+        _logger.LogInformation("JWT выпущен для {Login} (userId={UserId}, роли: {Roles})",
+            userData.Login, userData.UserId, string.Join(", ", roles));
 
         return Ok(new VerifyTwoFactorResponse
         {

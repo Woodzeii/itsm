@@ -12,4 +12,12 @@ public interface IUserService
         string verificationTokenHash,
         DateTimeOffset tokenExpiresAt,
         CancellationToken ct = default);
+
+    Task<ConfirmEmailResult> ConfirmEmailAsync(string plainToken, CancellationToken ct = default);
+
+    /// <summary>Возвращает коды ролей пользователя (например, ["admin", "manager"]).</summary>
+    Task<List<string>> GetRolesAsync(int userId, CancellationToken ct = default);
+
+    /// <summary>Возвращает реальный users.id по username, или null если не найден.</summary>
+    Task<int?> FindIdByUsernameAsync(string username, CancellationToken ct = default);
 }
