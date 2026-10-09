@@ -11,6 +11,8 @@ public class User
     public int? ManagerId { get; set; }
     public bool IsActive { get; set; } = true;
     public string? TwoFaSecret { get; set; }
+    public bool IsTwoFactorEnabled { get; set; } = false;
+    public DateTimeOffset? TwoFactorEnabledAt { get; set; }
     public string Status { get; set; } = "Unverified";
     public string? PasswordHash { get; set; }
     public string? VerificationTokenHash { get; set; }
@@ -21,7 +23,6 @@ public class User
     public DateTimeOffset? PasswordChangedAt { get; set; }
     public bool IsManager { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
-
     public User? Manager { get; set; }
     public Tenant? Tenant { get; set; }
     public ICollection<User> DirectReports { get; set; } = new List<User>();
