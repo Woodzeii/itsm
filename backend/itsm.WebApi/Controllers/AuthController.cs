@@ -2,10 +2,13 @@ using FluentValidation;
 using itsm.Application.Common.Interfaces;
 using itsm.Application.Common.Models;
 using itsm.Domain.Constants;
+using itsm.Infrastructure.Persistence;
 using itsm.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Security.Claims;
 
 namespace itsm.WebApi.Controllers;
 
@@ -13,31 +16,39 @@ namespace itsm.WebApi.Controllers;
 [Route("api/auth")]
 public class AuthController : ControllerBase
 {
+    private const string Issuer = "ITSM NC";
+
     private readonly ILdapService _ldap;
     private readonly ITwoFactorService _twoFactor;
+    private readonly ITotpService _totp;
     private readonly IJwtService _jwt;
     private readonly IUserService _userService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IEmailService _email;
+    private readonly ItsmDbContext _db;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
         ILdapService ldap,
         ITwoFactorService twoFactor,
+        ITotpService totp,
         IJwtService jwt,
         IUserService userService,
         IPasswordHasher passwordHasher,
         IEmailService email,
+        ItsmDbContext db,
         IOptions<JwtSettings> jwtSettings,
         ILogger<AuthController> logger)
     {
         _ldap = ldap;
         _twoFactor = twoFactor;
+        _totp = totp;
         _jwt = jwt;
         _userService = userService;
         _passwordHasher = passwordHasher;
         _email = email;
+        _db = db;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
@@ -122,11 +133,27 @@ public class AuthController : ControllerBase
         if (ldapUser is null)
             return Unauthorized(new { message = "Пользователь не найден" });
 
-        // Ищем реальный id в БД: он нужен для ролей и 2FA.
-        // Если пользователя нет — fallback на хеш (для LDAP без синхронизации с БД).
         var userId = await _userService.FindIdByUsernameAsync(ldapUser.Username, HttpContext.RequestAborted)
             ?? Math.Abs(ldapUser.Username.GetHashCode());
 
+        // Проверяем, включён ли TOTP для пользователя.
+        var dbUser = await _db.Users
+            .FirstOrDefaultAsync(u => u.Username == ldapUser.Username, HttpContext.RequestAborted);
+
+        if (dbUser is not null && dbUser.IsTwoFactorEnabled && !string.IsNullOrEmpty(dbUser.TwoFaSecret))
+        {
+            // TOTP-flow: возвращаем флаг, что нужен код из приложения.
+            return Ok(new LoginResponse
+            {
+                RequiresTwoFactor = true,
+                UserId = dbUser.Id,
+                Message = "Введите 6-значный код из приложения-аутентификатора",
+                // Дополнительный признак, чтобы клиент знал — это TOTP, а не email-код
+                // (можно расширить LoginResponse полем Mode, если понадобится)
+            });
+        }
+
+        // Fallback: email-код (для первого входа, пока TOTP не настроен).
         var code = _twoFactor.GenerateCode(userId, ldapUser.Username, ldapUser.Email);
 
         _logger.LogWarning("DEV ONLY: 2FA код для {Username}: {Code}", request.Username, code);
@@ -135,37 +162,182 @@ public class AuthController : ControllerBase
         {
             RequiresTwoFactor = true,
             UserId = userId,
-            Message = "Введите 6-значный код из приложения-аутентификатора"
+            Message = "Введите 6-значный код из письма/логов"
         });
     }
 
     // ================= VERIFY 2FA =================
 
     [AllowAnonymous]
-    [HttpPost("verify-2fa")]
-    public async Task<IActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorRequest request)
-    {
-        if (request.UserId <= 0 || string.IsNullOrWhiteSpace(request.Code))
-            return BadRequest(new { message = "UserId и Code обязательны" });
+	[HttpPost("verify-2fa")]
+	public async Task<IActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorRequest request)
+	{
+		if (request.UserId <= 0 || string.IsNullOrWhiteSpace(request.Code))
+			return BadRequest(new { message = "UserId и Code обязательны" });
 
-        var userData = _twoFactor.ValidateCode(request.UserId, request.Code);
-        if (userData is null)
+		var dbUser = await _db.Users
+			.FirstOrDefaultAsync(u => u.Id == request.UserId, HttpContext.RequestAborted);
+
+		// 1) TOTP-ветка: только если пользователь найден и у него явно включена 2FA.
+		if (dbUser is not null
+			&& dbUser.IsTwoFactorEnabled
+			&& !string.IsNullOrEmpty(dbUser.TwoFaSecret))
+		{
+			if (!_totp.VerifyCode(dbUser.TwoFaSecret, request.Code))
+			{
+				_logger.LogWarning("2FA (TOTP): неверный код для userId={UserId}", request.UserId);
+				return Unauthorized(new { message = "Неверный или истёкший код" });
+			}
+
+			var rolesTotp = await _userService.GetRolesAsync(dbUser.Id, HttpContext.RequestAborted);
+			var tokenTotp = _jwt.GenerateToken(dbUser.Id, dbUser.Username, dbUser.Email, rolesTotp);
+
+			_logger.LogInformation("JWT выпущен для {Login} через TOTP (userId={UserId})",
+				dbUser.Username, dbUser.Id);
+
+			return Ok(new VerifyTwoFactorResponse
+			{
+				AccessToken = tokenTotp,
+				TokenType = "Bearer",
+				ExpiresIn = _jwtSettings.ExpiresMinutes * 60
+			});
+		}
+
+		// 2) Fallback: email-код через кэш (в тестах — мок).
+		var userData = _twoFactor.ValidateCode(request.UserId, request.Code);
+		if (userData is null)
+		{
+			_logger.LogWarning("2FA (email): неверный или истёкший код для userId={UserId}", request.UserId);
+			return Unauthorized(new { message = "Неверный или истёкший код" });
+		}
+
+		var roles = await _userService.GetRolesAsync(userData.UserId, HttpContext.RequestAborted);
+		var token = _jwt.GenerateToken(userData.UserId, userData.Login, userData.Email, roles);
+
+		_logger.LogInformation("JWT выпущен для {Login} через email-код (userId={UserId})",
+			userData.Login, userData.UserId);
+
+		return Ok(new VerifyTwoFactorResponse
+		{
+			AccessToken = token,
+			TokenType = "Bearer",
+			ExpiresIn = _jwtSettings.ExpiresMinutes * 60
+		});
+	}
+
+    [Authorize]
+    [HttpPost("2fa/setup")]
+    public async Task<IActionResult> SetupTwoFactor()
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
+        if (user is null) return NotFound();
+
+        if (user.IsTwoFactorEnabled)
+            return Conflict(new { message = "2FA уже включена. Сначала отключите её." });
+
+        var secret = _totp.GenerateSecret();
+        user.TwoFaSecret = secret;
+        await _db.SaveChangesAsync();
+
+        var uri = _totp.BuildOtpAuthUri(Issuer, user.Username, secret);
+
+        return Ok(new TwoFactorSetupResponse
         {
-            _logger.LogWarning("2FA: неверный или истёкший код для userId={UserId}", request.UserId);
-            return Unauthorized(new { message = "Неверный или истёкший код" });
+            Secret = secret,
+            OtpAuthUri = uri,
+            Issuer = Issuer
+        });
+    }
+
+    [Authorize]
+    [HttpPost("2fa/verify-setup")]
+    public async Task<IActionResult> VerifySetup([FromBody] VerifyTwoFactorSetupRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Code))
+            return BadRequest(new { message = "Код обязателен" });
+
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
+        if (user is null) return NotFound();
+
+        if (user.IsTwoFactorEnabled)
+            return Conflict(new { message = "2FA уже включена" });
+
+        if (string.IsNullOrEmpty(user.TwoFaSecret))
+            return BadRequest(new { message = "Секрет не сгенерирован. Сначала вызовите /2fa/setup." });
+
+        if (!_totp.VerifyCode(user.TwoFaSecret, request.Code))
+            return BadRequest(new { message = "Неверный код. Проверьте время на устройстве." });
+
+        user.IsTwoFactorEnabled = true;
+        user.TwoFactorEnabledAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("2FA (TOTP) включена для пользователя {Login}", user.Username);
+
+        return Ok(new { message = "2FA успешно включена" });
+    }
+
+    [Authorize]
+    [HttpGet("2fa/status")]
+    public async Task<IActionResult> GetTwoFactorStatus()
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
+        if (user is null) return NotFound();
+
+        return Ok(new TwoFactorStatusResponse
+        {
+            IsEnabled = user.IsTwoFactorEnabled,
+            EnabledAt = user.TwoFactorEnabledAt
+        });
+    }
+    [Authorize]
+    [HttpPost("2fa/disable")]
+    public async Task<IActionResult> DisableTwoFactor([FromBody] DisableTwoFactorRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Password))
+            return BadRequest(new { message = "Пароль обязателен" });
+
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
+        if (user is null) return NotFound();
+
+        // Проверяем пароль. PasswordHash может быть null, если пользователь заведён через LDAP.
+        if (string.IsNullOrEmpty(user.PasswordHash) ||
+            !_passwordHasher.Verify(request.Password, user.PasswordHash))
+        {
+            var ok = await _ldap.ValidateCredentialsAsync(user.Username, request.Password);
+            if (!ok)
+                return Unauthorized(new { message = "Неверный пароль" });
         }
 
-        var roles = await _userService.GetRolesAsync(userData.UserId, HttpContext.RequestAborted);
-        var token = _jwt.GenerateToken(userData.UserId, userData.Login, userData.Email, roles);
+        user.IsTwoFactorEnabled = false;
+        user.TwoFaSecret = null;
+        user.TwoFactorEnabledAt = null;
+        await _db.SaveChangesAsync();
 
-        _logger.LogInformation("JWT выпущен для {Login} (userId={UserId}, роли: {Roles})",
-            userData.Login, userData.UserId, string.Join(", ", roles));
+        _logger.LogWarning("2FA (TOTP) отключена для пользователя {Login}", user.Username);
 
-        return Ok(new VerifyTwoFactorResponse
-        {
-            AccessToken = token,
-            TokenType = "Bearer",
-            ExpiresIn = _jwtSettings.ExpiresMinutes * 60
-        });
+        return Ok(new { message = "2FA отключена" });
+    }
+
+
+    private int? GetCurrentUserId()
+    {
+        var claim = User.FindFirst("Id")?.Value
+            ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? User.FindFirst("sub")?.Value;
+
+        return int.TryParse(claim, out var id) ? id : null;
     }
 }
