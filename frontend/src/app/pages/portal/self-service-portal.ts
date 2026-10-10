@@ -41,7 +41,7 @@ import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, T
                       @case ('date') { <input type="date" [name]="field.id" [required]="field.required" [ngModel]="values[field.id]" (ngModelChange)="values[field.id] = $event" /> }
                       @case ('dictionary') { <select [name]="field.id" [required]="field.required" [ngModel]="values[field.id]" (ngModelChange)="values[field.id] = $event"><option value="">Выберите значение</option>@for (option of field.options ?? settings?.criticalities ?? []; track option) { <option [value]="option">{{ option }}</option> }</select> }
                       @case ('asset') { <select [name]="field.id" [required]="field.required" [ngModel]="values[field.id]" (ngModelChange)="values[field.id] = $event"><option value="">Без привязки</option>@for (asset of assets; track asset.id) { <option [value]="asset.id">{{ asset.id }} · {{ asset.name }}</option> }</select> }
-                      @case ('file') { <input type="file" [name]="field.id" multiple (change)="pickFiles($event)" /> }
+                      @case ('file') { <input type="file" [name]="field.id" [required]="field.required" multiple (change)="pickFiles($event,field.id)" /> }
                       @case ('boolean') { <span class="check"><input type="checkbox" [name]="field.id" [ngModel]="values[field.id]" (ngModelChange)="values[field.id] = $event" /> Да</span> }
                       @default { <input type="text" [name]="field.id" [required]="field.required" [ngModel]="values[field.id]" (ngModelChange)="values[field.id] = $event" [placeholder]="field.hint || ''" /> }
                     }
@@ -136,6 +136,7 @@ export class SelfServicePortalComponent implements OnInit {
     priority = '';
     values: Record<string, string | number | boolean | null> = {};
     attachments: File[] = [];
+    fieldAttachments: Record<string, File[]> = {};
     commentFiles: File[] = [];
     reply = '';
     error = '';
@@ -158,16 +159,29 @@ export class SelfServicePortalComponent implements OnInit {
     }
 
     visibleFields(form: TicketFormDefinition): FormFieldDefinition[] {
-        return form.fields.filter(field => !field.conditionFieldId || this.values[field.conditionFieldId] === field.conditionValue);
+      return form.fields.filter(field => field.visibleToRequester && (!field.conditionFieldId || this.values[field.conditionFieldId] === field.conditionValue));
     }
     openCreate(): void { this.resetForm(); this.view = 'create'; }
-    resetForm(): void { this.values = {}; this.attachments = []; this.title = ''; this.description = ''; this.error = ''; }
+    resetForm(): void {
+      this.values = {};
+      this.fieldAttachments = {};
+      this.attachments = [];
+      this.title = '';
+      this.description = '';
+      this.error = '';
+      for (const field of this.activeForm?.fields ?? []) if (field.defaultValue !== undefined) this.values[field.id] = field.defaultValue;
+    }
     openTicket(ticket: Ticket): void { this.active = ticket; this.view = 'detail'; }
-    pickFiles(event: Event): void { this.attachments = [...this.attachments, ...Array.from((event.target as HTMLInputElement).files ?? [])]; }
+    pickFiles(event: Event, fieldId: string): void {
+      this.fieldAttachments[fieldId] = [...(this.fieldAttachments[fieldId] ?? []), ...Array.from((event.target as HTMLInputElement).files ?? [])];
+      this.attachments = Object.values(this.fieldAttachments).flat();
+    }
     pickCommentFiles(event: Event): void { this.commentFiles = Array.from((event.target as HTMLInputElement).files ?? []); }
 
     submitTicket(): void {
         const form = this.activeForm;
+      if (!form) { this.error = 'Форма для выбранного типа заявки не найдена.'; return; }
+      if (!this.validateFields(form)) return;
         const assetField = form?.fields.find(field => field.type === 'asset' && this.values[field.id]);
         const request: PortalTicketRequest = {
             title: this.title.trim(), description: this.description.trim(), requester: this.login,
@@ -180,6 +194,35 @@ export class SelfServicePortalComponent implements OnInit {
             error: err => this.error = err.message,
         });
     }
+
+      private validateFields(form: TicketFormDefinition): boolean {
+        for (const field of this.visibleFields(form)) {
+          if (['Тема', 'Описание', 'Критичность'].includes(field.name)) continue;
+          const value = this.values[field.id];
+          const missing = field.type === 'file'
+            ? !this.fieldAttachments[field.id]?.length
+            : field.type === 'boolean'
+              ? value !== true
+              : value === undefined || value === null || value === '';
+          if (field.required && missing) {
+            this.error = `Заполните обязательное поле «${field.name}».`;
+            return false;
+          }
+          if (field.validation && value !== undefined && value !== null && value !== '') {
+            try {
+              if (!new RegExp(field.validation).test(String(value))) {
+                this.error = `Поле «${field.name}» не соответствует формату.`;
+                return false;
+              }
+            } catch {
+              this.error = `Для поля «${field.name}» задана некорректная проверка ввода.`;
+              return false;
+            }
+          }
+        }
+        this.error = '';
+        return true;
+      }
 
     sendComment(): void {
         if (!this.active) return;

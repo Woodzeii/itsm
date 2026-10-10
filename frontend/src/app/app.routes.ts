@@ -12,7 +12,6 @@ export const routes: Routes = [
             { path: 'dashboard', loadComponent: () => import('./pages/overview/overview').then(module => module.OverviewComponent), canActivate: [internalAccessGuard] },
             { path: 'tickets', loadComponent: () => import('./pages/tickets/ticket-queue').then(module => module.TicketQueueComponent), canActivate: [internalAccessGuard] },
             { path: 'assets', loadComponent: () => import('./pages/assets/assets-page').then(module => module.AssetsPageComponent), canActivate: [internalAccessGuard] },
-            { path: 'service-catalog', loadComponent: () => import('./pages/workspace-section/workspace-section').then(module => module.WorkspaceSectionComponent), data: { section: 'catalog' }, canActivate: [internalAccessGuard] },
             { path: 'escalations', loadComponent: () => import('./pages/workspace-section/workspace-section').then(module => module.WorkspaceSectionComponent), data: { section: 'escalations' }, canActivate: [internalAccessGuard] },
             { path: 'portal', loadComponent: () => import('./pages/portal/self-service-portal').then(module => module.SelfServicePortalComponent), canActivate: [portalAccessGuard] },
             { path: 'admin/tenants', loadComponent: () => import('./pages/tenant-admin/tenant-management').then(module => module.TenantManagementComponent), canActivate: [tenantAdminAccessGuard] },

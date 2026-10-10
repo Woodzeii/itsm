@@ -3,6 +3,7 @@ import { WorkspaceApi } from './workspace-api';
 import {
     AdminSettings,
     AssetMovementRequest,
+    AssetClassOption,
     CreateAssetRequest,
     CreatePortalAccountRequest,
     CreateTenantRequest,
@@ -22,7 +23,7 @@ export class WorkspaceService {
     getOverview() { return this.api.getOverview(); }
     getTickets() { return this.api.getTickets(); }
     getAssets() { return this.api.getAssets(); }
-    getServiceCategories() { return this.api.getServiceCategories(); }
+    getAssetClasses() { return this.api.getAssetClasses(); }
     getEscalations() { return this.api.getEscalations(); }
     createTicket(request: CreateTicketRequest) { return this.api.createTicket(request); }
     getTicketTypes() { return this.api.getTicketTypes(); }

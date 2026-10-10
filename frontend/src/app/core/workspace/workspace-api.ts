@@ -3,6 +3,7 @@ import {
     AssetRecord,
     AssetDetails,
     AssetMovementRequest,
+    AssetClassOption,
     CreateTicketRequest,
     CreateAssetRequest,
     CreatePortalAccountRequest,
@@ -16,7 +17,6 @@ import {
     PortalTicketRequest,
     RepairCloseRequest,
     ReportSummary,
-    ServiceCategory,
     TicketFormDefinition,
     Ticket,
     TicketComment,
@@ -28,7 +28,7 @@ export abstract class WorkspaceApi {
     abstract getOverview(): Observable<OverviewData>;
     abstract getTickets(): Observable<Ticket[]>;
     abstract getAssets(): Observable<AssetRecord[]>;
-    abstract getServiceCategories(): Observable<ServiceCategory[]>;
+    abstract getAssetClasses(): Observable<AssetClassOption[]>;
     abstract getEscalations(): Observable<Escalation[]>;
     abstract createTicket(request: CreateTicketRequest): Observable<Ticket>;
     abstract getTicketTypes(): Observable<TicketType[]>;

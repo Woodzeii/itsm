@@ -111,13 +111,6 @@ export interface AssetMovementRequest {
     to: string;
 }
 
-export interface ServiceCategory {
-    id: string;
-    title: string;
-    description: string;
-    serviceCount: number;
-}
-
 export interface Escalation {
     id: string;
     title: string;
@@ -190,8 +183,11 @@ export interface AdminSettings {
     slaEnabled: boolean;
     slaMode: '24/7' | 'working-hours';
     workingHours: string;
+    workingDays: string[];
+    holidays: string[];
     criticalities: string[];
     statuses: { name: string; pausesSla: boolean; immutable: boolean }[];
+    statusTransitions: Record<string, string[]>;
     portalSlaFields: string[];
     portalAccounts?: string[];
     engineers?: string[];
@@ -235,4 +231,21 @@ export interface TenantRecord {
 export interface CreateTenantRequest {
     name: string;
     firstAdminLogin: string;
+}
+
+export interface AssetClassAttributeOption {
+    code: string;
+    name: string;
+    dataType: string;
+    required: boolean;
+    defaultValue?: string;
+    options: string[];
+}
+
+export interface AssetClassOption {
+    id: number;
+    code: string;
+    name: string;
+    active: boolean;
+    attributes: AssetClassAttributeOption[];
 }

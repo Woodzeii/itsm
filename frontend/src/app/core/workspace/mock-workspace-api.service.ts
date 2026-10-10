@@ -1,10 +1,12 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Observable, of } from 'rxjs';
+import { AuthService } from '../auth/auth.service';
 import { WorkspaceApi } from './workspace-api';
 import {
     AdminSettings,
     CreatePortalAccountRequest,
     AssetDetails,
+    AssetClassOption,
     AssetHistoryEntry,
     AssetMovement,
     AssetMovementRequest,
@@ -21,7 +23,6 @@ import {
     PortalTicketRequest,
     RepairCloseRequest,
     ReportSummary,
-    ServiceCategory,
     TicketComment,
     TicketFormDefinition,
     Ticket,
@@ -33,32 +34,33 @@ import {
 export class MockWorkspaceApiService extends WorkspaceApi {
     private tickets: Ticket[] = [
         { id: 'INC-1048', title: 'Не подключается VPN после обновления', requester: 'Анна Белова', team: 'Сетевая команда', priority: 'Высокий', status: 'В работе', createdAt: '10:42', slaRemaining: '01:18', type: 'Инцидент', assignee: 'Иван Петров', reactionSla: '00:08 / 00:30', resolutionSla: '01:18 / 04:00', assetId: 'LT-00231', createdOn: '2026-10-10', history: [{ id: 'h1', event: 'Заявка создана', actor: 'Анна Белова', createdAt: '10:12' }, { id: 'h2', event: 'Назначен исполнитель Иван Петров', actor: 'Диспетчер', createdAt: '10:20' }], comments: [{ id: 'c1', author: 'Иван Петров', message: 'Проверяю параметры подключения.', createdAt: '10:42', internal: false, attachments: [] }] },
-        { id: 'SR-1047', title: 'Выдать доступ к корпоративному диску', requester: 'Пользователь портала', team: 'Сервис-деск', priority: 'Средний', status: 'Открыта', createdAt: '10:19', slaRemaining: '03:42', type: 'Запрос на обслуживание', assignee: 'Иван Петров', requesterLogin: 'portal.user', reactionSla: '00:11 / 00:30', resolutionSla: '03:42 / 08:00', createdOn: '2026-10-10', history: [{ id: 'h3', event: 'Заявка создана', actor: 'Пользователь портала', createdAt: '10:19' }], comments: [] },
+        { id: 'SR-1047', title: 'Выдать доступ к корпоративному диску', requester: 'Пользователь портала', team: 'Сервис-деск', priority: 'Средний', status: 'Открыта', createdAt: '10:19', slaRemaining: '03:42', type: 'Запрос на обслуживание', assignee: 'Иван Петров', requesterLogin: 'demo-user', reactionSla: '00:11 / 00:30', resolutionSla: '03:42 / 08:00', createdOn: '2026-10-10', history: [{ id: 'h3', event: 'Заявка создана', actor: 'Пользователь портала', createdAt: '10:19' }], comments: [] },
         { id: 'INC-1046', title: 'Пропал доступ к принтеру на 3 этаже', requester: 'Елена Смирнова', team: 'Сервис-деск', priority: 'Средний', status: 'Ожидает выполнения', createdAt: '09:56', slaRemaining: '05:26', type: 'Инцидент', assignee: 'Сергей Волков', reactionSla: '00:15 / 00:30', resolutionSla: '05:26 / 08:00', createdOn: '2026-10-10', history: [], comments: [] },
         { id: 'SR-1045', title: 'Установка лицензии Figma', requester: 'Дмитрий Волков', team: 'ИТ-отдел', priority: 'Низкий', status: 'Проверка', createdAt: '09:41', slaRemaining: '07:10', type: 'Запрос на обслуживание', assignee: 'Иван Петров', reactionSla: '00:10 / 00:30', resolutionSla: '07:10 / 16:00', createdOn: '2026-10-09', history: [], comments: [] },
         { id: 'INC-1044', title: 'Медленная работа CRM', requester: 'Ольга Кузнецова', team: 'Приложения', priority: 'Высокий', status: 'В работе', createdAt: '09:12', slaRemaining: '00:34', type: 'Инцидент', assignee: 'Сергей Волков', reactionSla: '00:12 / 00:30', resolutionSla: '00:34 / 04:00', createdOn: '2026-10-09', history: [], comments: [] },
+        { id: 'INC-1039', title: 'Недоступен файловый сервер', requester: 'Елена Смирнова', team: 'Инфраструктура', priority: 'Высокий', status: 'В работе', createdAt: '08:45', slaRemaining: '00:52', type: 'Инцидент', assignee: 'Сергей Волков', reactionSla: '00:10 / 00:15', resolutionSla: '00:52 / 04:00', createdOn: '2026-10-09', history: [], comments: [] },
         { id: 'SR-1031', title: 'Подключение нового офиса', requester: 'Мария Соколова', team: 'Сетевая команда', priority: 'Средний', status: 'В работе', createdAt: 'Вчера', slaRemaining: '02:18', type: 'Инцидент', assignee: 'Иван Петров', reactionSla: '00:18 / 01:00', resolutionSla: '02:18 / 08:00', createdOn: '2026-10-08', history: [], comments: [] },
         { id: 'RPR-1008', title: 'Диагностика ноутбука', requester: 'Иван Петров', team: 'Сервис-деск', priority: 'Средний', status: 'В работе', createdAt: 'Вчера', slaRemaining: '04:20', type: 'Тикет на ремонт', assignee: 'Иван Петров', assetId: 'LT-00231', createdOn: '2026-10-09', history: [], comments: [] },
     ];
 
     private readonly assets: AssetDetails[] = [
-        { id: 'LT-00231', name: 'Ноутбук Lenovo ThinkPad', owner: 'Анна Белова', status: 'В эксплуатации', lifecycle: 'В эксплуатации', className: 'Ноутбук', type: 'Ноутбук', warehouse: 'Основной склад', location: 'Офис, этаж 3', department: 'Сервис-деск', attributes: { Производитель: 'Lenovo', Модель: 'ThinkPad T14' }, history: [{ id: 'ah1', event: 'Выдан со склада', actor: 'Иван Петров', createdAt: '2026-09-28 09:10', details: 'Основной склад → Анна Белова' }], movements: [], relatedTickets: [] },
-        { id: 'SRV-00084', name: 'Сервер приложений CRM', owner: 'ИТ-инфраструктура', status: 'В эксплуатации', lifecycle: 'В эксплуатации', className: 'Сервер', type: 'Сервер', warehouse: 'Основной склад', location: 'Серверная 1', department: 'ИТ-инфраструктура', attributes: { Производитель: 'Dell', Модель: 'PowerEdge R650' }, history: [], movements: [], relatedTickets: [] },
-        { id: 'MON-00142', name: 'Монитор Dell U2722D', owner: 'Анна Белова', status: 'В эксплуатации', lifecycle: 'В эксплуатации', className: 'Монитор', type: 'Монитор', warehouse: 'Основной склад', location: 'Офис, этаж 3', department: 'Дизайн', attributes: { Производитель: 'Dell', Модель: 'U2722D' }, history: [], movements: [], relatedTickets: [] },
-        { id: 'LIC-00097', name: 'Лицензия Figma Professional', owner: 'Дизайн-команда', status: 'Истекает через 14 дней', lifecycle: 'В эксплуатации', className: 'Лицензия', type: 'Лицензия', warehouse: '—', location: 'Облачная лицензия', department: 'Дизайн', attributes: { Поставщик: 'Figma' }, history: [], movements: [], relatedTickets: [] },
-        { id: 'LT-00244', name: 'Ноутбук для выдачи', owner: 'Склад', status: 'На складе', lifecycle: 'На складе', className: 'Ноутбук', type: 'Ноутбук', warehouse: 'Основной склад', location: 'Ячейка B-14', department: '—', attributes: { Производитель: 'Dell', Модель: 'Latitude 5440' }, history: [], movements: [], relatedTickets: [] },
+        { id: 'LT-00231', name: 'Ноутбук Lenovo ThinkPad', owner: 'Анна Белова', status: 'В эксплуатации', lifecycle: 'В эксплуатации', className: 'Ноутбук', type: 'Ноутбук', warehouse: 'Основной склад', location: 'Офис, этаж 3', department: 'Сервис-деск', attributes: { manufacturer: 'Lenovo', model: 'ThinkPad T14', serial_number: 'SN-LT-231' }, history: [{ id: 'ah1', event: 'Выдан со склада', actor: 'Иван Петров', createdAt: '2026-09-28 09:10', details: 'Основной склад → Анна Белова' }], movements: [], relatedTickets: [] },
+        { id: 'SRV-00084', name: 'Сервер приложений CRM', owner: 'ИТ-инфраструктура', status: 'В эксплуатации', lifecycle: 'В эксплуатации', className: 'Сервер', type: 'Сервер', warehouse: 'Основной склад', location: 'Серверная 1', department: 'ИТ-инфраструктура', attributes: { manufacturer: 'Dell', model: 'PowerEdge R650', rack: 'R1' }, history: [], movements: [], relatedTickets: [] },
+        { id: 'MON-00142', name: 'Монитор Dell U2722D', owner: 'Анна Белова', status: 'В эксплуатации', lifecycle: 'В эксплуатации', className: 'Монитор', type: 'Монитор', warehouse: 'Основной склад', location: 'Офис, этаж 3', department: 'Дизайн', attributes: { manufacturer: 'Dell', model: 'U2722D', diagonal: '27' }, history: [], movements: [], relatedTickets: [] },
+        { id: 'LIC-00097', name: 'Лицензия Figma Professional', owner: 'Дизайн-команда', status: 'Истекает через 14 дней', lifecycle: 'В эксплуатации', className: 'Лицензия', type: 'Лицензия', warehouse: '—', location: 'Облачная лицензия', department: 'Дизайн', attributes: { vendor: 'Figma', expiry_date: '2026-10-24' }, history: [], movements: [], relatedTickets: [] },
+        { id: 'LT-00244', name: 'Ноутбук для выдачи', owner: 'Склад', status: 'На складе', lifecycle: 'На складе', className: 'Ноутбук', type: 'Ноутбук', warehouse: 'Основной склад', location: 'Ячейка B-14', department: '—', attributes: { manufacturer: 'Dell', model: 'Latitude 5440', serial_number: 'SN-LT-244' }, history: [], movements: [], relatedTickets: [] },
     ];
 
-    private readonly categories: ServiceCategory[] = [
-        { id: 'access', title: 'Доступы и учетные записи', description: 'Создание, изменение и блокировка доступов', serviceCount: 8 },
-        { id: 'workplace', title: 'Рабочее место', description: 'Оборудование, ПО и подключение сотрудников', serviceCount: 12 },
-        { id: 'infrastructure', title: 'Инфраструктура', description: 'Сеть, VPN, серверы и хранилища', serviceCount: 6 },
-        { id: 'business-apps', title: 'Бизнес-приложения', description: 'CRM, ERP и корпоративные сервисы', serviceCount: 14 },
+    private readonly assetClasses: AssetClassOption[] = [
+        { id: 1, code: 'laptop', name: 'Ноутбук', active: true, attributes: [{ code: 'manufacturer', name: 'Производитель', dataType: 'string', required: true, options: [] }, { code: 'model', name: 'Модель', dataType: 'string', required: true, options: [] }, { code: 'serial_number', name: 'Серийный номер', dataType: 'string', required: false, options: [] }] },
+        { id: 2, code: 'server', name: 'Сервер', active: true, attributes: [{ code: 'manufacturer', name: 'Производитель', dataType: 'string', required: true, options: [] }, { code: 'model', name: 'Модель', dataType: 'string', required: true, options: [] }, { code: 'rack', name: 'Стойка', dataType: 'string', required: false, options: [] }] },
+        { id: 3, code: 'monitor', name: 'Монитор', active: true, attributes: [{ code: 'manufacturer', name: 'Производитель', dataType: 'string', required: true, options: [] }, { code: 'model', name: 'Модель', dataType: 'string', required: true, options: [] }, { code: 'diagonal', name: 'Диагональ, дюймы', dataType: 'number', required: false, options: [] }] },
+        { id: 4, code: 'license', name: 'Лицензия', active: true, attributes: [{ code: 'vendor', name: 'Поставщик', dataType: 'string', required: true, options: [] }, { code: 'expiry_date', name: 'Дата окончания', dataType: 'date', required: false, options: [] }] },
     ];
 
     private readonly escalations: Escalation[] = [
         { id: 'INC-1044', title: 'Медленная работа CRM', team: 'Приложения', priority: 'Высокий', slaRemaining: '00:34' },
-        { id: 'INC-1039', title: 'Недоступен файловый сервер', team: 'Инфраструктура', priority: 'Критический', slaRemaining: '00:52' },
+        { id: 'INC-1039', title: 'Недоступен файловый сервер', team: 'Инфраструктура', priority: 'Высокий', slaRemaining: '00:52' },
         { id: 'SR-1031', title: 'Подключение нового офиса', team: 'Сетевая команда', priority: 'Средний', slaRemaining: '02:18' },
     ];
 
@@ -71,7 +73,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     private readonly assetHistory = new Map<string, AssetHistoryEntry[]>();
     private readonly assetMovements = new Map<string, AssetMovement[]>();
     private readonly escalationHistory: EscalationHistoryEntry[] = [];
-    private readonly portalLogin = 'portal.user';
+    private readonly auth = inject(AuthService);
     private tenants: TenantRecord[] = [
         { id: 'tenant-nocode', name: 'Nocode', firstAdminLogin: 'admin.nocode', active: true },
         { id: 'tenant-demo', name: 'Демонстрационный тенант', firstAdminLogin: 'admin.demo', active: true },
@@ -83,6 +85,8 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         slaEnabled: true,
         slaMode: 'working-hours',
         workingHours: 'Пн–Пт, 09:00–18:00',
+        workingDays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт'],
+        holidays: [],
         criticalities: ['Низкий', 'Средний', 'Высокий'],
         statuses: [
             { name: 'Открыта', pausesSla: false, immutable: true },
@@ -92,6 +96,14 @@ export class MockWorkspaceApiService extends WorkspaceApi {
             { name: 'Закрыта', pausesSla: true, immutable: true },
             { name: 'Ожидание пользователя', pausesSla: true, immutable: false },
         ],
+        statusTransitions: {
+            'Открыта': ['Ожидает выполнения'],
+            'Ожидает выполнения': ['В работе'],
+            'В работе': ['Проверка'],
+            'Проверка': ['Закрыта', 'Ожидает выполнения'],
+            'Закрыта': [],
+            'Ожидание пользователя': [],
+        },
         portalSlaFields: ['Время реакции', 'Время решения'],
         portalAccounts: ['portal.user'],
         engineers: ['Иван Петров', 'Сергей Волков'],
@@ -146,7 +158,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
 
     getTickets(): Observable<Ticket[]> { return of([...this.tickets]); }
     getAssets(): Observable<AssetRecord[]> { return of(this.assets.map(({ history, movements, relatedTickets, ...asset }) => asset)); }
-    getServiceCategories(): Observable<ServiceCategory[]> { return of([...this.categories]); }
+    getAssetClasses(): Observable<AssetClassOption[]> { return of(this.assetClasses.filter(assetClass => assetClass.active).map(assetClass => ({ ...assetClass, attributes: assetClass.attributes.map(attribute => ({ ...attribute, options: [...attribute.options] })) }))); }
     getEscalations(): Observable<Escalation[]> { return of([...this.escalations]); }
 
     createTicket(request: CreateTicketRequest): Observable<Ticket> {
@@ -184,13 +196,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
 
     changeTicketStatus(ticketId: string, status: string): Observable<Ticket> {
         const ticket = this.findTicket(ticketId);
-        const transitions: Record<string, string[]> = {
-            'Открыта': ['Ожидает выполнения'],
-            'Ожидает выполнения': ['В работе'],
-            'В работе': ['Проверка'],
-            'Проверка': ['Закрыта', 'Ожидает выполнения'],
-        };
-        if (!transitions[ticket.status]?.includes(status)) return this.fail(`Недопустимый переход: ${ticket.status} → ${status}`);
+        if (!this.settings.statusTransitions[ticket.status]?.includes(status)) return this.fail(`Недопустимый переход: ${ticket.status} → ${status}`);
         ticket.status = status;
         if (status === 'Закрыта') ticket.closedOn = new Date().toISOString().slice(0, 10);
         this.recordTicketHistory(ticket, `Статус изменен: ${status}`, 'Инженер ТП');
@@ -231,12 +237,15 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         if (initiator !== 'Автор заявки' && !policy.allowManualByAgent) return this.fail('Ручная эскалация исполнителем отключена.');
         const previousPriority = ticket.priority;
         const current = this.settings.criticalities.indexOf(previousPriority);
+        if (current < 0) return this.fail(`Критичность «${previousPriority}» отсутствует в настроенной шкале.`);
         const nextPriority = this.settings.criticalities[Math.min(current + 1, this.settings.criticalities.length - 1)] ?? previousPriority;
         ticket.priority = nextPriority;
         ticket.status = 'В работе';
         const recipients = current >= this.settings.criticalities.length - 1 ? [policy.manager, 'Администратор'] : [policy.manager];
         const entry: EscalationHistoryEntry = { ticketId, initiator, createdAt: this.now(), previousPriority, newPriority: nextPriority, recipients };
         this.escalationHistory.unshift(entry);
+        const existingEscalation = this.escalations.findIndex(item => item.id === ticket.id);
+        if (existingEscalation >= 0) this.escalations.splice(existingEscalation, 1);
         this.escalations.unshift({ id: ticket.id, title: ticket.title, team: ticket.team, priority: ticket.priority, slaRemaining: ticket.slaRemaining });
         this.recordTicketHistory(ticket, `Эскалация: ${previousPriority} → ${nextPriority}; уведомлены ${recipients.join(', ')}`, initiator);
         return of(entry);
@@ -250,6 +259,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     updateAsset(assetId: string, changes: Partial<CreateAssetRequest>): Observable<AssetDetails> {
         const asset = this.findAsset(assetId);
         const oldValues = { name: asset.name, owner: asset.owner, location: asset.location, department: asset.department };
+        const oldAttributes = { ...(asset.attributes ?? {}) };
         if (changes.id && changes.id !== asset.id && this.assets.some(item => item.id === changes.id)) return this.fail('Идентификатор актива должен быть уникальным.');
         if (changes.id && !asset.id && !changes.warehouse?.trim()) return this.fail('При присвоении идентификатора обязательно указать склад.');
         Object.assign(asset, changes);
@@ -261,6 +271,9 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         for (const [key, value] of Object.entries(changes)) {
             const previous = oldValues[key as keyof typeof oldValues];
             if (previous !== undefined && previous !== value) this.addAssetHistory(asset, `Изменен атрибут «${key}»`, 'Инженер ТП', `${previous} → ${value}`);
+        }
+        for (const [code, value] of Object.entries(changes.attributes ?? {})) {
+            if (oldAttributes[code] !== value) this.addAssetHistory(asset, `Изменен атрибут «${code}»`, 'Инженер ТП', `${oldAttributes[code] ?? '—'} → ${value}`);
         }
         return of({ ...asset, history: [...asset.history], movements: [...asset.movements], relatedTickets: [...asset.relatedTickets] });
     }
@@ -361,14 +374,18 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     getEscalationPolicies(): Observable<EscalationPolicy[]> { return of(this.policies.map(policy => ({ ...policy }))); }
     saveEscalationPolicies(policies: EscalationPolicy[]): Observable<EscalationPolicy[]> { this.policies = policies.map(policy => ({ ...policy })); return of(this.policies); }
     getEscalationHistory(): Observable<EscalationHistoryEntry[]> { return of(this.escalationHistory.map(entry => ({ ...entry, recipients: [...entry.recipients] }))); }
-    getAdminSettings(): Observable<AdminSettings> { return of({ ...this.settings, criticalities: [...this.settings.criticalities], statuses: this.settings.statuses.map(status => ({ ...status })), portalSlaFields: [...this.settings.portalSlaFields], portalAccounts: [...(this.settings.portalAccounts ?? [])], engineers: [...(this.settings.engineers ?? [])], passwordPolicy: this.settings.passwordPolicy ? { ...this.settings.passwordPolicy } : undefined, reportAccessRoles: [...(this.settings.reportAccessRoles ?? [])] }); }
+    getAdminSettings(): Observable<AdminSettings> { return of({ ...this.settings, criticalities: [...this.settings.criticalities], statuses: this.settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(this.settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...this.settings.workingDays], holidays: [...this.settings.holidays], portalSlaFields: [...this.settings.portalSlaFields], portalAccounts: [...(this.settings.portalAccounts ?? [])], engineers: [...(this.settings.engineers ?? [])], passwordPolicy: this.settings.passwordPolicy ? { ...this.settings.passwordPolicy } : undefined, reportAccessRoles: [...(this.settings.reportAccessRoles ?? [])] }); }
 
     saveAdminSettings(settings: AdminSettings): Observable<AdminSettings> {
         if (settings.criticalities.length < 3 || settings.criticalities.length > 5) return this.fail('Шкала критичности должна содержать от 3 до 5 уровней.');
+        if (settings.slaMode === 'working-hours' && !settings.workingDays.length) return this.fail('Выберите хотя бы один рабочий день.');
         for (const required of ['Открыта', 'Ожидает выполнения', 'В работе', 'Проверка', 'Закрыта']) {
             if (!settings.statuses.some(status => status.name === required && status.immutable)) return this.fail(`Стандартный статус «${required}» нельзя удалить.`);
         }
-        this.settings = { ...settings, criticalities: [...settings.criticalities], statuses: settings.statuses.map(status => ({ ...status })), portalSlaFields: [...settings.portalSlaFields], portalAccounts: [...(settings.portalAccounts ?? [])], engineers: [...(settings.engineers ?? [])], passwordPolicy: settings.passwordPolicy ? { ...settings.passwordPolicy } : undefined, reportAccessRoles: [...(settings.reportAccessRoles ?? [])] };
+        if ((settings.statusTransitions['Закрыта'] ?? []).length) return this.fail('Из закрытого статуса нельзя повторно открыть заявку.');
+        const statusNames = new Set(settings.statuses.map(status => status.name));
+        if (Object.entries(settings.statusTransitions).some(([source, targets]) => !statusNames.has(source) || targets.some(target => !statusNames.has(target) || target === 'Открыта' || target === source))) return this.fail('Переходы должны ссылаться на существующие статусы и не открывать закрытые заявки заново.');
+        this.settings = { ...settings, criticalities: [...settings.criticalities], statuses: settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...settings.workingDays], holidays: [...settings.holidays], portalSlaFields: [...settings.portalSlaFields], portalAccounts: [...(settings.portalAccounts ?? [])], engineers: [...(settings.engineers ?? [])], passwordPolicy: settings.passwordPolicy ? { ...settings.passwordPolicy } : undefined, reportAccessRoles: [...(settings.reportAccessRoles ?? [])] };
         return this.getAdminSettings();
     }
 
@@ -387,12 +404,15 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         ]);
     }
 
-    getPortalTickets(): Observable<Ticket[]> { return of(this.tickets.filter(ticket => ticket.requesterLogin === this.portalLogin).map(ticket => ({ ...ticket }))); }
+    getPortalTickets(): Observable<Ticket[]> {
+        const login = this.auth.getLogin();
+        return of(this.tickets.filter(ticket => ticket.requesterLogin === login).map(ticket => ({ ...ticket })));
+    }
 
     createPortalTicket(request: PortalTicketRequest): Observable<Ticket> {
         const type = this.ticketTypes.find(item => item.name === request.type);
         if (!type?.portalAvailable || type.repair) return this.fail('Этот тип заявки недоступен на портале.');
-        const ticket = this.createTicket({ ...request, requesterLogin: this.portalLogin });
+        const ticket = this.createTicket({ ...request, requesterLogin: this.auth.getLogin() });
         const created = this.tickets[0];
         created.comments = [...(created.comments ?? []), ...(request.attachments?.length ? [{ id: this.id('comment'), author: request.requester, message: `${request.attachments.length} файл(а) приложено к заявке.`, createdAt: this.now(), internal: false, attachments: request.attachments.map(file => file.name) }] : [])];
         return ticket;
@@ -400,13 +420,13 @@ export class MockWorkspaceApiService extends WorkspaceApi {
 
     addPortalComment(ticketId: string, message: string, attachments: File[]): Observable<TicketComment> {
         const ticket = this.findTicket(ticketId);
-        if (ticket.requesterLogin !== this.portalLogin) return this.fail('Доступны только собственные заявки.');
+        if (ticket.requesterLogin !== this.auth.getLogin()) return this.fail('Доступны только собственные заявки.');
         return this.addTicketComment(ticketId, { author: ticket.requester, message, internal: false, attachments: attachments.map(file => file.name) });
     }
 
     reviewPortalTicket(ticketId: string, accepted: boolean): Observable<Ticket> {
         const ticket = this.findTicket(ticketId);
-        if (ticket.requesterLogin !== this.portalLogin) return this.fail('Доступны только собственные заявки.');
+        if (ticket.requesterLogin !== this.auth.getLogin()) return this.fail('Доступны только собственные заявки.');
         if (ticket.status !== 'Проверка') return this.fail('Заявку можно проверить только в статусе «Проверка».');
         return this.changeTicketStatus(ticketId, accepted ? 'Закрыта' : 'Ожидает выполнения');
     }

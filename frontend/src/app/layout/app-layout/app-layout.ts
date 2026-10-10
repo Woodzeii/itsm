@@ -32,10 +32,6 @@ import { AuthService } from '../../core/auth/auth.service';
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8.5 4.5v9L12 21l-8.5-4.5v-9L12 3Z"/><path d="m3.8 7.7 8.2 4.5 8.2-4.5M12 12.2V21"/></svg>
             <span>Активы</span>
           </a>
-          <a routerLink="/service-catalog" routerLinkActive="active">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8m-8 4h8m-8 4h5"/></svg>
-            <span>Каталог услуг</span>
-          </a>
           <a routerLink="/escalations" routerLinkActive="active">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 20H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg>
             <span>Эскалации</span>
@@ -59,6 +55,8 @@ import { AuthService } from '../../core/auth/auth.service';
           }
           </nav>
         </div>
+        } @else if (isTenantAdmin) {
+          <nav class="nav"><a routerLink="/admin/tenants" routerLinkActive="active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18M5 20V7l7-4 7 4v13M9 20v-5h6v5M9 9h.01M15 9h.01"/></svg><span>Тенанты</span></a></nav>
         } @else {
           <nav class="nav"><a routerLink="/portal" routerLinkActive="active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v13H4zM8 9h8m-8 4h5"/></svg><span>Мои заявки</span></a></nav>
         }
@@ -306,6 +304,7 @@ import { AuthService } from '../../core/auth/auth.service';
 export class AppLayoutComponent implements OnInit {
     isAdmin = false;
     isAdminOrAgent = false;
+    isTenantAdmin = false;
     userInitial = 'П';
     userTitle = 'Пользователь';
     userRole = 'Пользователь';
@@ -315,6 +314,7 @@ export class AppLayoutComponent implements OnInit {
     ngOnInit(): void {
         this.isAdmin = this.authService.isAdmin();
         this.isAdminOrAgent = this.authService.canRead();
+        this.isTenantAdmin = this.authService.isTenantAdmin();
         const roleLabels = {
           admin: 'Администратор',
           agent: 'Инженер поддержки',

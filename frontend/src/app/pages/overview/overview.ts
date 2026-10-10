@@ -39,7 +39,6 @@ import { OverviewData } from '../../core/workspace/workspace.models';
             <header class="panel-header"><div><h2>Быстрый переход</h2><p>Рабочие разделы</p></div></header>
             <a routerLink="/tickets"><span>Заявки</span><b>→</b></a>
             <a routerLink="/assets"><span>Реестр активов</span><b>→</b></a>
-            <a routerLink="/service-catalog"><span>Каталог услуг</span><b>→</b></a>
             <a routerLink="/escalations"><span>Эскалации</span><b>{{ overview.activeEscalations }}</b></a>
           </section>
         </div>

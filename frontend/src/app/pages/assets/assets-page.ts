@@ -3,7 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { AssetDetails, AssetLifecycle, AssetMovement, AssetRecord } from '../../core/workspace/workspace.models';
+import { AssetClassAttributeOption, AssetClassOption, AssetDetails, AssetMovement, AssetRecord } from '../../core/workspace/workspace.models';
 
 type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
 
@@ -22,7 +22,19 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
           <h2>Карточка нового актива</h2>
           <label>Наименование *<input name="name" [(ngModel)]="draft.name" required /></label>
           <label>Идентификатор<input name="id" [(ngModel)]="draft.id" placeholder="Можно добавить позже" /></label>
-          <label>Класс *<select name="className" [(ngModel)]="draft.className" required><option value="Ноутбук">Ноутбук</option><option value="Сервер">Сервер</option><option value="Монитор">Монитор</option><option value="Лицензия">Лицензия</option></select></label>
+          <label>Класс *<select name="className" [(ngModel)]="draft.className" (ngModelChange)="onCreateClassChange($event)" required>@for (assetClass of activeAssetClasses; track assetClass.id) { <option [value]="assetClass.name">{{ assetClass.name }}</option> }</select></label>
+          @for (attribute of createAttributes; track attribute.code) {
+            <label>{{ attribute.name }}@if (attribute.required) { <span>*</span> }
+              @switch (attribute.dataType) {
+                @case ('text') { <textarea [name]="'new-' + attribute.code" [(ngModel)]="draftAttributes[attribute.code]" [required]="attribute.required"></textarea> }
+                @case ('number') { <input type="number" [name]="'new-' + attribute.code" [(ngModel)]="draftAttributes[attribute.code]" [required]="attribute.required" /> }
+                @case ('date') { <input type="date" [name]="'new-' + attribute.code" [(ngModel)]="draftAttributes[attribute.code]" [required]="attribute.required" /> }
+                @case ('bool') { <input type="checkbox" [name]="'new-' + attribute.code" [(ngModel)]="draftAttributes[attribute.code]" [required]="attribute.required" /> }
+                @case ('dictionary') { <select [name]="'new-' + attribute.code" [(ngModel)]="draftAttributes[attribute.code]" [required]="attribute.required"><option value="">Выберите значение</option>@for (option of attribute.options; track option) { <option [value]="option">{{ option }}</option> }</select> }
+                @default { <input type="text" [name]="'new-' + attribute.code" [(ngModel)]="draftAttributes[attribute.code]" [required]="attribute.required" /> }
+              }
+            </label>
+          }
           <label>Склад <input name="warehouse" [(ngModel)]="draft.warehouse" [required]="!!draft.id" /></label>
           <label>Ответственный<input name="owner" [(ngModel)]="draft.owner" /></label>
           <label>Место<input name="location" [(ngModel)]="draft.location" /></label>
@@ -65,7 +77,18 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
                 <label>Место<input name="location" [(ngModel)]="edit.location" /></label>
                 <label>Подразделение<input name="department" [(ngModel)]="edit.department" /></label>
                 @if (!selected.id) { <label>Склад для присвоения ID<input name="warehouse" [(ngModel)]="edit.warehouse" [required]="!!edit.id" /></label> }
-                @for (attribute of attributeEntries; track attribute.key) { <label>{{ attribute.key }}<input [value]="attribute.value" disabled /></label> }
+                @for (attribute of selectedAttributes; track attribute.code) {
+                  <label>{{ attribute.name }}@if (attribute.required) { <span>*</span> }
+                    @switch (attribute.dataType) {
+                      @case ('text') { <textarea [name]="'edit-' + attribute.code" [(ngModel)]="edit.attributes[attribute.code]" [required]="attribute.required"></textarea> }
+                      @case ('number') { <input type="number" [name]="'edit-' + attribute.code" [(ngModel)]="edit.attributes[attribute.code]" [required]="attribute.required" /> }
+                      @case ('date') { <input type="date" [name]="'edit-' + attribute.code" [(ngModel)]="edit.attributes[attribute.code]" [required]="attribute.required" /> }
+                      @case ('bool') { <input type="checkbox" [name]="'edit-' + attribute.code" [(ngModel)]="edit.attributes[attribute.code]" [required]="attribute.required" /> }
+                      @case ('dictionary') { <select [name]="'edit-' + attribute.code" [(ngModel)]="edit.attributes[attribute.code]" [required]="attribute.required"><option value="">Выберите значение</option>@for (option of attribute.options; track option) { <option [value]="option">{{ option }}</option> }</select> }
+                      @default { <input type="text" [name]="'edit-' + attribute.code" [(ngModel)]="edit.attributes[attribute.code]" [required]="attribute.required" /> }
+                    }
+                  </label>
+                }
                 <div class="card-actions"><button class="primary" type="submit" [disabled]="!!edit.id && !edit.warehouse.trim()">Сохранить карточку</button>
                   @if (isEngineer && selected.lifecycle === 'Закуплен') { <button class="danger" type="button" (click)="deleteAsset()">Удалить закупленный актив</button> }
                 </div>
@@ -79,9 +102,17 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
             }
 
             @if (tab === 'tickets') {
+              <div class="history-filters">
+                <label>Тип<select name="ticketTypeFilter" [(ngModel)]="ticketTypeFilter"><option value="">Все типы</option>@for (type of relatedTicketTypes; track type) { <option [value]="type">{{ type }}</option> }</select></label>
+                <label>Статус<select name="ticketStatusFilter" [(ngModel)]="ticketStatusFilter"><option value="">Все статусы</option>@for (status of relatedTicketStatuses; track status) { <option [value]="status">{{ status }}</option> }</select></label>
+                <label>Критичность<select name="ticketPriorityFilter" [(ngModel)]="ticketPriorityFilter"><option value="">Любая</option>@for (priority of relatedTicketPriorities; track priority) { <option [value]="priority">{{ priority }}</option> }</select></label>
+                <label>Исполнитель<select name="ticketAssigneeFilter" [(ngModel)]="ticketAssigneeFilter"><option value="">Все исполнители</option>@for (assignee of relatedTicketAssignees; track assignee) { <option [value]="assignee">{{ assignee }}</option> }</select></label>
+                <label>Создана с<input type="date" name="createdFrom" [(ngModel)]="createdFrom" /></label>
+                <label>Создана по<input type="date" name="createdTo" [(ngModel)]="createdTo" /></label>
+              </div>
               <div class="table-scroll"><table><thead><tr><th>Номер</th><th>Тип</th><th>Тема</th><th>Автор</th><th>Исполнитель</th><th>Статус</th><th>Критичность</th><th>Создана</th><th>Закрыта</th></tr></thead><tbody>
-                @for (ticket of selected.relatedTickets; track ticket.id) { <tr><td>{{ ticket.id }}</td><td>{{ ticket.type }}</td><td>{{ ticket.title }}</td><td>{{ ticket.requester }}</td><td>{{ ticket.assignee }}</td><td>{{ ticket.status }}</td><td>{{ ticket.priority }}</td><td>{{ ticket.createdOn }}</td><td>{{ ticket.closedOn || '—' }}</td></tr> }
-                @if (!selected.relatedTickets.length) { <tr><td colspan="9" class="empty">Связанных заявок пока нет</td></tr> }
+                @for (ticket of filteredRelatedTickets; track ticket.id) { <tr><td>{{ ticket.id }}</td><td>{{ ticket.type }}</td><td>{{ ticket.title }}</td><td>{{ ticket.requester }}</td><td>{{ ticket.assignee }}</td><td>{{ ticket.status }}</td><td>{{ ticket.priority }}</td><td>{{ ticket.createdOn }}</td><td>{{ ticket.closedOn || '—' }}</td></tr> }
+                @if (!filteredRelatedTickets.length) { <tr><td colspan="9" class="empty">Заявок по заданным фильтрам нет</td></tr> }
               </tbody></table></div>
             }
 
@@ -149,6 +180,7 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
     .timeline strong,.movement-list strong { color:#394352; font-size:11px; } .timeline p { margin:5px 0; color:#667180; font-size:10px; }
     .timeline small,.movement-list small { color:#959eaa; font-size:9px; }
     .table-scroll { overflow:auto; } table { width:100%; min-width:850px; border-collapse:collapse; text-align:left; }
+    .history-filters { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:9px; margin-bottom:12px; }
     th,td { padding:9px 8px; border-bottom:1px solid #eef1f4; font-size:9px; white-space:nowrap; } th { color:#8c96a4; text-transform:uppercase; }
     td { color:#576272; } .movement-form { display:grid; grid-template-columns:1.1fr 1fr 1fr auto; align-items:end; gap:9px; padding:12px; border-radius:6px; background:#f7f9fc; }
     .repair-form { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:end; gap:9px; margin-top:12px; padding:12px; border:1px solid #e1e7ef; border-radius:6px; }
@@ -162,7 +194,7 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
     .form-actions { display:flex; gap:8px; }
     .message { padding:10px 12px; border-radius:5px; font-size:11px; } .error { color:#a93232; background:#fff0f0; } .success { color:#176f52; background:#edf8f2; }
     @media(max-width:1020px) { .asset-layout { grid-template-columns:1fr; } .asset-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); max-height:none; } }
-    @media(max-width:680px) { .page { padding:20px 13px 28px; } .heading { align-items:flex-start; flex-direction:column; } .asset-list { grid-template-columns:1fr; } .detail { padding:13px; } .card-form,.create { grid-template-columns:1fr; } .create h2,.form-note,.form-actions { grid-column:auto; } .movement-form,.repair-form,.close-repair { grid-template-columns:1fr; } .close-repair label:nth-of-type(2) { grid-column:auto; } .movement-list article { grid-template-columns:1fr; gap:4px; } .card-actions { flex-wrap:wrap; } }
+    @media(max-width:680px) { .page { padding:20px 13px 28px; } .heading { align-items:flex-start; flex-direction:column; } .asset-list { grid-template-columns:1fr; } .detail { padding:13px; } .card-form,.create,.history-filters { grid-template-columns:1fr; } .create h2,.form-note,.form-actions { grid-column:auto; } .movement-form,.repair-form,.close-repair { grid-template-columns:1fr; } .close-repair label:nth-of-type(2) { grid-column:auto; } .movement-list article { grid-template-columns:1fr; gap:4px; } .card-actions { flex-wrap:wrap; } }
   `],
 })
 export class AssetsPageComponent implements OnInit {
@@ -170,6 +202,7 @@ export class AssetsPageComponent implements OnInit {
     private readonly auth = inject(AuthService);
 
     assets: AssetRecord[] = [];
+    assetClasses: AssetClassOption[] = [];
     selected: AssetDetails | null = null;
     query = '';
     tab: AssetTab = 'card';
@@ -180,34 +213,61 @@ export class AssetsPageComponent implements OnInit {
     repairTitle = '';
     workDescription = '';
     repairResult: 'В эксплуатацию' | 'На склад' | 'Списать' = 'В эксплуатацию';
-    draft = { id: '', name: '', type: 'Ноутбук', className: 'Ноутбук', owner: '', warehouse: '', location: '', department: '' };
-    edit = { id: '', name: '', owner: '', location: '', department: '', warehouse: '' };
+    draft = { id: '', name: '', type: '', className: '', owner: '', warehouse: '', location: '', department: '' };
+    draftAttributes: Record<string, string | number | boolean> = {};
+    edit = { id: '', name: '', owner: '', location: '', department: '', warehouse: '', attributes: {} as Record<string, string | number | boolean> };
     movement = { kind: 'Передача сотруднику', from: '', to: '' };
+    ticketTypeFilter = '';
+    ticketStatusFilter = '';
+    ticketPriorityFilter = '';
+    ticketAssigneeFilter = '';
+    createdFrom = '';
+    createdTo = '';
 
     get filteredAssets(): AssetRecord[] {
         const query = this.query.toLocaleLowerCase();
         return this.assets.filter(asset => `${asset.id} ${asset.name} ${asset.owner} ${asset.className} ${asset.lifecycle}`.toLocaleLowerCase().includes(query));
     }
-    get attributeEntries(): { key: string; value: string }[] { return Object.entries(this.selected?.attributes ?? {}).map(([key, value]) => ({ key, value })); }
+    get activeAssetClasses(): AssetClassOption[] { return this.assetClasses.filter(assetClass => assetClass.active); }
+    get createAttributes(): AssetClassAttributeOption[] { return this.activeAssetClasses.find(assetClass => assetClass.name === this.draft.className)?.attributes ?? []; }
+    get selectedAttributes(): AssetClassAttributeOption[] { return this.assetClasses.find(assetClass => assetClass.name === this.selected?.className)?.attributes ?? []; }
+    get relatedTicketTypes(): string[] { return [...new Set((this.selected?.relatedTickets ?? []).map(ticket => ticket.type).filter((value): value is string => !!value))]; }
+    get relatedTicketStatuses(): string[] { return [...new Set((this.selected?.relatedTickets ?? []).map(ticket => ticket.status))]; }
+    get relatedTicketPriorities(): string[] { return [...new Set((this.selected?.relatedTickets ?? []).map(ticket => ticket.priority))]; }
+    get relatedTicketAssignees(): string[] { return [...new Set((this.selected?.relatedTickets ?? []).map(ticket => ticket.assignee).filter((value): value is string => !!value))]; }
+    get filteredRelatedTickets() {
+      return (this.selected?.relatedTickets ?? []).filter(ticket => {
+        const created = ticket.createdOn ?? '';
+        return (!this.ticketTypeFilter || ticket.type === this.ticketTypeFilter)
+          && (!this.ticketStatusFilter || ticket.status === this.ticketStatusFilter)
+          && (!this.ticketPriorityFilter || ticket.priority === this.ticketPriorityFilter)
+          && (!this.ticketAssigneeFilter || ticket.assignee === this.ticketAssigneeFilter)
+          && (!this.createdFrom || created >= this.createdFrom)
+          && (!this.createdTo || created <= this.createdTo);
+      });
+    }
     get activeRepairTicket() { return this.selected?.relatedTickets.find(ticket => ticket.type === 'Тикет на ремонт' && ticket.status !== 'Закрыта'); }
 
     ngOnInit(): void {
         this.isEngineer = this.auth.canRead();
+        this.workspace.getAssetClasses().subscribe({ next: classes => { this.assetClasses = classes; if (!this.draft.className && classes.length) this.onCreateClassChange(classes[0].name); }, error: err => this.error = `Не удалось загрузить классы активов: ${err.message}` });
         this.loadAssets();
     }
 
     select(asset: AssetRecord): void {
         this.tab = 'card';
       this.workspace.getAssetDetails(asset.recordId || asset.id).subscribe({
-            next: details => { this.selected = details; this.edit = { id: details.id, name: details.name, owner: details.owner, location: details.location ?? '', department: details.department ?? '', warehouse: details.warehouse ?? '' }; this.movement = { kind: 'Передача сотруднику', from: details.owner, to: '' }; },
+            next: details => { this.selected = details; this.edit = { id: details.id, name: details.name, owner: details.owner, location: details.location ?? '', department: details.department ?? '', warehouse: details.warehouse ?? '', attributes: { ...(details.attributes ?? {}) } }; this.movement = { kind: 'Передача сотруднику', from: details.owner, to: '' }; },
             error: err => this.error = err.message,
         });
     }
 
     createAsset(): void {
-        const request = { ...this.draft, id: this.draft.id.trim() || undefined, attributes: {} };
+      const missing = this.createAttributes.find(attribute => attribute.required && !String(this.draftAttributes[attribute.code] ?? '').trim());
+      if (missing) { this.error = `Заполните обязательный атрибут «${missing.name}».`; return; }
+      const request = { ...this.draft, id: this.draft.id.trim() || undefined, attributes: this.stringifyAttributes(this.draftAttributes) };
         this.workspace.createAsset(request).subscribe({
-            next: asset => { this.notice = `Создан актив: ${asset.id || asset.name} · ${asset.lifecycle}.`; this.showCreate = false; this.draft = { id: '', name: '', type: 'Ноутбук', className: 'Ноутбук', owner: '', warehouse: '', location: '', department: '' }; this.loadAssets(asset.recordId || asset.id || undefined); },
+        next: asset => { this.notice = `Создан актив: ${asset.id || asset.name} · ${asset.lifecycle}.`; this.showCreate = false; this.draft = { id: '', name: '', type: '', className: '', owner: '', warehouse: '', location: '', department: '' }; this.draftAttributes = {}; if (this.activeAssetClasses.length) this.onCreateClassChange(this.activeAssetClasses[0].name); this.loadAssets(asset.recordId || asset.id || undefined); },
             error: err => this.error = err.message,
         });
     }
@@ -215,7 +275,9 @@ export class AssetsPageComponent implements OnInit {
     saveAsset(): void {
         if (!this.selected) return;
         const key = this.selected.recordId || this.selected.id;
-        const changes = { ...this.edit, id: this.edit.id.trim() || undefined };
+        const missing = this.selectedAttributes.find(attribute => attribute.required && !String(this.edit.attributes[attribute.code] ?? '').trim());
+        if (missing) { this.error = `Заполните обязательный атрибут «${missing.name}».`; return; }
+        const changes = { ...this.edit, id: this.edit.id.trim() || undefined, attributes: this.stringifyAttributes(this.edit.attributes) };
         this.workspace.updateAsset(key, changes).subscribe({ next: asset => { this.selected = asset; this.notice = 'Карточка сохранена, изменение записано в историю.'; this.loadAssets(key); }, error: err => this.error = err.message });
     }
 
@@ -239,6 +301,17 @@ export class AssetsPageComponent implements OnInit {
     deleteAsset(): void {
         if (!this.selected || !confirm('Удалить актив на этапе «Закуплен»?')) return;
         this.workspace.deleteAsset(this.selected.recordId || this.selected.id).subscribe({ next: () => { this.selected = null; this.notice = 'Закупленный актив удален.'; this.loadAssets(); }, error: err => this.error = err.message });
+    }
+
+    onCreateClassChange(className: string): void {
+      this.draft.className = className;
+      this.draft.type = className;
+      const selectedClass = this.activeAssetClasses.find(assetClass => assetClass.name === className);
+      this.draftAttributes = Object.fromEntries((selectedClass?.attributes ?? []).filter(attribute => attribute.defaultValue !== undefined).map(attribute => [attribute.code, attribute.defaultValue!]));
+    }
+
+    private stringifyAttributes(attributes: Record<string, string | number | boolean>): Record<string, string> {
+      return Object.fromEntries(Object.entries(attributes).map(([code, value]) => [code, String(value)]));
     }
 
     private loadAssets(selectId?: string): void {

@@ -1,10 +1,12 @@
 import { Injectable, inject } from '@angular/core';
+import { forkJoin, map, of, switchMap } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { WorkspaceApi } from './workspace-api';
 import { environment } from '../../../environments/environment';
 import {
     AdminSettings,
     AssetDetails,
+    AssetClassOption,
     AssetMovementRequest,
     AssetRecord,
     CreateAssetRequest,
@@ -19,7 +21,6 @@ import {
     PortalTicketRequest,
     RepairCloseRequest,
     ReportSummary,
-    ServiceCategory,
     TicketComment,
     TicketFormDefinition,
     Ticket,
@@ -35,7 +36,30 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     getOverview() { return this.http.get<OverviewData>(`${this.baseUrl}/workspace/overview`); }
     getTickets() { return this.http.get<Ticket[]>(`${this.baseUrl}/tickets`); }
     getAssets() { return this.http.get<AssetRecord[]>(`${this.baseUrl}/assets`); }
-    getServiceCategories() { return this.http.get<ServiceCategory[]>(`${this.baseUrl}/service-catalog`); }
+    getAssetClasses() {
+        return this.http.get<{ id: number; code: string; name: string; isActive: boolean }[]>(`${this.baseUrl}/asset-classes`).pipe(
+            switchMap(classes => {
+                if (!classes.length) return of([] as AssetClassOption[]);
+                const requests = classes.map(assetClass => this.http
+                    .get<{ code: string; name: string; dataType: string; isRequired: boolean; defaultValue: string | null; options: string | null }[]>(`${this.baseUrl}/asset-classes/${assetClass.id}/attributes`)
+                    .pipe(map(attributes => ({
+                        id: assetClass.id,
+                        code: assetClass.code,
+                        name: assetClass.name,
+                        active: assetClass.isActive,
+                        attributes: attributes.map(attribute => ({
+                            code: attribute.code,
+                            name: attribute.name,
+                            dataType: attribute.dataType,
+                            required: attribute.isRequired,
+                            defaultValue: attribute.defaultValue ?? undefined,
+                            options: parseOptions(attribute.options),
+                        })),
+                    } satisfies AssetClassOption))));
+                return forkJoin(requests);
+            }),
+        );
+    }
     getEscalations() { return this.http.get<Escalation[]>(`${this.baseUrl}/escalations`); }
     createTicket(request: CreateTicketRequest) { return this.http.post<Ticket>(`${this.baseUrl}/tickets`, request); }
     getTicketTypes() { return this.http.get<TicketType[]>(`${this.baseUrl}/ticket-types`); }
@@ -79,4 +103,15 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     createTenant(request: CreateTenantRequest) { return this.http.post<TenantRecord>(`${this.baseUrl}/tenants`, request); }
     setTenantActive(tenantId: string, active: boolean) { return this.http.patch<TenantRecord>(`${this.baseUrl}/tenants/${tenantId}/status`, { active }); }
     deleteTenant(tenantId: string) { return this.http.delete<void>(`${this.baseUrl}/tenants/${tenantId}`); }
+}
+
+function parseOptions(value: string | null): string[] {
+    if (!value) return [];
+    try {
+        const parsed: unknown = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed.map(String);
+    } catch {
+        return value.split(',').map(option => option.trim()).filter(Boolean);
+    }
+    return [];
 }

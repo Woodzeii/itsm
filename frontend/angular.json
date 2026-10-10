@@ -34,6 +34,10 @@
                 {
                   "replace": "src/environments/environment.ts",
                   "with": "src/environments/environment.production.ts"
+                },
+                {
+                  "replace": "src/app/core/workspace/workspace-api.provider.ts",
+                  "with": "src/app/core/workspace/workspace-api.provider.production.ts"
                 }
               ],
               "budgets": [

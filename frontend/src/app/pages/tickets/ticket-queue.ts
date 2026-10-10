@@ -39,7 +39,7 @@ import { AdminSettings, Ticket } from '../../core/workspace/workspace.models';
             <div class="ticket-facts"><div><small>Автор</small><strong>{{ selected.requester }}</strong></div><div><small>Исполнитель</small><strong>{{ selected.assignee || 'Не назначен' }}</strong></div><div><small>Критичность</small><strong>{{ selected.priority }}</strong></div><div><small>Статус</small><strong>{{ selected.status }}</strong></div><div><small>Реакция</small><strong>{{ selected.reactionSla || '—' }}</strong></div><div><small>Решение</small><strong>{{ selected.resolutionSla || selected.slaRemaining }}</strong></div></div>
             @if (settings?.assignmentMode === 'manual') { <div class="assignment"><label>Исполнитель<select name="assignee" [(ngModel)]="assigneeDraft"><option value="">Выбрать инженера</option>@for (engineer of settings?.engineers ?? []; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label><button class="secondary" type="button" [disabled]="!assigneeDraft" (click)="assign()">Назначить</button></div> }
             @if (isEngineer && selected.status !== 'Закрыта') { <div class="priority-edit"><label>Критичность<select name="priority" [(ngModel)]="priorityDraft">@for (priority of settings?.criticalities ?? []; track priority) { <option [value]="priority">{{ priority }}</option> }</select></label><button class="secondary" type="button" [disabled]="priorityDraft === selected.priority" (click)="changePriority()">Изменить</button></div> }
-            @if (nextStatus) { <button class="primary transition" type="button" (click)="changeStatus()">Перевести в «{{ nextStatus }}»</button> }
+            @for (nextStatus of nextStatuses; track nextStatus) { <button class="primary transition" type="button" (click)="changeStatus(nextStatus)">Перевести в «{{ nextStatus }}»</button> }
             @if (isEngineer && selected.status !== 'Закрыта') { <button class="outline escalation-action" type="button" (click)="escalate()">Повысить критичность и эскалировать</button> }
             @if (selected.type === 'Тикет на ремонт' && selected.status !== 'Закрыта') {
               <form class="repair-close" (ngSubmit)="closeRepair()"><label>Результат ремонта<select name="result" [(ngModel)]="repairResult"><option value="В эксплуатацию">Вернуть в эксплуатацию</option><option value="На склад">Перевести на склад</option><option value="Списать">Списать</option></select></label><label>Что ремонтировалось и что менялось<textarea name="work" [(ngModel)]="repairDescription" required></textarea></label><button class="primary" type="submit" [disabled]="!repairDescription.trim()">Закрыть ремонт</button></form>
@@ -130,10 +130,7 @@ export class TicketQueueComponent implements OnInit {
         const query = this.query.toLocaleLowerCase();
         return this.tickets.filter(ticket => (!this.typeFilter || ticket.type === this.typeFilter) && (!this.assigneeFilter || ticket.assignee === this.assigneeFilter) && (!this.statusFilter || ticket.status === this.statusFilter) && (!this.priorityFilter || ticket.priority === this.priorityFilter) && `${ticket.id} ${ticket.title} ${ticket.requester}`.toLocaleLowerCase().includes(query));
     }
-    get nextStatus(): string | null {
-        if (!this.selected) return null;
-        return ({ 'Открыта': 'Ожидает выполнения', 'Ожидает выполнения': 'В работе', 'В работе': 'Проверка' } as Record<string, string>)[this.selected.status] ?? null;
-    }
+    get nextStatuses(): string[] { return this.selected ? this.settings?.statusTransitions[this.selected.status] ?? [] : []; }
     get visibleComments() { return (this.selected?.comments ?? []).filter(comment => !comment.internal || this.isEngineer); }
 
     ngOnInit(): void {
@@ -152,9 +149,9 @@ export class TicketQueueComponent implements OnInit {
       if (!this.selected || !this.priorityDraft) return;
       this.workspace.changeTicketPriority(this.selected.id, this.priorityDraft).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Критичность изменена на «${ticket.priority}».`; }, error: err => this.error = err.message });
     }
-    changeStatus(): void {
-        if (!this.selected || !this.nextStatus) return;
-        this.workspace.changeTicketStatus(this.selected.id, this.nextStatus).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Статус изменен на «${ticket.status}».`; }, error: err => this.error = err.message });
+    changeStatus(status: string): void {
+      if (!this.selected || !this.nextStatuses.includes(status)) return;
+      this.workspace.changeTicketStatus(this.selected.id, status).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Статус изменен на «${ticket.status}».`; }, error: err => this.error = err.message });
     }
     addComment(): void {
         if (!this.selected) return;

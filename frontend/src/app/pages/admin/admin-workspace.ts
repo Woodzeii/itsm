@@ -25,7 +25,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
             <label>Руководитель (инженер ТП)<select name="manager" [(ngModel)]="settings.manager">@for (engineer of settings.engineers ?? []; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label>
             <label>Поставка<select name="tenantMode" [(ngModel)]="settings.tenantMode"><option value="on-premise">On-premise</option><option value="saas">SaaS с изоляцией тенантов</option></select></label>
             <label>Учёт SLA<select name="slaMode" [(ngModel)]="settings.slaMode"><option value="24/7">Круглосуточно</option><option value="working-hours">По рабочему графику</option></select></label>
-            @if (settings.slaMode === 'working-hours') { <label>Рабочий график<input name="workingHours" [(ngModel)]="settings.workingHours" /></label> }
+            @if (settings.slaMode === 'working-hours') { <label>Рабочий график<input name="workingHours" [(ngModel)]="settings.workingHours" /></label><div class="calendar-settings"><strong>Рабочие дни</strong><div class="day-list">@for (day of weekDays; track day) { <label class="check"><input type="checkbox" [name]="'workday-' + day" [checked]="settings.workingDays.includes(day)" (change)="toggleWorkingDay(day,$event)" /> {{ day }}</label> }</div><strong>Праздничные исключения</strong><div class="inline"><input type="date" name="newHoliday" [(ngModel)]="newHoliday" /><button class="quiet" type="button" [disabled]="!newHoliday" (click)="addHoliday()">Добавить дату</button></div><div class="holiday-list">@for (holiday of settings.holidays; track holiday) { <span>{{ holiday }}<button type="button" [attr.aria-label]="'Убрать праздник ' + holiday" (click)="removeHoliday(holiday)">×</button></span> }</div></div> }
             <label class="check"><input type="checkbox" name="slaEnabled" [(ngModel)]="settings.slaEnabled" /> SLA включён в системе</label>
             <label class="check"><input type="checkbox" name="reportAdmin" [checked]="settings.reportAccessRoles?.includes('admin')" (change)="toggleReportRole('admin',$event)" /> Отчёты доступны администратору</label>
             <label class="check"><input type="checkbox" name="reportManager" [checked]="settings.reportAccessRoles?.includes('manager')" (change)="toggleReportRole('manager',$event)" /> Отчёты доступны руководителю</label>
@@ -39,6 +39,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
           <section class="panel"><header><h2>Статусы и SLA</h2><p>Стандартные статусы обязательны; дополнительные статусы могут приостанавливать SLA</p></header>
             <div class="status-list">@for (status of settings.statuses; track $index; let index = $index) { <div class="status-row"><input [name]="'status-' + index" [(ngModel)]="status.name" [disabled]="status.immutable" /><label class="check"><input type="checkbox" [name]="'pause-' + index" [(ngModel)]="status.pausesSla" /> Приостанавливает SLA</label>@if (!status.immutable) { <button class="icon-action" type="button" aria-label="Удалить статус" (click)="removeStatus(index)">×</button> }</div> }</div>
             <div class="inline add-row"><input name="newStatus" [(ngModel)]="newStatus" placeholder="Дополнительный статус" /><button class="quiet" type="button" [disabled]="!newStatus.trim()" (click)="addStatus()">Добавить статус</button></div>
+            <div class="transition-matrix"><h3>Допустимые переходы</h3>@for (source of settings.statuses; track source.name) { <div class="transition-row"><strong>{{ source.name }}</strong><div>@for (target of settings.statuses; track target.name) { <label class="check"><input type="checkbox" [name]="'transition-' + source.name + '-' + target.name" [checked]="settings.statusTransitions[source.name]?.includes(target.name)" [disabled]="source.name === target.name || source.name === 'Закрыта' || target.name === 'Открыта'" (change)="toggleStatusTransition(source.name,target.name,$event)" /> {{ target.name }}</label> }</div></div> }</div>
           </section>
 
           <section class="panel"><header><h2>Типы заявок и SLA</h2><p>Нормативы времени реакции и решения задаются для сочетания типа и критичности</p></header>
@@ -74,7 +75,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
               </div>
               @if (!field.immutable) { <button class="icon-action" type="button" aria-label="Удалить поле" (click)="removeField(form,field)">Удалить поле</button> }
             </article> }
-            <div class="add-field"><label>Новое поле<input name="newFieldName" [(ngModel)]="newFieldName" placeholder="Название поля" /></label><label>Тип<select name="newFieldType" [(ngModel)]="newFieldType"><option value="string">Строка</option><option value="textarea">Многострочный текст</option><option value="number">Число</option><option value="date">Дата</option><option value="dictionary">Справочник</option><option value="asset">Выбор актива</option><option value="file">Вложение</option><option value="boolean">Да/нет</option></select></label><button class="quiet align-end" type="button" [disabled]="!newFieldName.trim()" (click)="addField(form)">Добавить поле</button></div>
+            <div class="add-field"><label>Новое поле<input name="newFieldName" [(ngModel)]="newFieldName" placeholder="Название поля" /></label><label>Тип<select name="newFieldType" [(ngModel)]="newFieldType"><option value="string">Строка</option><option value="textarea">Многострочный текст</option><option value="number">Число</option><option value="date">Дата</option><option value="dictionary">Справочник</option><option value="asset" [disabled]="form.fields.some(field => field.type === 'asset')">Выбор актива</option><option value="file">Вложение</option><option value="boolean">Да/нет</option></select></label><button class="quiet align-end" type="button" [disabled]="!newFieldName.trim() || (newFieldType === 'asset' && form.fields.some(field => field.type === 'asset'))" (click)="addField(form)">Добавить поле</button></div>
             <button class="primary save-button" type="button" (click)="saveForm(form)">Сохранить форму</button>
           </div> }
         </section>
@@ -108,6 +109,12 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
       input:not([type=checkbox]),select { min-width:0; min-height:32px; padding:6px 8px; border:1px solid #dfe4ea; border-radius:4px; background:#fff; color:#414c5a; font-size:10px; }
       input:disabled { background:#f5f6f8; color:#818b98; }
       .field-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px; padding:15px 16px; }
+      .calendar-settings { grid-column:1/-1; display:grid; gap:8px; padding:12px; border-radius:5px; background:#f7f9fb; }
+      .calendar-settings > strong { color:#586475; font-size:9px; }
+      .day-list { display:flex; flex-wrap:wrap; gap:10px; }
+      .holiday-list { display:flex; flex-wrap:wrap; gap:6px; }
+      .holiday-list span { display:flex; align-items:center; gap:5px; padding:4px 7px; border-radius:4px; background:#fff; color:#576273; font-size:9px; }
+      .holiday-list button { width:18px; height:18px; border:0; background:transparent; color:#a34a4a; cursor:pointer; }
       .check { display:flex; align-items:center; gap:6px; min-height:30px; color:#5e6978; font-size:9px; }
       .list-editor,.status-list,.type-list,.policy-list,.fields,.report-list { padding:4px 16px 12px; }
       .list-editor { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:11px; padding-top:13px; }
@@ -116,6 +123,10 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
       .icon-action:disabled { opacity:.4; cursor:not-allowed; }
       .add-row { margin:0 16px 15px; } .quiet { min-height:32px; padding:0 10px; border:1px solid #dfe4ea; border-radius:4px; background:#f8f9fb; color:#536173; font-size:9px; cursor:pointer; white-space:nowrap; }
       .quiet:disabled { opacity:.5; cursor:not-allowed; } .status-row { display:grid; grid-template-columns:minmax(140px,1fr) 1fr 28px; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid #f0f2f5; }
+      .transition-matrix { overflow-x:auto; padding:4px 16px 16px; } .transition-matrix h3 { margin:0 0 9px; color:#576273; font-size:10px; }
+      .transition-row { display:grid; grid-template-columns:150px minmax(max-content,1fr); gap:12px; align-items:start; padding:8px 0; border-top:1px solid #f0f2f5; }
+      .transition-row > strong { padding-top:6px; color:#475363; font-size:9px; } .transition-row > div { display:flex; gap:10px; }
+      .transition-row .check { min-height:25px; white-space:nowrap; }
       .type-row { padding:14px 0; border-bottom:1px solid #e9edf1; } .type-top { display:grid; grid-template-columns:1.5fr auto auto auto; align-items:end; gap:14px; }
       .type-top input { width:100%; } .builtin { color:#7d8794; font-size:9px; }
       .sla-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin-top:12px; }
@@ -165,6 +176,8 @@ export class AdminWorkspaceComponent implements OnInit {
     newFieldType: FormFieldDefinition['type'] = 'string';
     reportFrom = '';
     reportTo = '';
+    newHoliday = '';
+    readonly weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
     get pageTitle(): string { return { settings: 'Настройки Service Desk', forms: 'Конструктор форм', escalations: 'Процесс эскалации', reports: 'Отчёты' }[this.section]; }
     get activeForm(): TicketFormDefinition | undefined { return this.forms.find(form => form.ticketTypeId === this.formId); }
@@ -188,8 +201,22 @@ export class AdminWorkspaceComponent implements OnInit {
     }
     addCriticality(): void { if (!this.settings || this.settings.criticalities.length >= 5 || !this.newCriticality.trim()) return; this.settings.criticalities.push(this.newCriticality.trim()); this.newCriticality = ''; }
     removeCriticality(index: number): void { if (this.settings && this.settings.criticalities.length > 3) this.settings.criticalities.splice(index, 1); }
-    addStatus(): void { if (!this.settings || !this.newStatus.trim()) return; this.settings.statuses.push({ name: this.newStatus.trim(), pausesSla: false, immutable: false }); this.newStatus = ''; }
-    removeStatus(index: number): void { if (this.settings && !this.settings.statuses[index].immutable) this.settings.statuses.splice(index, 1); }
+    addStatus(): void { if (!this.settings || !this.newStatus.trim()) return; const name = this.newStatus.trim(); this.settings.statuses.push({ name, pausesSla: false, immutable: false }); this.settings.statusTransitions[name] = []; this.newStatus = ''; }
+    removeStatus(index: number): void {
+      if (!this.settings || this.settings.statuses[index].immutable) return;
+      const [removed] = this.settings.statuses.splice(index, 1);
+      delete this.settings.statusTransitions[removed.name];
+      for (const transitions of Object.values(this.settings.statusTransitions)) {
+        const transitionIndex = transitions.indexOf(removed.name);
+        if (transitionIndex >= 0) transitions.splice(transitionIndex, 1);
+      }
+    }
+    toggleStatusTransition(source: string, target: string, event: Event): void {
+      if (!this.settings) return;
+      const allowed = this.settings.statusTransitions[source] ?? [];
+      const enabled = (event.target as HTMLInputElement).checked;
+      this.settings.statusTransitions[source] = enabled ? [...new Set([...allowed, target])] : allowed.filter(status => status !== target);
+    }
     addType(): void {
         if (!this.settings || !this.newType.trim()) return;
         const id = `type-${Date.now()}`;
@@ -210,6 +237,9 @@ export class AdminWorkspaceComponent implements OnInit {
         type.slaByCriticality[level][metric] = value;
     }
     togglePortalSla(field: string, event: Event): void { if (!this.settings) return; this.settings.portalSlaFields = this.toggleString(this.settings.portalSlaFields, field, (event.target as HTMLInputElement).checked); }
+    toggleWorkingDay(day: string, event: Event): void { if (!this.settings) return; this.settings.workingDays = this.toggleString(this.settings.workingDays, day, (event.target as HTMLInputElement).checked); }
+    addHoliday(): void { if (!this.settings || !this.newHoliday || this.settings.holidays.includes(this.newHoliday)) return; this.settings.holidays = [...this.settings.holidays, this.newHoliday].sort(); this.newHoliday = ''; }
+    removeHoliday(date: string): void { if (this.settings) this.settings.holidays = this.settings.holidays.filter(holiday => holiday !== date); }
     toggleReportRole(role: string, event: Event): void { if (!this.settings) return; this.settings.reportAccessRoles = this.toggleString(this.settings.reportAccessRoles ?? [], role, (event.target as HTMLInputElement).checked); }
     createPortalAccount(): void {
         this.workspace.createPortalAccount({ username: this.newUsername, temporaryPassword: this.newPassword }).subscribe({
@@ -221,6 +251,10 @@ export class AdminWorkspaceComponent implements OnInit {
     addField(form: TicketFormDefinition): void {
         const name = this.newFieldName.trim();
         if (!name) return;
+      if (this.newFieldType === 'asset' && form.fields.some(field => field.type === 'asset')) {
+        this.error = 'В одной форме можно связать заявку только с одним активом.';
+        return;
+      }
         form.fields.push({ id: `field-${Date.now()}`, name, type: this.newFieldType, required: false, visibleToRequester: true });
         this.newFieldName = '';
     }
