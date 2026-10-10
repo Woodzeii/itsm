@@ -1,13 +1,13 @@
 @import '@angular/material/prebuilt-themes/indigo-pink.css';
 
 :root {
-    --app-bg: #f4f7fb;
+    --app-bg: #f7f8fb;
     --app-surface: #ffffff;
-    --app-primary: #3f51b5;
-    --app-accent: #ff4081;
-    --app-text: #17212f;
-    --app-muted: #5f6c7b;
-    --app-border: rgba(17, 24, 39, 0.08);
+    --app-primary: #2563eb;
+    --app-accent: #13a578;
+    --app-text: #111827;
+    --app-muted: #778293;
+    --app-border: #e2e6ed;
 }
 
 html,
@@ -16,7 +16,7 @@ body {
     min-height: 100%;
     background: var(--app-bg);
     color: var(--app-text);
-    font-family: Roboto, 'Helvetica Neue', sans-serif;
+    font-family: 'Segoe UI', 'Helvetica Neue', sans-serif;
 }
 
 body {

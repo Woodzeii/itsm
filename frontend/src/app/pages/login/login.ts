@@ -2,6 +2,7 @@ import { ChangeDetectorRef, Component, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import { environment } from '../../../environments/environment';
 
 @Component({
     selector: 'app-login',
@@ -11,6 +12,9 @@ import { AuthService } from '../../core/auth/auth.service';
     <section class="page">
       <div class="card">
         <h1>Авторизация</h1>
+        @if (environment.useMockAuth) {
+          <p>Тестовый вход: любые непустые логин и пароль; код — любые 6 цифр. Логины admin, agent, manager и tenant_admin выбирают роль.</p>
+        }
 
         @if (step === 1) {
           <p>Шаг 1: логин и пароль</p>
@@ -107,10 +111,11 @@ export class LoginComponent {
     private readonly auth = inject(AuthService);
     private readonly router = inject(Router);
     private readonly cdr = inject(ChangeDetectorRef);
+    readonly environment = environment;
 
     step: 1 | 2 = 1;
-    username = 'admin';
-    password = 'admin123';
+    username = '';
+    password = '';
     code = '';
     userId = 0;
     busy = false;
@@ -132,22 +137,20 @@ export class LoginComponent {
         this.error = '';
         this.info = '';
 
-        console.log('[LOGIN] отправляю запрос');
-
         this.auth.login(u, p).subscribe({
             next: (res) => {
-                console.log('[LOGIN] ответ', res);
                 this.userId = res.userId;
                 this.step = 2;
                 this.busy = false;
-                this.info = 'Код отправлен. Смотрите логи backend.';
+                this.info = environment.useMockAuth ? 'Введите шестизначный тестовый код.' : 'Код отправлен. Смотрите логи backend.';
                 this.cdr.detectChanges();
             },
             error: (err) => {
-                console.log('[LOGIN] ошибка', err);
                 this.error = err.status === 401
                     ? 'Неверный логин или пароль'
-                    : 'Ошибка: ' + err.status;
+                  : err.status === 423 || err.status === 429
+                    ? 'Учетная запись временно заблокирована. Повторите попытку позже.'
+                    : err.message || 'Ошибка: ' + err.status;
                 this.busy = false;
                 this.cdr.detectChanges();
             },
@@ -167,20 +170,17 @@ export class LoginComponent {
         this.error = '';
         this.info = '';
 
-        console.log('[VERIFY] отправляю запрос', { userId: this.userId });
-
         this.auth.verifyTwoFactor(this.userId, c).subscribe({
             next: (res) => {
-                console.log('[VERIFY] успех');
                 this.busy = false;
                 this.cdr.detectChanges();
-                this.router.navigateByUrl('/dashboard');
+                const destination = this.auth.isTenantAdmin() ? '/admin/tenants' : this.auth.isPortalUser() ? '/portal' : '/dashboard';
+                this.router.navigateByUrl(destination);
             },
             error: (err) => {
-                console.log('[VERIFY] ошибка', err);
                 this.error = err.status === 401
                     ? 'Неверный или истёкший код'
-                    : 'Ошибка: ' + err.status;
+                  : err.message || 'Ошибка: ' + err.status;
                 this.busy = false;
                 this.cdr.detectChanges();
             },

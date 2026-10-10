@@ -1,15 +1,12 @@
-import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, tap } from 'rxjs';
-import { environment } from '../../../environments/environment';
+import { AuthApi } from './auth-api';
 import {
     LoginRequest,
     LoginResponse,
     VerifyTwoFactorRequest,
     VerifyTwoFactorResponse,
 } from './auth.models';
-
-const API = environment.apiUrl;
 const TOKEN_KEY = 'itsm_access_token';
 const AUTH_KEY = 'itsm_is_authenticated';
 const ROLE_KEY = 'itsm_user_role';
@@ -19,19 +16,19 @@ export type UserRole = 'admin' | 'agent' | 'manager' | 'portal_user' | 'tenant_a
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-    private readonly http = inject(HttpClient);
+    private readonly api = inject(AuthApi);
 
     // ================= API =================
 
     login(username: string, password: string): Observable<LoginResponse> {
         const body: LoginRequest = { username, password };
-        return this.http.post<LoginResponse>(`${API}/api/auth/login`, body);
+        return this.api.login(body);
     }
 
     verifyTwoFactor(userId: number, code: string): Observable<VerifyTwoFactorResponse> {
         const body: VerifyTwoFactorRequest = { userId, code };
-        return this.http
-            .post<VerifyTwoFactorResponse>(`${API}/api/auth/verify-2fa`, body)
+        return this.api
+            .verifyTwoFactor(body)
             .pipe(tap(res => this.saveToken(res.accessToken)));
     }
 
@@ -96,7 +93,15 @@ export class AuthService {
 
     canRead(): boolean {
         const role = this.getRole();
-        return role === 'admin' || role === 'agent';
+        return role === 'admin' || role === 'agent' || role === 'manager';
+    }
+
+    isPortalUser(): boolean {
+        return this.getRole() === 'portal_user';
+    }
+
+    isTenantAdmin(): boolean {
+        return this.getRole() === 'tenant_admin';
     }
 
     logout(): void {
