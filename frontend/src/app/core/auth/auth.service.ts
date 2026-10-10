@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, tap } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import {
     LoginRequest,
     LoginResponse,
@@ -8,7 +9,7 @@ import {
     VerifyTwoFactorResponse,
 } from './auth.models';
 
-const API = 'http://localhost:5062';
+const API = environment.apiUrl;
 const TOKEN_KEY = 'itsm_access_token';
 const AUTH_KEY = 'itsm_is_authenticated';
 const ROLE_KEY = 'itsm_user_role';
@@ -43,7 +44,6 @@ export class AuthService {
         const payload = this.decodeJwt(token);
         if (!payload) return;
 
-        // Забираем роль из JWT. Ключ может быть "role" или полный URI
         const roleValue = payload['role']
             ?? payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
         const loginValue = payload['Login'] ?? payload['login'];
@@ -63,7 +63,6 @@ export class AuthService {
         try {
             const payload = token.split('.')[1];
             const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-            // UTF-8
             const utf8 = decodeURIComponent(
                 Array.from(decoded)
                     .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
