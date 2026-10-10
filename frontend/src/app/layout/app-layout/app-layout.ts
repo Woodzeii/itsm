@@ -1,11 +1,11 @@
 import { Component, OnInit } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
     selector: 'app-layout',
     standalone: true,
-    imports: [RouterLink, RouterOutlet],
+    imports: [RouterLink, RouterLinkActive, RouterOutlet],
     template: `
     <div class="app-shell">
       <aside class="sidebar">
@@ -23,17 +23,31 @@ import { AuthService } from '../../core/auth/auth.service';
             <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="3.5" width="7" height="5" rx="1.5"/><rect x="13.5" y="11.5" width="7" height="9" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/></svg>
             <span>Обзор</span>
           </a>
-          <a routerLink="/dictionaries" routerLinkActive="active">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H5A2.5 2.5 0 0 1 2.5 17V7A2.5 2.5 0 0 1 5 4.5Z"/><path d="M7.5 8.5h9m-9 4h9m-9 4h5"/></svg>
-            <span>Справочники</span>
+          <a routerLink="/tickets" routerLinkActive="active">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v13H4zM8 9h8m-8 4h5"/></svg>
+            <span>Заявки</span>
           </a>
-          @if (isAdminOrAgent) {
+          <a routerLink="/assets" routerLinkActive="active">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8.5 4.5v9L12 21l-8.5-4.5v-9L12 3Z"/><path d="m3.8 7.7 8.2 4.5 8.2-4.5M12 12.2V21"/></svg>
+            <span>Активы</span>
+          </a>
+          <a routerLink="/service-catalog" routerLinkActive="active">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8m-8 4h8m-8 4h5"/></svg>
+            <span>Каталог услуг</span>
+          </a>
+          <a routerLink="/escalations" routerLinkActive="active">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 20H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg>
+            <span>Эскалации</span>
+          </a>
+          @if (isAdmin) {
+            <a routerLink="/dictionaries" routerLinkActive="active">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H5A2.5 2.5 0 0 1 2.5 17V7A2.5 2.5 0 0 1 5 4.5Z"/><path d="M7.5 8.5h9m-9 4h9m-9 4h5"/></svg>
+              <span>Справочники</span>
+            </a>
             <a routerLink="/asset-classes" routerLinkActive="active">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 8.5 4.5v9L12 21l-8.5-4.5v-9L12 3Z"/><path d="m3.8 7.7 8.2 4.5 8.2-4.5M12 12.2V21"/></svg>
               <span>Классы активов</span>
             </a>
-          }
-          @if (isAdmin) {
             <a routerLink="/admin" routerLinkActive="active">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 14 5l2.6-.2.9 2.4 2.2 1.3-.7 2.5.7 2.5-2.2 1.3-.9 2.4L14 17l-2 1.5L10 17l-2.6.2-.9-2.4-2.2-1.3.7-2.5-.7-2.5 2.2-1.3.9-2.4L10 5l2-1.5Z"/><circle cx="12" cy="11.5" r="3"/></svg>
               <span>Администрирование</span>
@@ -43,10 +57,9 @@ import { AuthService } from '../../core/auth/auth.service';
         </div>
 
         <div class="sidebar-spacer"></div>
-        <div class="workspace-note"><span class="status-dot"></span><span>Система работает</span></div>
         <div class="sidebar-profile">
           <div class="avatar">{{ userInitial }}</div>
-          <div class="user-meta"><strong>{{ userTitle }}</strong><small>{{ userEmail }}</small></div>
+          <div class="user-meta"><strong>{{ userTitle }}</strong><small>{{ userRole }}</small></div>
           <span class="profile-more" aria-hidden="true">···</span>
         </div>
       </aside>
@@ -64,7 +77,7 @@ import { AuthService } from '../../core/auth/auth.service';
             <div class="avatar">{{ userInitial }}</div>
             <div class="user-meta">
               <strong>{{ userTitle }}</strong>
-              <small>{{ userEmail }}</small>
+              <small>{{ userRole }}</small>
             </div>
             <span class="chevron" aria-hidden="true">⌄</span>
           </div>
@@ -288,30 +301,23 @@ export class AppLayoutComponent implements OnInit {
     isAdminOrAgent = false;
     userInitial = 'П';
     userTitle = 'Пользователь';
-    userEmail = 'user@itsm.local';
+    userRole = 'Пользователь';
 
     constructor(private readonly authService: AuthService) { }
 
     ngOnInit(): void {
         this.isAdmin = this.authService.isAdmin();
         this.isAdminOrAgent = this.authService.canRead();
-
-        if (this.isAdmin) {
-            this.userInitial = 'А';
-            this.userTitle = 'Администратор';
-            this.userEmail = 'admin@itsm.local';
-            return;
-        }
-
-        if (this.isAdminOrAgent) {
-            this.userInitial = 'И';
-            this.userTitle = 'Инженер ТП';
-            this.userEmail = 'agent@itsm.local';
-            return;
-        }
-
-        this.userInitial = 'П';
-        this.userTitle = 'Пользователь';
-        this.userEmail = 'user@itsm.local';
+        const roleLabels = {
+          admin: 'Администратор',
+          agent: 'Инженер поддержки',
+          manager: 'Руководитель',
+          portal_user: 'Пользователь',
+          tenant_admin: 'Администратор организации',
+        };
+        const login = this.authService.getLogin();
+        this.userRole = roleLabels[this.authService.getRole()];
+        this.userTitle = login || this.userRole;
+        this.userInitial = (login || this.userRole).charAt(0).toLocaleUpperCase();
     }
 }

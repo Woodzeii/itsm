@@ -4,6 +4,8 @@ import { provideAnimationsAsync } from '@angular/platform-browser/animations/asy
 import { provideRouter } from '@angular/router';
 import { jwtInterceptor } from './core/auth/jwt.interceptor';
 import { routes } from './app.routes';
+import { WorkspaceApi } from './core/workspace/workspace-api';
+import { MockWorkspaceApiService } from './core/workspace/mock-workspace-api.service';
 
 export const appConfig: ApplicationConfig = {
     providers: [
@@ -11,6 +13,7 @@ export const appConfig: ApplicationConfig = {
         provideZoneChangeDetection({ eventCoalescing: true }),
         provideRouter(routes),
         provideHttpClient(withInterceptors([jwtInterceptor])),
+        { provide: WorkspaceApi, useClass: MockWorkspaceApiService },
         provideAnimationsAsync(),
     ],
 };
