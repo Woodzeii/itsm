@@ -161,7 +161,7 @@ import { AuthService } from '../../core/auth/auth.service';
         flex-direction: column;
         gap: 3px;
       }
-
+      .nav { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
       .nav a {
         display: flex;
         align-items: center;
@@ -186,6 +186,7 @@ import { AuthService } from '../../core/auth/auth.service';
         stroke-linecap: round;
         stroke-linejoin: round;
       }
+      .nav a:hover, .nav a.active { background: rgba(255, 255, 255, 0.08); color: #ffffff; }
 
       .nav a:hover,
       .nav a.active {
@@ -258,7 +259,9 @@ import { AuthService } from '../../core/auth/auth.service';
         flex-direction: column;
         min-width: 0;
       }
+      .logout-btn:hover { background: #374151; }
 
+      .main-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
       .topbar {
         height: 76px;
         flex: 0 0 76px;
@@ -298,6 +301,9 @@ import { AuthService } from '../../core/auth/auth.service';
       @media (max-width: 420px) {
         .breadcrumb span:first-child, .crumb-divider { display: none; }
       }
+      .user-meta { display: flex; flex-direction: column; line-height: 1.2; }
+      .user-meta small { color: #6b7280; }
+      .content { flex: 1; padding: 24px; overflow: auto; }
     `,
     ],
 })
@@ -309,7 +315,10 @@ export class AppLayoutComponent implements OnInit {
     userTitle = 'Пользователь';
     userRole = 'Пользователь';
 
-    constructor(private readonly authService: AuthService) { }
+    constructor(
+        private readonly authService: AuthService,
+        private readonly router: Router,
+    ) { }
 
     ngOnInit(): void {
         this.isAdmin = this.authService.isAdmin();
@@ -326,5 +335,10 @@ export class AppLayoutComponent implements OnInit {
         this.userRole = roleLabels[this.authService.getRole()];
         this.userTitle = login || this.userRole;
         this.userInitial = (login || this.userRole).charAt(0).toLocaleUpperCase();
+    }
+
+    logout(): void {
+        this.authService.logout();
+        this.router.navigateByUrl('/login');
     }
 }

@@ -8,6 +8,7 @@ export const routes: Routes = [
     {
         path: '',
         component: AppLayoutComponent,
+        canActivate: [authGuard],
         children: [
             { path: 'dashboard', loadComponent: () => import('./pages/overview/overview').then(module => module.OverviewComponent), canActivate: [internalAccessGuard] },
             { path: 'tickets', loadComponent: () => import('./pages/tickets/ticket-queue').then(module => module.TicketQueueComponent), canActivate: [internalAccessGuard] },
@@ -24,4 +25,5 @@ export const routes: Routes = [
             { path: 'asset-classes', loadComponent: () => import('./pages/asset-classes/asset-classes').then(module => module.AssetClassesComponent), canActivate: [adminAccessGuard] },
         ],
     },
+    { path: '**', redirectTo: '/dashboard' },
 ];

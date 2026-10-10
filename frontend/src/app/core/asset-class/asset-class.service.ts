@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import {
     AssetClassDto,
     AssetClassDetailDto,
@@ -11,13 +12,11 @@ import {
     UpdateAssetClassAttributeRequest,
 } from './asset-class.models';
 
-const API = 'http://localhost:5062/api/asset-classes';
+const API = `${environment.apiUrl}/api/asset-classes`;
 
 @Injectable({ providedIn: 'root' })
 export class AssetClassApiService {
     private readonly http = inject(HttpClient);
-
-    // ==================== AssetClass ====================
 
     getAll(): Observable<AssetClassDto[]> {
         return this.http.get<AssetClassDto[]>(API);
@@ -46,8 +45,6 @@ export class AssetClassApiService {
     activate(id: number): Observable<AssetClassDto> {
         return this.http.post<AssetClassDto>(`${API}/${id}/activate`, {});
     }
-
-    // ==================== Attributes ====================
 
     getAttributes(classId: number): Observable<AssetClassAttributeDto[]> {
         return this.http.get<AssetClassAttributeDto[]>(`${API}/${classId}/attributes`);

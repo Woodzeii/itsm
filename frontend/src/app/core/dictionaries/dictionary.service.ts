@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import {
     CreateDictionaryRequest,
     CreateDictionaryValueRequest,
@@ -10,7 +11,7 @@ import {
     UpdateDictionaryRequest,
 } from './dictionary.models';
 
-const API = 'http://localhost:5062/api/dictionaries';
+const API = `${environment.apiUrl}/api/dictionaries`;
 
 @Injectable({ providedIn: 'root' })
 export class DictionaryApiService {
