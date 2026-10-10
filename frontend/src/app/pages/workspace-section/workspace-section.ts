@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { AssetRecord, Escalation, ServiceCategory, Ticket } from '../../core/workspace/workspace.models';
 
@@ -61,7 +62,7 @@ type WorkspaceSection = 'tickets' | 'assets' | 'catalog' | 'escalations';
         <section class="panel"><header class="panel-header"><div><h2>Активные эскалации</h2><p>Заявки, требующие внимания руководителя</p></div><span class="count">{{ escalations.length }}</span></header>
           <div class="tools"><label class="search">⌕<input type="search" [(ngModel)]="query" placeholder="Номер, тема или команда" /></label><select aria-label="Фильтр по приоритету" [(ngModel)]="selectedPriority"><option value="">Все приоритеты</option>@for (priority of escalationPriorities; track priority) { <option [value]="priority">{{ priority }}</option> }</select></div>
           <div class="escalation-list">@for (item of filteredEscalations; track item.id) {
-            <article class="escalation"><span class="alert-icon" aria-hidden="true">!</span><div class="escalation-copy"><strong>{{ item.id }} <span>{{ item.title }}</span></strong><small>{{ item.team }} · SLA осталось {{ item.slaRemaining }}</small></div><span class="tag" [class.critical]="item.priority === 'Критический'" [class.high]="item.priority === 'Высокий'">{{ item.priority }}</span><a routerLink="/tickets" [queryParams]="{ q: item.id }">Заявка <span aria-hidden="true">→</span></a></article>
+            <article class="escalation"><span class="alert-icon" aria-hidden="true">!</span><div class="escalation-copy"><strong>{{ item.id }} <span>{{ item.title }}</span></strong><small>{{ item.team }} · SLA осталось {{ item.slaRemaining }}</small></div><span class="tag" [class.critical]="item.priority === 'Критический'" [class.high]="item.priority === 'Высокий'">{{ item.priority }}</span><button class="escalate-button" type="button" (click)="triggerEscalation(item,$event)">Эскалировать</button><a routerLink="/tickets" [queryParams]="{ q: item.id }">Заявка <span aria-hidden="true">→</span></a></article>
           } @if (!filteredEscalations.length) { <p class="empty">Эскалации не найдены</p> }</div>
         </section>
       }
@@ -118,6 +119,7 @@ type WorkspaceSection = 'tickets' | 'assets' | 'catalog' | 'escalations';
       .escalation-copy { min-width:0; flex:1; } .escalation-copy strong { color:#3270cb; font-size:10px; }
       .escalation-copy strong span { margin-left:7px; color:#394252; font-weight:600; }
       .escalation-copy small { display:block; margin-top:5px; color:#939dab; font-size:10px; }
+      .escalate-button { padding:5px 7px; border:1px solid #f0d7d7; border-radius:4px; background:#fff; color:#b34a4a; font-size:9px; cursor:pointer; white-space:nowrap; }
       @media(max-width:760px) { .page { padding:22px 16px 30px; } .create-form { grid-template-columns:1fr 1fr; } }
       @media(max-width:560px) { .page-heading { align-items:flex-start; flex-direction:column; } .tools { flex-direction:column; } .tools select { width:100%; } .category-grid { grid-template-columns:1fr; } .escalation { align-items:flex-start; flex-wrap:wrap; padding:12px 0; } .escalation-copy { flex-basis:calc(100% - 50px); } .escalation > a { margin-left:auto; } .create-form { grid-template-columns:1fr; } }
     `],
@@ -126,6 +128,7 @@ export class WorkspaceSectionComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
     private readonly route = inject(ActivatedRoute);
     private readonly router = inject(Router);
+    private readonly auth = inject(AuthService);
 
     section: WorkspaceSection = 'tickets';
     tickets: Ticket[] = [];
@@ -143,6 +146,7 @@ export class WorkspaceSectionComponent implements OnInit {
     newTitle = '';
     newRequester = '';
     newCategory = '';
+    isEngineer = false;
 
     get title(): string {
         return { tickets: 'Заявки', assets: 'Активы', catalog: 'Каталог услуг', escalations: 'Эскалации' }[this.section];
@@ -168,6 +172,7 @@ export class WorkspaceSectionComponent implements OnInit {
     }
 
     ngOnInit(): void {
+      this.isEngineer = this.auth.canRead();
         this.section = this.route.snapshot.data['section'] as WorkspaceSection;
         this.route.queryParamMap.subscribe(params => {
             this.query = params.get('q') ?? '';
@@ -196,6 +201,14 @@ export class WorkspaceSectionComponent implements OnInit {
             },
             error: () => this.error = 'Не удалось создать заявку.',
         });
+    }
+
+    triggerEscalation(item: Escalation, event: Event): void {
+      event.stopPropagation();
+      this.workspace.escalateTicket(item.id, this.isEngineer ? 'Инженер ТП' : 'Автор заявки').subscribe({
+        next: entry => { this.success = `Эскалация ${item.id}: ${entry.previousPriority} → ${entry.newPriority}. Уведомлены ${entry.recipients.join(', ')}.`; this.workspace.getEscalations().subscribe({ next: items => this.escalations = items }); },
+        error: err => this.error = err.message,
+      });
     }
 
     private loadError(): void {

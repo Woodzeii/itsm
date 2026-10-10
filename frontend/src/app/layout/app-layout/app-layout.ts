@@ -16,6 +16,7 @@ import { AuthService } from '../../core/auth/auth.service';
           <div class="brand-copy"><strong>ITSM <span>NC</span></strong><small>Service management</small></div>
         </div>
 
+        @if (isAdminOrAgent || isAdmin) {
         <div class="nav-group">
           <p class="nav-caption">Рабочее пространство</p>
           <nav class="nav">
@@ -52,9 +53,15 @@ import { AuthService } from '../../core/auth/auth.service';
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 14 5l2.6-.2.9 2.4 2.2 1.3-.7 2.5.7 2.5-2.2 1.3-.9 2.4L14 17l-2 1.5L10 17l-2.6.2-.9-2.4-2.2-1.3.7-2.5-.7-2.5 2.2-1.3.9-2.4L10 5l2-1.5Z"/><circle cx="12" cy="11.5" r="3"/></svg>
               <span>Администрирование</span>
             </a>
+            <a routerLink="/admin/forms" routerLinkActive="active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8m-8 4h8m-8 4h5"/></svg><span>Конструктор форм</span></a>
+            <a routerLink="/admin/escalation-policies" routerLinkActive="active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 20H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg><span>Правила эскалации</span></a>
+            <a routerLink="/admin/reports" routerLinkActive="active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8m-8 4h8m-8 4h5"/></svg><span>Отчёты</span></a>
           }
           </nav>
         </div>
+        } @else {
+          <nav class="nav"><a routerLink="/portal" routerLinkActive="active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16v13H4zM8 9h8m-8 4h5"/></svg><span>Мои заявки</span></a></nav>
+        }
 
         <div class="sidebar-spacer"></div>
         <div class="sidebar-profile">
