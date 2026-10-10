@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { AppLayoutComponent } from './layout/app-layout/app-layout';
+import { authGuard } from './core/auth/auth.guard';
 import { adminAccessGuard, internalAccessGuard, portalAccessGuard, reportAccessGuard, tenantAdminAccessGuard } from './core/auth/role.guard';
 
 export const routes: Routes = [
@@ -23,6 +24,7 @@ export const routes: Routes = [
             { path: 'admin/reports', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'reports' }, canActivate: [reportAccessGuard] },
             { path: 'dictionaries', loadComponent: () => import('./pages/dictionaries/dictionaries').then(module => module.DictionariesComponent), canActivate: [adminAccessGuard] },
             { path: 'asset-classes', loadComponent: () => import('./pages/asset-classes/asset-classes').then(module => module.AssetClassesComponent), canActivate: [adminAccessGuard] },
+            { path: 'profile/security', loadComponent: () => import('./pages/profile/security').then(module => module.SecurityComponent) },
         ],
     },
     { path: '**', redirectTo: '/dashboard' },
