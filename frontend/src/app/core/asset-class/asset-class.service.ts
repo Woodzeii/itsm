@@ -12,7 +12,7 @@ import {
     UpdateAssetClassAttributeRequest,
 } from './asset-class.models';
 
-const API = `${environment.apiUrl}/api/asset-classes`;
+const API = `${environment.apiBaseUrl}/asset-classes`;
 
 @Injectable({ providedIn: 'root' })
 export class AssetClassApiService {

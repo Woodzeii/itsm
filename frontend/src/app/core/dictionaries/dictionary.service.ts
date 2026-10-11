@@ -11,7 +11,7 @@ import {
     UpdateDictionaryRequest,
 } from './dictionary.models';
 
-const API = `${environment.apiUrl}/api/dictionaries`;
+const API = `${environment.apiBaseUrl}/dictionaries`;
 
 @Injectable({ providedIn: 'root' })
 export class DictionaryApiService {

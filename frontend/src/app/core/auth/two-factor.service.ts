@@ -9,7 +9,7 @@ import {
     VerifyTwoFactorSetupRequest,
 } from './two-factor.models';
 
-const API = `${environment.apiUrl}/api/auth`;
+const API = `${environment.apiBaseUrl}/auth`;
 
 @Injectable({ providedIn: 'root' })
 export class TwoFactorService {
