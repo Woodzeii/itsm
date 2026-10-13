@@ -2,7 +2,9 @@ using System.Text;
 using Scalar.AspNetCore;
 using itsm.Application.Common.Interfaces;
 using itsm.Infrastructure;
+using itsm.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Serilog;
 
@@ -17,8 +19,6 @@ try
 
     var builder = WebApplication.CreateBuilder(args);
 
-    // В тестах Serilog не подключаем через UseSerilog — WebApplicationFactory
-    // создаёт хост много раз, и ReloadableLogger падает с "The logger is already frozen".
     if (!builder.Environment.IsEnvironment("Testing"))
     {
         builder.Host.UseSerilog((context, services, configuration) => configuration
@@ -29,13 +29,13 @@ try
 
     builder.Services.AddOpenApi();
     builder.Services.AddControllers();
-	builder.Services.AddCors(options =>
-	{
-		options.AddPolicy("DevCors", policy =>
-			policy.WithOrigins("http://localhost:4200")
-				  .AllowAnyHeader()
-				  .AllowAnyMethod());
-	});
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("DevCors", policy =>
+            policy.WithOrigins("http://localhost:4200")
+                  .AllowAnyHeader()
+                  .AllowAnyMethod());
+    });
     builder.Services.AddInfrastructure(builder.Configuration);
 
     var jwtSection = builder.Configuration.GetSection("Jwt");
@@ -62,13 +62,19 @@ try
     builder.Services.AddAuthorization();
 
     var app = builder.Build();
-	app.UseCors("DevCors");
+    app.UseCors("DevCors");
 
-    // Serilog request logging требует DiagnosticContext, который регистрируется UseSerilog.
-    // В тестах мы Serilog не подключаем — поэтому middleware тоже пропускаем.
     if (!app.Environment.IsEnvironment("Testing"))
     {
         app.UseSerilogRequestLogging();
+    }
+
+    // ===== Автомиграции: применяем все pending-миграции при старте =====
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<ItsmDbContext>();
+        db.Database.Migrate();
+        Log.Information("Автомиграции: применены все pending-миграции");
     }
 
     // Инициализация тестовых пользователей в Development
@@ -101,5 +107,4 @@ finally
     Log.CloseAndFlush();
 }
 
-// Маркер для WebApplicationFactory<Program> в интеграционных тестах.
 public partial class Program { }

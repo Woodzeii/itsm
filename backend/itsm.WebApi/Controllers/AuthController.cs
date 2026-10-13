@@ -18,7 +18,6 @@ public class AuthController : ControllerBase
 {
     private const string Issuer = "ITSM NC";
 
-    private readonly ILdapService _ldap;
     private readonly ITwoFactorService _twoFactor;
     private readonly ITotpService _totp;
     private readonly IJwtService _jwt;
@@ -30,7 +29,6 @@ public class AuthController : ControllerBase
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
-        ILdapService ldap,
         ITwoFactorService twoFactor,
         ITotpService totp,
         IJwtService jwt,
@@ -41,7 +39,6 @@ public class AuthController : ControllerBase
         IOptions<JwtSettings> jwtSettings,
         ILogger<AuthController> logger)
     {
-        _ldap = ldap;
         _twoFactor = twoFactor;
         _totp = totp;
         _jwt = jwt;
@@ -117,51 +114,51 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("login")]
-    public async Task<IActionResult> Login([FromBody] LoginRequest request)
+    public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Password))
             return BadRequest(new { message = "Логин и пароль обязательны" });
 
-        var isValid = await _ldap.ValidateCredentialsAsync(request.Username, request.Password);
-        if (!isValid)
+        // Ищем пользователя в БД
+        var user = await _db.Users
+            .FirstOrDefaultAsync(u => u.Username == request.Username, ct);
+
+        if (user is null || !user.IsActive)
         {
             _logger.LogWarning("Неудачная попытка входа для {Username}", request.Username);
             return Unauthorized(new { message = "Неверный логин или пароль" });
         }
 
-        var ldapUser = await _ldap.FindUserAsync(request.Username);
-        if (ldapUser is null)
-            return Unauthorized(new { message = "Пользователь не найден" });
-
-        var userId = await _userService.FindIdByUsernameAsync(ldapUser.Username, HttpContext.RequestAborted)
-            ?? Math.Abs(ldapUser.Username.GetHashCode());
-
-        // Проверяем, включён ли TOTP для пользователя.
-        var dbUser = await _db.Users
-            .FirstOrDefaultAsync(u => u.Username == ldapUser.Username, HttpContext.RequestAborted);
-
-        if (dbUser is not null && dbUser.IsTwoFactorEnabled && !string.IsNullOrEmpty(dbUser.TwoFaSecret))
+        // Проверяем пароль через BCrypt
+        if (string.IsNullOrEmpty(user.PasswordHash)
+            || !_passwordHasher.Verify(request.Password, user.PasswordHash))
         {
-            // TOTP-flow: возвращаем флаг, что нужен код из приложения.
+            _logger.LogWarning("Неудачная попытка входа для {Username}", request.Username);
+            return Unauthorized(new { message = "Неверный логин или пароль" });
+        }
+
+        // TOTP-flow: если у пользователя включена 2FA — требуем код из приложения
+        if (user.IsTwoFactorEnabled && !string.IsNullOrEmpty(user.TwoFaSecret))
+        {
+            _logger.LogInformation("Логин для {Login} требует TOTP-код", user.Username);
+
             return Ok(new LoginResponse
             {
                 RequiresTwoFactor = true,
-                UserId = dbUser.Id,
-                Message = "Введите 6-значный код из приложения-аутентификатора",
-                // Дополнительный признак, чтобы клиент знал — это TOTP, а не email-код
-                // (можно расширить LoginResponse полем Mode, если понадобится)
+                UserId = user.Id,
+                Message = "Введите 6-значный код из приложения-аутентификатора"
             });
         }
 
-        // Fallback: email-код (для первого входа, пока TOTP не настроен).
-        var code = _twoFactor.GenerateCode(userId, ldapUser.Username, ldapUser.Email);
+        // Fallback: email-код (для первого входа, пока TOTP не настроен)
+        var code = _twoFactor.GenerateCode(user.Id, user.Username, user.Email);
 
         _logger.LogWarning("DEV ONLY: 2FA код для {Username}: {Code}", request.Username, code);
 
         return Ok(new LoginResponse
         {
             RequiresTwoFactor = true,
-            UserId = userId,
+            UserId = user.Id,
             Message = "Введите 6-значный код из письма/логов"
         });
     }
@@ -169,61 +166,63 @@ public class AuthController : ControllerBase
     // ================= VERIFY 2FA =================
 
     [AllowAnonymous]
-	[HttpPost("verify-2fa")]
-	public async Task<IActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorRequest request)
-	{
-		if (request.UserId <= 0 || string.IsNullOrWhiteSpace(request.Code))
-			return BadRequest(new { message = "UserId и Code обязательны" });
+    [HttpPost("verify-2fa")]
+    public async Task<IActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorRequest request)
+    {
+        if (request.UserId <= 0 || string.IsNullOrWhiteSpace(request.Code))
+            return BadRequest(new { message = "UserId и Code обязательны" });
 
-		var dbUser = await _db.Users
-			.FirstOrDefaultAsync(u => u.Id == request.UserId, HttpContext.RequestAborted);
+        var dbUser = await _db.Users
+            .FirstOrDefaultAsync(u => u.Id == request.UserId, HttpContext.RequestAborted);
 
-		// 1) TOTP-ветка: только если пользователь найден и у него явно включена 2FA.
-		if (dbUser is not null
-			&& dbUser.IsTwoFactorEnabled
-			&& !string.IsNullOrEmpty(dbUser.TwoFaSecret))
-		{
-			if (!_totp.VerifyCode(dbUser.TwoFaSecret, request.Code))
-			{
-				_logger.LogWarning("2FA (TOTP): неверный код для userId={UserId}", request.UserId);
-				return Unauthorized(new { message = "Неверный или истёкший код" });
-			}
+        // 1) TOTP-ветка: только если пользователь найден и у него явно включена 2FA.
+        if (dbUser is not null
+            && dbUser.IsTwoFactorEnabled
+            && !string.IsNullOrEmpty(dbUser.TwoFaSecret))
+        {
+            if (!_totp.VerifyCode(dbUser.TwoFaSecret, request.Code))
+            {
+                _logger.LogWarning("2FA (TOTP): неверный код для userId={UserId}", request.UserId);
+                return Unauthorized(new { message = "Неверный или истёкший код" });
+            }
 
-			var rolesTotp = await _userService.GetRolesAsync(dbUser.Id, HttpContext.RequestAborted);
-			var tokenTotp = _jwt.GenerateToken(dbUser.Id, dbUser.Username, dbUser.Email, rolesTotp);
+            var rolesTotp = await _userService.GetRolesAsync(dbUser.Id, HttpContext.RequestAborted);
+            var tokenTotp = _jwt.GenerateToken(dbUser.Id, dbUser.Username, dbUser.Email, rolesTotp);
 
-			_logger.LogInformation("JWT выпущен для {Login} через TOTP (userId={UserId})",
-				dbUser.Username, dbUser.Id);
+            _logger.LogInformation("JWT выпущен для {Login} через TOTP (userId={UserId})",
+                dbUser.Username, dbUser.Id);
 
-			return Ok(new VerifyTwoFactorResponse
-			{
-				AccessToken = tokenTotp,
-				TokenType = "Bearer",
-				ExpiresIn = _jwtSettings.ExpiresMinutes * 60
-			});
-		}
+            return Ok(new VerifyTwoFactorResponse
+            {
+                AccessToken = tokenTotp,
+                TokenType = "Bearer",
+                ExpiresIn = _jwtSettings.ExpiresMinutes * 60
+            });
+        }
 
-		// 2) Fallback: email-код через кэш (в тестах — мок).
-		var userData = _twoFactor.ValidateCode(request.UserId, request.Code);
-		if (userData is null)
-		{
-			_logger.LogWarning("2FA (email): неверный или истёкший код для userId={UserId}", request.UserId);
-			return Unauthorized(new { message = "Неверный или истёкший код" });
-		}
+        // 2) Fallback: email-код через кэш.
+        var userData = _twoFactor.ValidateCode(request.UserId, request.Code);
+        if (userData is null)
+        {
+            _logger.LogWarning("2FA (email): неверный или истёкший код для userId={UserId}", request.UserId);
+            return Unauthorized(new { message = "Неверный или истёкший код" });
+        }
 
-		var roles = await _userService.GetRolesAsync(userData.UserId, HttpContext.RequestAborted);
-		var token = _jwt.GenerateToken(userData.UserId, userData.Login, userData.Email, roles);
+        var roles = await _userService.GetRolesAsync(userData.UserId, HttpContext.RequestAborted);
+        var token = _jwt.GenerateToken(userData.UserId, userData.Login, userData.Email, roles);
 
-		_logger.LogInformation("JWT выпущен для {Login} через email-код (userId={UserId})",
-			userData.Login, userData.UserId);
+        _logger.LogInformation("JWT выпущен для {Login} через email-код (userId={UserId})",
+            userData.Login, userData.UserId);
 
-		return Ok(new VerifyTwoFactorResponse
-		{
-			AccessToken = token,
-			TokenType = "Bearer",
-			ExpiresIn = _jwtSettings.ExpiresMinutes * 60
-		});
-	}
+        return Ok(new VerifyTwoFactorResponse
+        {
+            AccessToken = token,
+            TokenType = "Bearer",
+            ExpiresIn = _jwtSettings.ExpiresMinutes * 60
+        });
+    }
+
+    // ================= 2FA: SETUP =================
 
     [Authorize]
     [HttpPost("2fa/setup")]
@@ -299,6 +298,7 @@ public class AuthController : ControllerBase
             EnabledAt = user.TwoFactorEnabledAt
         });
     }
+
     [Authorize]
     [HttpPost("2fa/disable")]
     public async Task<IActionResult> DisableTwoFactor([FromBody] DisableTwoFactorRequest request)
@@ -312,13 +312,11 @@ public class AuthController : ControllerBase
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
         if (user is null) return NotFound();
 
-        // Проверяем пароль. PasswordHash может быть null, если пользователь заведён через LDAP.
-        if (string.IsNullOrEmpty(user.PasswordHash) ||
-            !_passwordHasher.Verify(request.Password, user.PasswordHash))
+        // Проверяем пароль через BCrypt
+        if (string.IsNullOrEmpty(user.PasswordHash)
+            || !_passwordHasher.Verify(request.Password, user.PasswordHash))
         {
-            var ok = await _ldap.ValidateCredentialsAsync(user.Username, request.Password);
-            if (!ok)
-                return Unauthorized(new { message = "Неверный пароль" });
+            return Unauthorized(new { message = "Неверный пароль" });
         }
 
         user.IsTwoFactorEnabled = false;
@@ -331,6 +329,7 @@ public class AuthController : ControllerBase
         return Ok(new { message = "2FA отключена" });
     }
 
+    // ================= HELPERS =================
 
     private int? GetCurrentUserId()
     {

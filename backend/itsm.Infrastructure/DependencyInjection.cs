@@ -29,8 +29,7 @@ public static class DependencyInjection
         services.Configure<JwtSettings>(configuration.GetSection("Jwt"));
         services.AddSingleton<IJwtService, JwtService>();
         services.AddSingleton<ITwoFactorService, TwoFactorService>();
-		services.AddSingleton<ITotpService, TotpService>();
-        services.AddScoped<ILdapService, MockLdapService>();
+        services.AddSingleton<ITotpService, TotpService>();
 
         // Auth / Registration
         services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
