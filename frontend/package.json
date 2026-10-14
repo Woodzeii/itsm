@@ -6,7 +6,9 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "generate:types": "openapi-ts -i http://localhost:5062/openapi/v1.json -o src/app/core/api",
+    "generate:types:check": "npm run generate:types && git diff --exit-code src/app/core/api/"
   },
   "private": true,
   "packageManager": "npm@12.1.0",
@@ -28,6 +30,7 @@
     "@angular/build": "^22.1.8",
     "@angular/cli": "^22.1.8",
     "@angular/compiler-cli": "^22.1.0",
+    "@hey-api/openapi-ts": "^0.99.0",
     "jsdom": "^28.0.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2",
