@@ -186,7 +186,7 @@ COMMENT ON COLUMN "users"."manager_id" IS 'Ссылка на руководит�
 
 COMMENT ON COLUMN "users"."two_fa_secret" IS 'Секрет для TOTP / 2FA кодов';
 
-COMMENT ON COLUMN "system_roles"."code" IS 'client, manager, resource_owner, security_officer, agent, admin';
+COMMENT ON COLUMN "system_roles"."code" IS 'tenant_admin, admin, agent, manager, portal_user';
 
 COMMENT ON COLUMN "agent_groups"."code" IS 'helpdesk, network_team, security_team, sysadmins';
 
