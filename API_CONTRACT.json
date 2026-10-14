@@ -9,6 +9,11 @@
       "url": "http://localhost:5062/"
     }
   ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
   "tags": [
     {
       "name": "Auth"
@@ -33,6 +38,18 @@
     },
     {
       "name": "Reports"
+    },
+    {
+      "name": "AdminUsers"
+    },
+    {
+      "name": "Notifications"
+    },
+    {
+      "name": "SLAConfiguration"
+    },
+    {
+      "name": "TicketConfiguration"
     }
   ],
   "paths": {
@@ -41,6 +58,9 @@
         "tags": [
           "Auth"
         ],
+        "security": [],
+        "deprecated": true,
+        "description": "Legacy endpoint. Противоречит PORT-04: в целевой системе учетные записи создаёт администратор. Оставлен только для совместимости до отключения открытой регистрации.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -62,6 +82,9 @@
         "tags": [
           "Auth"
         ],
+        "security": [],
+        "deprecated": true,
+        "description": "Legacy flow used only by the open-registration endpoint. Не требуется в целевой модели, где учетные записи создаёт администратор (PORT-04).",
         "requestBody": {
           "content": {
             "application/json": {
@@ -83,6 +106,7 @@
         "tags": [
           "Auth"
         ],
+        "security": [],
         "requestBody": {
           "content": {
             "application/json": {
@@ -104,6 +128,7 @@
         "tags": [
           "Auth"
         ],
+        "security": [],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1047,6 +1072,7 @@
         "tags": [
           "Tickets"
         ],
+        "description": "При закрытии тикета на ремонт обязательны repairResolution и repairOutcome. repairOutcome запускает автоматический переход связанного актива в соответствующий этап жизненного цикла.",
         "parameters": [
           {
             "name": "id",
@@ -1221,9 +1247,804 @@
           }
         }
       }
-    }
+    },
+    "/api/auth/admin-create-user": {
+        "post": {
+          "tags": [
+            "AdminUsers"
+          ],
+          "summary": "Создать учетную запись пользователя портала или сотрудника",
+          "description": "Только администратор. Целевой сценарий создания учетных записей согласно PORT-04 и РОЛ-02.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCreateUserRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Пользователь создан"
+            },
+            "400": {
+              "description": "Некорректные данные"
+            },
+            "409": {
+              "description": "Логин или email уже используются"
+            }
+          }
+        }
+      },
+      "/api/users": {
+        "get": {
+          "tags": [
+            "AdminUsers"
+          ],
+          "summary": "Получить список пользователей для администрирования",
+          "description": "Только администратор. Доступ к данным ограничивается текущим тенантом в SaaS.",
+          "parameters": [
+            {
+              "name": "department",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "roleId",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer"
+              }
+            },
+            {
+              "name": "isActive",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "boolean"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Список сотрудников",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/UserSummary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/users/{id}": {
+        "get": {
+          "tags": [
+            "AdminUsers"
+          ],
+          "summary": "Получить карточку пользователя",
+          "description": "Только администратор.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Карточка пользователя",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/UserSummary"
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "Пользователь не найден"
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "AdminUsers"
+          ],
+          "summary": "Изменить профиль, роли и активность пользователя",
+          "description": "Только администратор. Не удаляет пользователя физически, чтобы сохранить историю.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateUserRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Профиль обновлен"
+            },
+            "404": {
+              "description": "Пользователь не найден"
+            }
+          }
+        }
+      },
+      "/api/notifications": {
+        "get": {
+          "tags": [
+            "Notifications"
+          ],
+          "summary": "Получить внутренние уведомления текущего пользователя",
+          "description": "Пользователь определяется по токену; нельзя читать уведомления другого пользователя.",
+          "parameters": [
+            {
+              "name": "onlyUnread",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Уведомления пользователя",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Notification"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/notifications/{id}/read": {
+        "post": {
+          "tags": [
+            "Notifications"
+          ],
+          "summary": "Отметить уведомление текущего пользователя как прочитанное",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "responses": {
+            "204": {
+              "description": "Уведомление отмечено прочитанным"
+            },
+            "404": {
+              "description": "Уведомление не найдено у текущего пользователя"
+            }
+          }
+        }
+      },
+      "/api/calendar-exceptions": {
+        "get": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Получить исключения производственного календаря",
+          "description": "Праздники и перенесенные рабочие дни. Только администратор.",
+          "responses": {
+            "200": {
+              "description": "Список исключений календаря",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CalendarException"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Добавить исключение в производственный календарь",
+          "description": "Только администратор. Для одной даты допускается одна запись.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveCalendarExceptionRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Исключение создано"
+            },
+            "409": {
+              "description": "Для даты уже задано исключение"
+            }
+          }
+        }
+      },
+      "/api/calendar-exceptions/{id}": {
+        "delete": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Удалить исключение из календаря",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "responses": {
+            "204": {
+              "description": "Исключение удалено"
+            },
+            "404": {
+              "description": "Исключение не найдено"
+            }
+          }
+        }
+      },
+      "/api/working-schedules": {
+        "get": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Получить рабочие графики",
+          "description": "Только администратор. Необходимо для настройки режима учета SLA и рабочих часов по дням недели.",
+          "responses": {
+            "200": {
+              "description": "Рабочие графики",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/WorkingSchedule"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/working-schedules/{id}": {
+        "put": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Изменить рабочий график",
+          "description": "Только администратор. График задает режим 24x7 или рабочие часы и интервалы по дням недели.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveWorkingScheduleRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "График обновлен"
+            },
+            "404": {
+              "description": "График не найден"
+            }
+          }
+        }
+      },
+      "/api/sla-settings": {
+        "get": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Получить глобальные настройки SLA",
+          "description": "Только администратор. Включает глобальный переключатель SLA; настройка должна сохраняться в системной конфигурации.",
+          "responses": {
+            "200": {
+              "description": "Глобальные настройки SLA",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/SlaSettings"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Изменить глобальные настройки SLA",
+          "description": "Только администратор.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaSettings"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Настройки сохранены"
+            }
+          }
+        }
+      },
+      "/api/sla-settings/ticket-types/{ticketTypeId}": {
+        "put": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Включить или отключить SLA для типа заявки",
+          "description": "Только администратор. Отключение типа SLA применяется ко всем его уровням критичности; индивидуальное отключение задается отдельными значениями SLA.",
+          "parameters": [
+            {
+              "name": "ticketTypeId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketTypeSlaSettingRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Настройка SLA типа заявки сохранена"
+            },
+            "404": {
+              "description": "Тип заявки не найден"
+            }
+          }
+        }
+      },
+      "/api/sla-policies": {
+        "get": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Получить матрицу SLA по типу заявки и критичности",
+          "description": "Только администратор. Значения соответствуют сочетанию TicketType × CriticalityLevel.",
+          "responses": {
+            "200": {
+              "description": "Матрица SLA",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/SlaValue"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Создать или обновить значение SLA для типа заявки и критичности",
+          "description": "Только администратор. Операция сохраняет единственное значение для уникальной пары ticketTypeId + criticalityLevelId.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveSlaValueRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Значение SLA сохранено"
+            }
+          }
+        }
+      },
+      "/api/ticket-statuses": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить статусы заявок",
+          "description": "Только администратор. Стандартные статусы нельзя удалить; пользовательские статусы могут приостанавливать SLA.",
+          "responses": {
+            "200": {
+              "description": "Статусы заявок",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/TicketStatus"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Добавить пользовательский статус заявки",
+          "description": "Только администратор. Стандартные статусы создаются системой и не дублируются этим методом.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTicketStatusRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Статус создан"
+            },
+            "409": {
+              "description": "Код статуса уже используется"
+            }
+          }
+        }
+      },
+      "/api/ticket-types": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить типы заявок",
+          "description": "Только администратор. Включает признак доступности типа на портале.",
+          "responses": {
+            "200": {
+              "description": "Типы заявок",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/TicketType"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Создать тип заявки",
+          "description": "Только администратор. Встроенный тип тикета на ремонт создается системой и не может быть создан повторно.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTicketTypeRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Тип заявки создан"
+            },
+            "409": {
+              "description": "Код типа уже используется"
+            }
+          }
+        }
+      },
+      "/api/ticket-types/{id}": {
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Изменить параметры типа заявки",
+          "description": "Только администратор. Встроенный тип тикета на ремонт нельзя удалить или изменить по сути (SD-09).",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateTicketTypeRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Тип заявки обновлен"
+            },
+            "404": {
+              "description": "Тип заявки не найден"
+            }
+          }
+        }
+      },
+      "/api/criticality-levels": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить шкалу критичности",
+          "description": "Только администратор. В системе должно оставаться от 3 до 5 активных уровней (SD-11).",
+          "responses": {
+            "200": {
+              "description": "Уровни критичности",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CriticalityLevel"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Добавить уровень критичности",
+          "description": "Только администратор. Не допускается превышать пять активных уровней.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateCriticalityLevelRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Уровень создан"
+            },
+            "409": {
+              "description": "Достигнут максимум уровней или код уже используется"
+            }
+          }
+        }
+      },
+      "/api/criticality-levels/{id}": {
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Переименовать или изменить порядок уровня критичности",
+          "description": "Только администратор. Уровни, используемые существующими заявками, не удаляются физически.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateCriticalityLevelRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Уровень критичности обновлен"
+            },
+            "404": {
+              "description": "Уровень не найден"
+            }
+          }
+        }
+      },
+      "/api/ticket-statuses/{id}": {
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Изменить название или настройки статуса",
+          "description": "Только администратор. Стандартные статусы можно переименовать, но нельзя удалить.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateTicketStatusRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Статус обновлен"
+            },
+            "404": {
+              "description": "Статус не найден"
+            }
+          }
+        }
+      },
+      "/api/ticket-status-transitions": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить разрешенные переходы между статусами",
+          "description": "Только администратор.",
+          "responses": {
+            "200": {
+              "description": "Правила переходов",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/TicketStatusTransition"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Заменить конфигурацию переходов статусов",
+          "description": "Только администратор. Каждый переход задает начальный статус, конечный статус и необязательный код роли.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SaveTicketStatusTransitionRequest"
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Переходы сохранены"
+            }
+          }
+        }
+      }
   },
   "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
     "schemas": {
       "ConfirmEmailRequest": {
         "type": "object",
@@ -1281,7 +2102,9 @@
         ],
         "properties": {
           "inventoryNumber": {
-            "type": "string"
+            "type": "string",
+            "nullable": true,
+            "description": "Необязателен только на этапе «Закуплен»."
           },
           "name": {
             "type": "string"
@@ -1291,7 +2114,8 @@
           },
           "warehouseId": {
             "type": "integer",
-            "nullable": true
+            "nullable": true,
+            "description": "Если inventoryNumber задан, поле обязательно: актив сразу создается на этапе «На складе» (АКТ-19). Без inventoryNumber актив создается на этапе «Закуплен»."
           },
           "customAttributes": {
             "type": "object",
@@ -1486,6 +2310,7 @@
       },
       "CreateTicketRequest": {
         "type": "object",
+        "description": "Для встроенного типа «Тикет на ремонт» заявку создает инженер ТП; assetId обязателен, актив должен находиться на этапе «На складе» или «В эксплуатации». Создание такого тикета автоматически переводит актив в этап «В ремонте».",
         "required": [
           "title",
           "description",
@@ -1507,7 +2332,8 @@
           },
           "assetId": {
             "type": "integer",
-            "nullable": true
+            "nullable": true,
+            "description": "Для обычных заявок может быть null. Для тикета на ремонт обязателен; связь с активом одна на заявку."
           },
           "customFieldsData": {
             "type": "object",
@@ -1542,7 +2368,18 @@
           },
           "repairResolution": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "description": "Свободное описание выполненного ремонта; обязательно при закрытии тикета на ремонт (АКТ-16)."
+          },
+          "repairOutcome": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "ReturnToExploitation",
+              "TransferToWarehouse",
+              "Retire"
+            ],
+            "description": "Обязателен при закрытии тикета на ремонт. Автоматически переводит актив соответственно в «В эксплуатации», «На складе» или «Списан» (АКТ-12)."
           }
         }
       },
@@ -1575,6 +2412,585 @@
         "properties": {
           "fieldsSchema": {
             "type": "object"
+          }
+        }
+      },
+      "TicketType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "isBuiltIn": {
+            "type": "boolean"
+          },
+          "isPortalAvailable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CreateTicketTypeRequest": {
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isPortalAvailable": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "UpdateTicketTypeRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "isPortalAvailable"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "isPortalAvailable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CriticalityLevel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CreateCriticalityLevelRequest": {
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "UpdateCriticalityLevelRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "sortOrder"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AdminCreateUserRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "password",
+          "fullName"
+        ],
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "format": "password"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "required": [
+          "fullName",
+          "roleIds",
+          "isActive"
+        ],
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UserSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "nullable": true
+          },
+          "ticketId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "isRead": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CalendarException": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "exceptionDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "isWorkDay": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SaveCalendarExceptionRequest": {
+        "type": "object",
+        "required": [
+          "exceptionDate",
+          "isWorkDay"
+        ],
+        "properties": {
+          "exceptionDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "isWorkDay": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "WorkingSchedule": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scheduleType": {
+            "type": "string",
+            "enum": [
+              "24x7",
+              "8x5"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "hours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkingHour"
+            }
+          }
+        }
+      },
+      "SaveWorkingScheduleRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "scheduleType"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "scheduleType": {
+            "type": "string",
+            "enum": [
+              "24x7",
+              "8x5"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "hours": {
+            "type": "array",
+            "description": "Для графика 8x5 задает рабочие интервалы по дням недели; для 24x7 может быть пустым.",
+            "items": {
+              "$ref": "#/components/schemas/WorkingHour"
+            }
+          }
+        }
+      },
+      "WorkingHour": {
+        "type": "object",
+        "required": [
+          "dayOfWeek",
+          "startTime",
+          "endTime"
+        ],
+        "properties": {
+          "dayOfWeek": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6,
+            "description": "0 — воскресенье, 6 — суббота."
+          },
+          "startTime": {
+            "type": "string",
+            "format": "time"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "time"
+          }
+        }
+      },
+      "SlaSettings": {
+        "type": "object",
+        "required": [
+          "isEnabled"
+        ],
+        "properties": {
+          "isEnabled": {
+            "type": "boolean",
+            "description": "Глобальный переключатель SLA для системы."
+          },
+          "activeWorkingScheduleId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        }
+      },
+      "TicketTypeSlaSettingRequest": {
+        "type": "object",
+        "required": [
+          "isEnabled"
+        ],
+        "properties": {
+          "isEnabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SlaValue": {
+        "type": "object",
+        "properties": {
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "criticalityLevelId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reactionTimeMinutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "resolutionTimeMinutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "isDisabled": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SaveSlaValueRequest": {
+        "type": "object",
+        "required": [
+          "ticketTypeId",
+          "criticalityLevelId"
+        ],
+        "properties": {
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "criticalityLevelId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reactionTimeMinutes": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "resolutionTimeMinutes": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "isDisabled": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "TicketStatus": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "isSlaPausing": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isBuiltIn": {
+            "type": "boolean",
+            "readOnly": true,
+            "description": "Признак защиты стандартного статуса от удаления; определяется системой."
+          }
+        }
+      },
+      "CreateTicketStatusRequest": {
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isSlaPausing": {
+            "type": "boolean",
+            "default": false
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "UpdateTicketStatusRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "isSlaPausing"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "isSlaPausing": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TicketStatusTransition": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fromStatusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "toStatusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "requiredRoleCode": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SaveTicketStatusTransitionRequest": {
+        "type": "object",
+        "required": [
+          "fromStatusId",
+          "toStatusId"
+        ],
+        "properties": {
+          "fromStatusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "toStatusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "requiredRoleCode": {
+            "type": "string",
+            "nullable": true
           }
         }
       }
