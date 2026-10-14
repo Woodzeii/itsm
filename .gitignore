@@ -1,5 +1,20 @@
 .env
+*.env
 !.env.example
+*.env.bak
+bin/
+obj/
+*.user
+*.suo
 .vs/
+node_modules/
+dist/
+.angular/
+npm-debug.log*
+.idea/
+*.swp
+*.swo
 logs/
 
+.DS_Store
+Thumbs.db
