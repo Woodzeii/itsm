@@ -702,7 +702,7 @@
         "tags": [
           "Assets"
         ],
-        "summary": "Получить связанные заявки",
+        "summary": "Получить историю заявок по активу с фильтрацией (HIST-05, HIST-06)",
         "parameters": [
           {
             "name": "id",
@@ -711,11 +711,77 @@
             "schema": {
               "type": "integer"
             }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "required": false,
+            "description": "Фильтр по типу заявки.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "statusId",
+            "in": "query",
+            "required": false,
+            "description": "Фильтр по статусу заявки.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "criticalityLevelId",
+            "in": "query",
+            "required": false,
+            "description": "Фильтр по критичности.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "assigneeId",
+            "in": "query",
+            "required": false,
+            "description": "Фильтр по исполнителю.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "required": false,
+            "description": "Начальная дата создания, включительно.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "required": false,
+            "description": "Конечная дата создания, включительно.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "История заявок по активу: номер, тип, тема, автор, исполнитель, статус, критичность, дата создания и дата закрытия.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssetTicketHistoryItem"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -1232,19 +1298,155 @@
         "tags": [
           "Reports"
         ],
+        "summary": "Получить один из регламентированных отчетов (SD-24)",
         "parameters": [
           {
             "name": "reportType",
             "in": "path",
             "required": true,
+            "description": "Тип отчета согласно перечню SD-24.",
             "schema": {
-              "type": "string"
+              "$ref": "#/components/schemas/ReportType"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "required": false,
+            "description": "Начало периода, включительно; используется отчетами, считающими данные за период.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "required": false,
+            "description": "Конец периода, включительно; используется отчетами, считающими данные за период.",
+            "schema": {
+              "type": "string",
+              "format": "date"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Строки отчета. Состав строки определяется reportType.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TicketsByStatusReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TicketsByTypeAndCriticalityReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SlaComplianceReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssigneeLoadReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssigneePerformanceReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InspectionReturnsReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RepairsSummaryReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssetsByLifecycleStageReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssetMovementsReportRow"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Роль текущего пользователя не имеет доступа к этому отчету."
+          }
+        }
+      }
+    },
+    "/api/report-access": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Получить матрицу доступа к отчетам (SD-24)",
+        "description": "Только администратор.",
+        "responses": {
+          "200": {
+            "description": "Настройки доступа по каждому типу отчета",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReportAccessSetting"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Заменить матрицу доступа к отчетам (SD-24)",
+        "description": "Только администратор. Доступ настраивается по кодам системных ролей; роль admin сохраняет доступ к настройке матрицы.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ReportAccessSetting"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Матрица доступа сохранена"
           }
         }
       }
@@ -1863,6 +2065,111 @@
           }
         }
       },
+      "/api/assignment-settings": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить общий способ назначения исполнителей (SD-14)",
+          "description": "Настройка едина для системы, а не для отдельного типа заявки. Только администратор.",
+          "responses": {
+            "200": {
+              "description": "Настройки назначения исполнителей",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/AssignmentSettings"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Изменить общий способ назначения исполнителей (SD-14)",
+          "description": "Только администратор. AutomaticLeastLoaded назначает инженера ТП с наименьшим числом открытых заявок. Manual использует выбранного администратора или назначенного администратором пользователя; manualAssignerUserId может быть null, если назначает сам администратор.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateAssignmentSettingsRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Настройки назначения сохранены"
+            }
+          }
+        }
+      },
+      "/api/escalation-rules": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить настройки эскалации по типам заявок (ESC-03)",
+          "description": "Только администратор. Возвращается правило для каждого типа заявки.",
+          "responses": {
+            "200": {
+              "description": "Правила эскалации",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/EscalationRule"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/escalation-rules/{ticketTypeId}": {
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Настроить условия эскалации для типа заявки (ESC-03)",
+          "description": "Только администратор. OnSlaBreach управляет запуском при нарушении времени решения; OnManual разрешает ручную эскалацию автору заявки и исполнителю согласно их ролям. Угроза нарушения SLA и нарушение времени реакции триггерами не являются.",
+          "parameters": [
+            {
+              "name": "ticketTypeId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateEscalationRuleRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Правило эскалации сохранено"
+            },
+            "404": {
+              "description": "Тип заявки не найден"
+            }
+          }
+        }
+      },
       "/api/criticality-levels": {
         "get": {
           "tags": [
@@ -2438,6 +2745,504 @@
           },
           "isPortalAvailable": {
             "type": "boolean"
+          }
+        }
+      },
+      "AssetTicketHistoryItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "typeId",
+          "typeName",
+          "title",
+          "creatorId",
+          "creatorName",
+          "statusId",
+          "statusName",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Системный номер заявки."
+          },
+          "typeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "typeName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "creatorId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "creatorName": {
+            "type": "string"
+          },
+          "assigneeId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "assigneeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "statusName": {
+            "type": "string"
+          },
+          "criticalityLevelId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "criticalityName": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "AssignmentSettings": {
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "AutomaticLeastLoaded",
+              "Manual"
+            ]
+          },
+          "manualAssignerUserId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "При ручном режиме — пользователь, определенный администратором; null означает, что назначать может администратор."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UpdateAssignmentSettingsRequest": {
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "AutomaticLeastLoaded",
+              "Manual"
+            ]
+          },
+          "manualAssignerUserId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Допустим только для Manual; null означает, что назначать может администратор."
+          }
+        }
+      },
+      "EscalationRule": {
+        "type": "object",
+        "required": [
+          "ticketTypeId",
+          "onSlaBreach",
+          "onManual",
+          "isActive"
+        ],
+        "properties": {
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "onSlaBreach": {
+            "type": "boolean",
+            "description": "Запускать эскалацию при нарушении времени решения по SLA."
+          },
+          "onManual": {
+            "type": "boolean",
+            "description": "Разрешить ручной запуск автором заявки или исполнителем согласно их ролям."
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UpdateEscalationRuleRequest": {
+        "type": "object",
+        "required": [
+          "onSlaBreach",
+          "onManual",
+          "isActive"
+        ],
+        "properties": {
+          "onSlaBreach": {
+            "type": "boolean"
+          },
+          "onManual": {
+            "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ReportType": {
+        "type": "string",
+        "enum": [
+          "TicketsByStatus",
+          "TicketsByTypeAndCriticality",
+          "SlaCompliance",
+          "AssigneeLoad",
+          "AssigneePerformance",
+          "InspectionReturns",
+          "RepairsSummary",
+          "AssetsByLifecycleStage",
+          "AssetMovements"
+        ]
+      },
+      "ReportAccessSetting": {
+        "type": "object",
+        "required": [
+          "reportType",
+          "allowedRoleCodes"
+        ],
+        "properties": {
+          "reportType": {
+            "$ref": "#/components/schemas/ReportType"
+          },
+          "allowedRoleCodes": {
+            "type": "array",
+            "description": "Системные коды ролей, которым разрешен просмотр отчета.",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "TicketsByStatusReportRow": {
+        "type": "object",
+        "required": [
+          "statusId",
+          "statusName",
+          "ticketCount"
+        ],
+        "properties": {
+          "statusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "statusName": {
+            "type": "string"
+          },
+          "ticketCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TicketsByTypeAndCriticalityReportRow": {
+        "type": "object",
+        "required": [
+          "ticketTypeId",
+          "ticketTypeName",
+          "criticalityLevelId",
+          "criticalityName",
+          "ticketCount"
+        ],
+        "properties": {
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ticketTypeName": {
+            "type": "string"
+          },
+          "criticalityLevelId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "criticalityName": {
+            "type": "string"
+          },
+          "ticketCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "SlaComplianceReportRow": {
+        "type": "object",
+        "required": [
+          "ticketTypeId",
+          "ticketTypeName",
+          "criticalityLevelId",
+          "criticalityName",
+          "ticketCount",
+          "reactionBreachCount",
+          "reactionBreachRate",
+          "resolutionBreachCount",
+          "resolutionBreachRate"
+        ],
+        "properties": {
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ticketTypeName": {
+            "type": "string"
+          },
+          "criticalityLevelId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "criticalityName": {
+            "type": "string"
+          },
+          "ticketCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reactionBreachCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reactionBreachRate": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Доля от 0 до 1."
+          },
+          "resolutionBreachCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resolutionBreachRate": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Доля от 0 до 1."
+          }
+        }
+      },
+      "AssigneeLoadReportRow": {
+        "type": "object",
+        "required": [
+          "assigneeId",
+          "assigneeName",
+          "openTicketCount"
+        ],
+        "properties": {
+          "assigneeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "assigneeName": {
+            "type": "string"
+          },
+          "openTicketCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AssigneePerformanceReportRow": {
+        "type": "object",
+        "required": [
+          "assigneeId",
+          "assigneeName",
+          "closedTicketCount",
+          "averageReactionMinutes",
+          "averageResolutionMinutes"
+        ],
+        "properties": {
+          "assigneeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "assigneeName": {
+            "type": "string"
+          },
+          "closedTicketCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "averageReactionMinutes": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "averageResolutionMinutes": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        }
+      },
+      "InspectionReturnsReportRow": {
+        "type": "object",
+        "required": [
+          "returnedTicketCount"
+        ],
+        "properties": {
+          "returnedTicketCount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Число заявок, возвращенных авторами из статуса проверки в статус ожидания выполнения."
+          }
+        }
+      },
+      "RepairsSummaryReportRow": {
+        "type": "object",
+        "required": [
+          "assetId",
+          "assetName",
+          "assetClassId",
+          "assetClassName",
+          "outcome",
+          "ticketCount"
+        ],
+        "properties": {
+          "assetId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inventoryNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "assetName": {
+            "type": "string"
+          },
+          "assetClassId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "assetClassName": {
+            "type": "string",
+            "nullable": true
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "ReturnToExploitation",
+              "TransferToWarehouse",
+              "Retire"
+            ]
+          },
+          "ticketCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AssetsByLifecycleStageReportRow": {
+        "type": "object",
+        "required": [
+          "lifecycleStage",
+          "assetCount"
+        ],
+        "properties": {
+          "assetClassId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "assetClassName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lifecycleStage": {
+            "type": "string",
+            "enum": [
+              "Purchased",
+              "InWarehouse",
+              "InUse",
+              "InRepair",
+              "Retired"
+            ]
+          },
+          "assetCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AssetMovementsReportRow": {
+        "type": "object",
+        "required": [
+          "movementId",
+          "assetId",
+          "assetName",
+          "movementType",
+          "movedAt"
+        ],
+        "properties": {
+          "movementId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "assetId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inventoryNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "assetName": {
+            "type": "string"
+          },
+          "movementType": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "nullable": true
+          },
+          "to": {
+            "type": "string",
+            "nullable": true
+          },
+          "performedByUserId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "performedByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "movedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
