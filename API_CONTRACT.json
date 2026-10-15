@@ -1009,8 +1009,14 @@
           }
         ],
         "responses": {
-          "200": {
-            "description": "OK"
+          "204": {
+            "description": "Архивное значение удалено"
+          },
+          "404": {
+            "description": "Справочник или значение не найдены"
+          },
+          "409": {
+            "description": "Нельзя удалить значение справочника, которое используется карточками активов или заявками (SPR-04)."
           }
         }
       }
@@ -1171,7 +1177,8 @@
         "tags": [
           "Tickets"
         ],
-        "description": "При достижении максимальной критичности повышать ее нельзя; создать отдельное внутреннее уведомление для каждого пользователя с ролью admin и для руководителя, если не настроено иначе. Уведомления сохраняются персонально и доступны только получателям.",
+        "summary": "Запустить ручную эскалацию заявки",
+        "description": "Ручной запуск доступен только автору или исполнителю, если это разрешено правилом для типа заявки. Инициатор определяется по JWT, клиент не передает triggerType или userId. Автоматическая эскалация при нарушении времени решения запускается сервером и не вызывает этот endpoint. При достижении максимальной критичности ее уровень не меняется; создаются персональные внутренние уведомления руководителю и каждому пользователю с ролью admin. Инициатор, причина, изменение критичности, получатели и время фиксируются в истории эскалаций (ESC-03, ESC-04, ESC-08).",
         "parameters": [
           {
             "name": "id",
@@ -1184,7 +1191,20 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Результат эскалации с данными, зафиксированными в истории",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketEscalation"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Текущий пользователь не может запускать ручную эскалацию для этого типа заявки."
+          },
+          "409": {
+            "description": "Эскалация не может быть выполнена для текущего состояния заявки."
           }
         }
       }
@@ -1289,6 +1309,12 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "400": {
+            "description": "Некорректная схема формы или значения полей."
+          },
+          "409": {
+            "description": "Нельзя удалить встроенное поле «Выбор актива», пока оно заполнено хотя бы в одной заявке этого типа (FORM-12)."
           }
         }
       }
@@ -1598,6 +1624,95 @@
             },
             "404": {
               "description": "Пользователь не найден"
+            }
+          }
+        }
+      },
+      "/api/roles": {
+        "get": {
+          "tags": [
+            "AdminUsers"
+          ],
+          "summary": "Получить список системных ролей",
+          "description": "Только администратор. Используется для назначения ролей при создании и редактировании пользователей (РОЛ-02).",
+          "responses": {
+            "200": {
+              "description": "Список системных ролей",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/RoleSummary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/audit-log": {
+        "get": {
+          "tags": [
+            "AdminUsers"
+          ],
+          "summary": "Получить системный журнал действий пользователей (НФТ-08)",
+          "description": "Только администратор. Возвращает аудит действий системы: кто, что и когда изменил. Все изменения данных и настроек во всех модулях должны записываться в системный аудит. Пароли, MFA-секреты, токены и другие секреты не должны попадать в oldValues/newValues.",
+          "parameters": [
+            {
+              "name": "userId",
+              "in": "query",
+              "required": false,
+              "description": "Фильтр по пользователю, выполнившему действие.",
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            },
+            {
+              "name": "entityType",
+              "in": "query",
+              "required": false,
+              "description": "Фильтр по типу сущности.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "dateFrom",
+              "in": "query",
+              "required": false,
+              "description": "Начало периода, включительно.",
+              "schema": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            {
+              "name": "dateTo",
+              "in": "query",
+              "required": false,
+              "description": "Конец периода, включительно.",
+              "schema": {
+                "type": "string",
+                "format": "date"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Список записей системного аудита",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/AuditLogEntry"
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -2252,7 +2367,7 @@
               "description": "Уровень критичности обновлен"
             },
             "400": {
-              "description": "Нарушено ограничение на количество активных уровней критичности (от 3 до 5)"
+              "description": "Нарушено ограничение шкалы критичности: после изменения должно оставаться строго от 3 до 5 активных уровней (SD-11)."
             },
             "404": {
               "description": "Уровень не найден"
@@ -3416,6 +3531,138 @@
           },
           "isActive": {
             "type": "boolean"
+          }
+        }
+      },
+      "RoleSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Внутренний идентификатор роли."
+          },
+          "code": {
+            "type": "string",
+            "description": "Системный код роли, например admin, agent, manager или client."
+          },
+          "name": {
+            "type": "string",
+            "description": "Человекочитаемое название роли."
+          }
+        }
+      },
+      "AuditLogEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "entityType",
+          "entityId",
+          "action",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Может быть null для системного действия без пользователя."
+          },
+          "userFullName": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "action": {
+            "type": "string"
+          },
+          "oldValues": {
+            "type": "string",
+            "nullable": true,
+            "description": "Сериализованные JSON старые значения."
+          },
+          "newValues": {
+            "type": "string",
+            "nullable": true,
+            "description": "Сериализованные JSON новые значения."
+          },
+          "ipAddress": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TicketEscalation": {
+        "type": "object",
+        "required": [
+          "id",
+          "ticketId",
+          "reason",
+          "escalatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ticketId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "initiatorUserId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Null для автоматической эскалации по SLA; для ручной эскалации определяется сервером по JWT."
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "OnSlaBreach",
+              "OnManual"
+            ]
+          },
+          "fromCriticalityLevelId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "toCriticalityLevelId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Остается равным null, если заявка уже имела максимальную критичность."
+          },
+          "notifiedUserIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "Персональные получатели внутренних уведомлений."
+          },
+          "escalatedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },
