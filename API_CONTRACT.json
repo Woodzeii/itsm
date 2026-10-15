@@ -50,6 +50,12 @@
     },
     {
       "name": "TicketConfiguration"
+    },
+    {
+      "name": "SecuritySettings"
+    },
+    {
+      "name": "Tenants"
     }
   ],
   "paths": {
@@ -60,7 +66,7 @@
         ],
         "security": [],
         "deprecated": true,
-        "description": "Legacy endpoint. Противоречит PORT-04: в целевой системе учетные записи создаёт администратор. Оставлен только для совместимости до отключения открытой регистрации.",
+        "description": "Legacy endpoint, отсутствующий в целевой модели PORT-04, где учетные записи создаёт администратор. Операция остаётся анонимно доступной в текущем backend: deprecated в OpenAPI не отключает маршрут. Обязательно удалить или закрыть серверный маршрут до production-релиза.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -84,7 +90,7 @@
         ],
         "security": [],
         "deprecated": true,
-        "description": "Legacy flow used only by the open-registration endpoint. Не требуется в целевой модели, где учетные записи создаёт администратор (PORT-04).",
+        "description": "Legacy flow, отсутствующий в целевой модели PORT-04. Операция остаётся анонимно доступной в текущем backend: deprecated в OpenAPI не отключает маршрут. Обязательно удалить или закрыть серверный маршрут до production-релиза.",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1652,6 +1658,203 @@
           }
         }
       },
+      "/api/security-settings": {
+        "get": {
+          "tags": [
+            "SecuritySettings"
+          ],
+          "summary": "Получить политику паролей (НФТ-07)",
+          "description": "Только администратор. В SaaS возвращается политика текущего тенанта; в локальном развертывании — системная политика.",
+          "responses": {
+            "200": {
+              "description": "Текущая политика паролей",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/PasswordPolicy"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "SecuritySettings"
+          ],
+          "summary": "Изменить политику паролей (НФТ-07)",
+          "description": "Только администратор. Правила применяются при создании и изменении пароля; MaxFailedAttempts и LockoutMinutes также определяют блокировку при неуспешной аутентификации. В SaaS настройка изолирована в пределах тенанта.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdatePasswordPolicyRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Политика паролей сохранена",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/PasswordPolicy"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Недопустимые значения политики."
+            }
+          }
+        }
+      },
+      "/api/tenants": {
+        "get": {
+          "tags": [
+            "Tenants"
+          ],
+          "summary": "Получить список тенантов",
+          "description": "Только tenant_admin в SaaS-развертывании. Возвращается метаинформация о тенантах, без данных пользователей или заявок.",
+          "responses": {
+            "200": {
+              "description": "Список тенантов",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/TenantRecord"
+                    }
+                  }
+                }
+              }
+            },
+            "403": {
+              "description": "Операция доступна только администратору SaaS-тенантов."
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "Tenants"
+          ],
+          "summary": "Создать тенант и первую учетную запись администратора",
+          "description": "Только tenant_admin в SaaS-развертывании. Создание тенанта и первой учетной записи администратора должно быть атомарным: при ошибке ни одна из записей не сохраняется. Учетная запись создается по логину, а первоначальная настройка учетных данных выполняется безопасным способом вне этого ответа; эта операция не является открытой регистрацией пользователя.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTenantRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Тенант и первая учетная запись администратора созданы",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TenantRecord"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Некорректные данные тенанта или первого администратора."
+            },
+            "403": {
+              "description": "Операция доступна только администратору SaaS-тенантов."
+            },
+            "409": {
+              "description": "Невозможно создать тенант или первую учетную запись из-за конфликта уникальности."
+            }
+          }
+        }
+      },
+      "/api/tenants/{id}/status": {
+        "patch": {
+          "tags": [
+            "Tenants"
+          ],
+          "summary": "Активировать или заблокировать тенант",
+          "description": "Только tenant_admin в SaaS-развертывании. Блокировка должна запрещать доступ пользователям тенанта, не удаляя его данные.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateTenantStatusRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Статус тенанта обновлен",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TenantRecord"
+                  }
+                }
+              }
+            },
+            "403": {
+              "description": "Операция доступна только администратору SaaS-тенантов."
+            },
+            "404": {
+              "description": "Тенант не найден."
+            }
+          }
+        }
+      },
+      "/api/tenants/{id}": {
+        "delete": {
+          "tags": [
+            "Tenants"
+          ],
+          "summary": "Удалить тенант",
+          "description": "Только tenant_admin в SaaS-развертывании. Удаление необратимо и должно обрабатывать связанные данные тенанта согласно политике хранения.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "responses": {
+            "204": {
+              "description": "Тенант удален."
+            },
+            "403": {
+              "description": "Операция доступна только администратору SaaS-тенантов."
+            },
+            "404": {
+              "description": "Тенант не найден."
+            }
+          }
+        }
+      },
       "/api/audit-log": {
         "get": {
           "tags": [
@@ -2281,6 +2484,62 @@
             },
             "404": {
               "description": "Тип заявки не найден"
+            }
+          }
+        }
+      },
+      "/api/ticket-configuration/service-desk-head": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить назначенного руководителя службы поддержки (ESC-05)",
+          "description": "Только администратор. Руководитель службы поддержки — отдельная системная настройка и не совпадает с managerId, который задает организационную иерархию пользователя.",
+          "responses": {
+            "200": {
+              "description": "Назначенный руководитель либо отсутствие назначения",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ServiceDeskHeadSetting"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Назначить руководителя службы поддержки (ESC-05)",
+          "description": "Только администратор. userId должен принадлежать активному инженеру технической поддержки. Руководитель является получателем эскалаций; это не изменение managerId или роли пользователя.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetServiceDeskHeadRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Руководитель службы поддержки назначен",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ServiceDeskHeadSetting"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Пользователь не является активным инженером технической поддержки."
+            },
+            "404": {
+              "description": "Пользователь не найден."
             }
           }
         }
@@ -3554,6 +3813,202 @@
           "name": {
             "type": "string",
             "description": "Человекочитаемое название роли."
+          }
+        }
+      },
+      "PasswordPolicy": {
+        "type": "object",
+        "required": [
+          "minLength",
+          "requireDigit",
+          "requireUppercase",
+          "requireLowercase",
+          "requireSpecial",
+          "maxFailedAttempts",
+          "lockoutMinutes",
+          "updatedAt"
+        ],
+        "properties": {
+          "minLength": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "requireDigit": {
+            "type": "boolean"
+          },
+          "requireUppercase": {
+            "type": "boolean"
+          },
+          "requireLowercase": {
+            "type": "boolean"
+          },
+          "requireSpecial": {
+            "type": "boolean"
+          },
+          "expirationDays": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "nullable": true
+          },
+          "maxFailedAttempts": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "lockoutMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UpdatePasswordPolicyRequest": {
+        "type": "object",
+        "required": [
+          "minLength",
+          "requireDigit",
+          "requireUppercase",
+          "requireLowercase",
+          "requireSpecial",
+          "expirationDays",
+          "maxFailedAttempts",
+          "lockoutMinutes"
+        ],
+        "properties": {
+          "minLength": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "requireDigit": {
+            "type": "boolean"
+          },
+          "requireUppercase": {
+            "type": "boolean"
+          },
+          "requireLowercase": {
+            "type": "boolean"
+          },
+          "requireSpecial": {
+            "type": "boolean"
+          },
+          "expirationDays": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "nullable": true
+          },
+          "maxFailedAttempts": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "lockoutMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          }
+        }
+      },
+      "TenantRecord": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "firstAdminLogin",
+          "active"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "description": "Уникальный код, назначенный сервером при создании тенанта."
+          },
+          "name": {
+            "type": "string"
+          },
+          "firstAdminLogin": {
+            "type": "string",
+            "description": "Логин первого администратора, созданного при регистрации тенанта."
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateTenantRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "firstAdminLogin"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "По этому названию сервер назначает уникальный код тенанта."
+          },
+          "firstAdminLogin": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "UpdateTenantStatusRequest": {
+        "type": "object",
+        "required": [
+          "active"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ServiceDeskHeadSetting": {
+        "type": "object",
+        "required": [
+          "userId"
+        ],
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "login": {
+            "type": "string",
+            "nullable": true
+          },
+          "fullName": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SetServiceDeskHeadRequest": {
+        "type": "object",
+        "required": [
+          "userId"
+        ],
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
