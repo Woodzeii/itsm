@@ -1053,8 +1053,8 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "description": "Created"
           }
         }
       }
@@ -1242,7 +1242,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Сообщения заявки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketMessageResponse"
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -1271,8 +1281,116 @@
           }
         },
         "responses": {
+          "201": {
+            "description": "Сообщение создано",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketMessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tickets/{id}/attachments": {
+      "post": {
+        "tags": [
+          "TicketMessages"
+        ],
+        "summary": "Загрузить вложение для сообщения заявки",
+        "description": "Загружает файл во временное серверное хранилище. Возвращенный идентификатор передается в attachments при создании сообщения; токен действителен 24 часа и привязан к автору и заявке.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "file"
+                ],
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "format": "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
           "200": {
-            "description": "OK"
+            "description": "Файл загружен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketAttachmentUploadResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пустой файл или превышен лимит размера 10 МБ"
+          },
+          "404": {
+            "description": "Заявка не найдена или недоступна пользователю"
+          }
+        }
+      }
+    },
+    "/api/tickets/{id}/attachments/{attachmentId}": {
+      "get": {
+        "tags": [
+          "TicketMessages"
+        ],
+        "summary": "Скачать вложение из сообщения заявки",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "attachmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Содержимое файла",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Вложение не найдено или недоступно пользователю"
           }
         }
       }
@@ -3126,9 +3244,103 @@
           },
           "attachments": {
             "type": "array",
+            "description": "Идентификаторы файлов, полученные при загрузке через POST /api/tickets/{id}/attachments. Каждый токен можно прикрепить один раз в течение 24 часов.",
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "TicketAttachmentUploadResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "fileName",
+          "sizeBytes",
+          "expiresAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{32}$",
+            "description": "Временный токен для передачи в attachments при создании сообщения."
+          },
+          "fileName": {
+            "type": "string"
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TicketAttachmentResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "fileName"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fileName": {
+            "type": "string"
+          }
+        }
+      },
+      "TicketMessageResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "ticketId",
+          "authorId",
+          "authorName",
+          "messageBody",
+          "isInternal",
+          "attachments",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ticketId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "authorId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "authorName": {
+            "type": "string"
+          },
+          "messageBody": {
+            "type": "string"
+          },
+          "isInternal": {
+            "type": "boolean"
+          },
+          "sourceType": {
+            "type": "string",
+            "nullable": true
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketAttachmentResponse"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       },

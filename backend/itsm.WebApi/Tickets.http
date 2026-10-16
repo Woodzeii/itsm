@@ -1,0 +1,171 @@
+﻿@baseUrl = https://localhost:7038
+@token = paste-jwt-here
+@ticketId = 1
+@assetId = 1
+@uploadId = paste-upload-id-here
+@attachmentId = 1
+
+### Ticket queue (admin or agent)
+GET {{baseUrl}}/api/tickets
+Authorization: Bearer {{token}}
+
+### Ticket details (creator, admin, or agent)
+GET {{baseUrl}}/api/tickets/{{ticketId}}
+Authorization: Bearer {{token}}
+
+### Create a portal ticket
+POST {{baseUrl}}/api/tickets
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "РќРµ СЂР°Р±РѕС‚Р°РµС‚ VPN",
+  "description": "РќРµ СѓРґР°РµС‚СЃСЏ РїРѕРґРєР»СЋС‡РёС‚СЊСЃСЏ Рє РєРѕСЂРїРѕСЂР°С‚РёРІРЅРѕР№ СЃРµС‚Рё.",
+  "typeId": 1,
+  "priority": "High",
+  "customFieldsData": {}
+}
+
+### Create a repair ticket (admin or agent; asset must be in stock or in use)
+POST {{baseUrl}}/api/tickets
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "title": "Р РµРјРѕРЅС‚ РЅРѕСѓС‚Р±СѓРєР°",
+  "description": "РќРµ РІРєР»СЋС‡Р°РµС‚СЃСЏ РїРѕСЃР»Рµ РѕР±РЅРѕРІР»РµРЅРёСЏ.",
+  "typeId": 5,
+  "priority": "High",
+  "assetId": {{assetId}}
+}
+
+### Update a ticket (admin or agent)
+PUT {{baseUrl}}/api/tickets/{{ticketId}}
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "priority": "Critical",
+  "customFieldsData": {
+    "impact": "department"
+  }
+}
+
+### Assign a ticket to an active support engineer (admin or agent)
+POST {{baseUrl}}/api/tickets/{{ticketId}}/assign
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "assigneeId": 2
+}
+
+### Change ticket status (admin or agent)
+PUT {{baseUrl}}/api/tickets/{{ticketId}}/status
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "statusId": 2
+}
+
+### Close a repair ticket
+PUT {{baseUrl}}/api/tickets/{{ticketId}}/status
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "statusId": 5,
+  "repairResolution": "Р—Р°РјРµРЅРµРЅ Р±Р»РѕРє РїРёС‚Р°РЅРёСЏ, СѓСЃС‚СЂРѕР№СЃС‚РІРѕ РїСЂРѕРІРµСЂРµРЅРѕ.",
+  "repairOutcome": "ReturnToExploitation"
+}
+
+### Manually escalate a ticket (creator or assignee)
+POST {{baseUrl}}/api/tickets/{{ticketId}}/escalate
+Authorization: Bearer {{token}}
+
+### Get escalation rules (admin)
+GET {{baseUrl}}/api/escalation-rules
+Authorization: Bearer {{token}}
+
+### Enable manual escalation for a ticket type (admin)
+PUT {{baseUrl}}/api/escalation-rules/1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "onSlaBreach": true,
+  "onManual": true,
+  "isActive": true
+}
+
+### Read ticket messages (creator, admin, or agent)
+GET {{baseUrl}}/api/tickets/{{ticketId}}/messages
+Authorization: Bearer {{token}}
+
+### Add a public message
+POST {{baseUrl}}/api/tickets/{{ticketId}}/messages
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "messageBody": "Р”РѕР±Р°РІРёР» СЃРІРµРґРµРЅРёСЏ Рѕ РїСЂРѕР±Р»РµРјРµ.",
+  "isInternal": false
+}
+
+### Upload a file (returns a temporary upload id valid for 24 hours)
+POST {{baseUrl}}/api/tickets/{{ticketId}}/attachments
+Content-Type: multipart/form-data; boundary=ticket-upload
+Authorization: Bearer {{token}}
+
+--ticket-upload
+Content-Disposition: form-data; name="file"; filename="vpn-details.txt"
+Content-Type: text/plain
+
+VPN connection fails with error 809.
+--ticket-upload--
+
+### Attach an uploaded file to a message
+POST {{baseUrl}}/api/tickets/{{ticketId}}/messages
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "messageBody": "Добавил журнал ошибки.",
+  "attachments": ["{{uploadId}}"]
+}
+
+### Download an attachment belonging to a ticket message
+GET {{baseUrl}}/api/tickets/{{ticketId}}/attachments/{{attachmentId}}
+Authorization: Bearer {{token}}
+
+### Add an internal message (admin or agent)
+POST {{baseUrl}}/api/tickets/{{ticketId}}/messages
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "messageBody": "Р—Р°РїСЂРѕСЃРёР»Рё РґРёР°РіРЅРѕСЃС‚РёРєСѓ Сѓ РІС‚РѕСЂРѕР№ Р»РёРЅРёРё.",
+  "isInternal": true
+}
+
+### Asset ticket history with optional filters
+GET {{baseUrl}}/api/assets/{{assetId}}/tickets?statusId=3&dateFrom=2026-01-01
+Authorization: Bearer {{token}}
+
+### Read service desk head (admin)
+GET {{baseUrl}}/api/ticket-configuration/service-desk-head
+Authorization: Bearer {{token}}
+
+### Set service desk head to an active support engineer (admin)
+PUT {{baseUrl}}/api/ticket-configuration/service-desk-head
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "userId": 2
+}
+
+### Error path: missing ticket
+GET {{baseUrl}}/api/tickets/2147483647
+Authorization: Bearer {{token}}
