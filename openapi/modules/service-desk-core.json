@@ -1,0 +1,1094 @@
+{
+  "openapi": "3.0.1",
+  "paths": {
+    "/api/tickets": {
+      "get": {
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "Очередь заявок",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "Создать заявку",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/tickets/{id}": {
+      "get": {
+        "tags": [
+          "Tickets"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Tickets"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/tickets/{id}/status": {
+      "put": {
+        "tags": [
+          "Tickets"
+        ],
+        "description": "При закрытии тикета на ремонт обязательны repairResolution и repairOutcome. repairOutcome запускает автоматический переход связанного актива в соответствующий этап жизненного цикла.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeTicketStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/tickets/{id}/assign": {
+      "post": {
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "Назначить или переназначить исполнителя заявки (SD-14, РОЛ-02)",
+        "description": "Ручное назначение доступно администратору или пользователю, указанному в manualAssignerUserId глобальной настройки назначения. assigneeId должен принадлежать активному инженеру технической поддержки.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Исполнитель успешно назначен."
+          },
+          "400": {
+            "description": "Пользователь не является активным инженером технической поддержки."
+          },
+          "403": {
+            "description": "Текущий пользователь не имеет прав диспетчера."
+          },
+          "404": {
+            "description": "Заявка или инженер не найдены."
+          }
+        }
+      }
+    },
+    "/api/tickets/{id}/escalate": {
+      "post": {
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "Запустить ручную эскалацию заявки",
+        "description": "Ручной запуск доступен только автору или исполнителю, если это разрешено правилом для типа заявки. Инициатор определяется по JWT, клиент не передает triggerType или userId. Автоматическая эскалация при нарушении времени решения запускается сервером и не вызывает этот endpoint. При достижении максимальной критичности ее уровень не меняется; создаются персональные внутренние уведомления руководителю и каждому пользователю с ролью admin. Инициатор, причина, изменение критичности, получатели и время фиксируются в истории эскалаций (ESC-03, ESC-04, ESC-08).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Результат эскалации с данными, зафиксированными в истории",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketEscalation"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Текущий пользователь не может запускать ручную эскалацию для этого типа заявки."
+          },
+          "409": {
+            "description": "Эскалация не может быть выполнена для текущего состояния заявки."
+          }
+        }
+      }
+    },
+    "/api/calendar-exceptions": {
+      "get": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Получить исключения производственного календаря",
+        "description": "Праздники и перенесенные рабочие дни. Только администратор.",
+        "responses": {
+          "200": {
+            "description": "Список исключений календаря",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarException"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Добавить исключение в производственный календарь",
+        "description": "Только администратор. Для одной даты допускается одна запись.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveCalendarExceptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Исключение создано"
+          },
+          "409": {
+            "description": "Для даты уже задано исключение"
+          }
+        }
+      }
+    },
+    "/api/calendar-exceptions/{id}": {
+      "delete": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Удалить исключение из календаря",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Исключение удалено"
+          },
+          "404": {
+            "description": "Исключение не найдено"
+          }
+        }
+      }
+    },
+    "/api/working-schedules": {
+      "get": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Получить рабочие графики",
+        "description": "Только администратор. Необходимо для настройки режима учета SLA и рабочих часов по дням недели.",
+        "responses": {
+          "200": {
+            "description": "Рабочие графики",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkingSchedule"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/working-schedules/{id}": {
+      "put": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Изменить рабочий график",
+        "description": "Только администратор. График задает режим 24x7 или рабочие часы и интервалы по дням недели.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveWorkingScheduleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "График обновлен"
+          },
+          "404": {
+            "description": "График не найден"
+          }
+        }
+      }
+    },
+    "/api/sla-settings": {
+      "get": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Получить глобальные настройки SLA",
+        "description": "Только администратор. Включает глобальный переключатель SLA; настройка должна сохраняться в системной конфигурации.",
+        "responses": {
+          "200": {
+            "description": "Глобальные настройки SLA",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Изменить глобальные настройки SLA",
+        "description": "Только администратор.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlaSettings"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Настройки сохранены"
+          }
+        }
+      }
+    },
+    "/api/sla-settings/portal-visibility": {
+      "get": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Получить настройки видимости сроков SLA на портале (PORT-10)",
+        "description": "Только администратор.",
+        "responses": {
+          "200": {
+            "description": "Настройки видимости показателей SLA на портале",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalSlaVisibility"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Изменить настройки видимости сроков SLA на портале (PORT-10)",
+        "description": "Только администратор. Настройка управляет показом времени реакции и решения автору заявки на портале.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PortalSlaVisibility"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Настройки видимости сохранены.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalSlaVisibility"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sla-settings/ticket-types/{ticketTypeId}": {
+      "put": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Включить или отключить SLA для типа заявки",
+        "description": "Только администратор. Отключение типа SLA применяется ко всем его уровням критичности; индивидуальное отключение задается отдельными значениями SLA.",
+        "parameters": [
+          {
+            "name": "ticketTypeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TicketTypeSlaSettingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Настройка SLA типа заявки сохранена"
+          },
+          "404": {
+            "description": "Тип заявки не найден"
+          }
+        }
+      }
+    },
+    "/api/sla-policies": {
+      "get": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Получить матрицу SLA по типу заявки и критичности",
+        "description": "Только администратор. Значения соответствуют сочетанию TicketType × CriticalityLevel.",
+        "responses": {
+          "200": {
+            "description": "Матрица SLA",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SlaValue"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Создать или обновить значение SLA для типа заявки и критичности",
+        "description": "Только администратор. Upsert по уникальной паре ticketTypeId + criticalityLevelId: создать значение, если пары нет, либо обновить существующее.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveSlaValueRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Значение SLA сохранено"
+          }
+        }
+      }
+    },
+    "/api/ticket-statuses": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить статусы заявок",
+        "description": "Только администратор. Стандартные статусы нельзя удалить; пользовательские статусы могут приостанавливать SLA.",
+        "responses": {
+          "200": {
+            "description": "Статусы заявок",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketStatus"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Добавить пользовательский статус заявки",
+        "description": "Только администратор. Стандартные статусы создаются системой и не дублируются этим методом.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTicketStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Статус создан"
+          },
+          "409": {
+            "description": "Код статуса уже используется"
+          }
+        }
+      }
+    },
+    "/api/ticket-types": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить типы заявок",
+        "description": "Только администратор. Включает признак доступности типа на портале.",
+        "responses": {
+          "200": {
+            "description": "Типы заявок",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketType"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Создать тип заявки",
+        "description": "Только администратор. Встроенный тип тикета на ремонт создается системой и не может быть создан повторно.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTicketTypeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Тип заявки создан"
+          },
+          "409": {
+            "description": "Код типа уже используется"
+          }
+        }
+      }
+    },
+    "/api/ticket-types/{id}": {
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Изменить параметры типа заявки",
+        "description": "Только администратор. Встроенный тип тикета на ремонт нельзя удалить или изменить по сути (SD-09).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTicketTypeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Тип заявки обновлен"
+          },
+          "404": {
+            "description": "Тип заявки не найден"
+          }
+        }
+      }
+    },
+    "/api/assignment-settings": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить общий способ назначения исполнителей (SD-14)",
+        "description": "Настройка едина для системы, а не для отдельного типа заявки. Только администратор.",
+        "responses": {
+          "200": {
+            "description": "Настройки назначения исполнителей",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Изменить общий способ назначения исполнителей (SD-14)",
+        "description": "Только администратор. AutomaticLeastLoaded назначает инженера ТП с наименьшим числом открытых заявок. Manual использует выбранного администратора или назначенного администратором пользователя; manualAssignerUserId может быть null, если назначает сам администратор.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAssignmentSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Настройки назначения сохранены"
+          }
+        }
+      }
+    },
+    "/api/escalation-rules": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить настройки эскалации по типам заявок (ESC-03)",
+        "description": "Только администратор. Возвращается правило для каждого типа заявки.",
+        "responses": {
+          "200": {
+            "description": "Правила эскалации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EscalationRule"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/escalation-rules/{ticketTypeId}": {
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Настроить условия эскалации для типа заявки (ESC-03)",
+        "description": "Только администратор. OnSlaBreach управляет запуском при нарушении времени решения; OnManual разрешает ручную эскалацию автору заявки и исполнителю согласно их ролям. Угроза нарушения SLA и нарушение времени реакции триггерами не являются.",
+        "parameters": [
+          {
+            "name": "ticketTypeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEscalationRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Правило эскалации сохранено"
+          },
+          "404": {
+            "description": "Тип заявки не найден"
+          }
+        }
+      }
+    },
+    "/api/ticket-configuration/service-desk-head": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить назначенного руководителя службы поддержки (ESC-05)",
+        "description": "Только администратор. Руководитель службы поддержки — отдельная системная настройка и не совпадает с managerId, который задает организационную иерархию пользователя.",
+        "responses": {
+          "200": {
+            "description": "Назначенный руководитель либо отсутствие назначения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceDeskHeadSetting"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Назначить руководителя службы поддержки (ESC-05)",
+        "description": "Только администратор. userId должен принадлежать активному инженеру технической поддержки. Руководитель является получателем эскалаций; это не изменение managerId или роли пользователя.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetServiceDeskHeadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Руководитель службы поддержки назначен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceDeskHeadSetting"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пользователь не является активным инженером технической поддержки."
+          },
+          "404": {
+            "description": "Пользователь не найден."
+          }
+        }
+      }
+    },
+    "/api/criticality-levels": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить шкалу критичности",
+        "description": "Только администратор. В системе должно оставаться от 3 до 5 активных уровней (SD-11).",
+        "responses": {
+          "200": {
+            "description": "Уровни критичности",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CriticalityLevel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Добавить уровень критичности",
+        "description": "Только администратор. Не допускается превышать пять активных уровней.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCriticalityLevelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Уровень создан"
+          },
+          "409": {
+            "description": "Достигнут максимум уровней или код уже используется"
+          }
+        }
+      }
+    },
+    "/api/criticality-levels/{id}": {
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Изменить уровень критичности",
+        "description": "Только администратор. Уровни, используемые существующими заявками, не удаляются физически. При isActive=false должно остаться не менее 3 активных уровней; при isActive=true активных уровней должно быть не более 5. Нарушение ограничений возвращает 400.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCriticalityLevelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Уровень критичности обновлен"
+          },
+          "400": {
+            "description": "Нарушено ограничение шкалы критичности: после изменения должно оставаться строго от 3 до 5 активных уровней (SD-11)."
+          },
+          "404": {
+            "description": "Уровень не найден"
+          }
+        }
+      }
+    },
+    "/api/ticket-statuses/{id}": {
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Изменить название или настройки статуса",
+        "description": "Только администратор. Стандартные статусы можно переименовать, но нельзя удалить.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTicketStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Статус обновлен"
+          },
+          "404": {
+            "description": "Статус не найден"
+          }
+        }
+      }
+    },
+    "/api/ticket-status-transitions": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить разрешенные переходы между статусами",
+        "description": "Только администратор.",
+        "responses": {
+          "200": {
+            "description": "Правила переходов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketStatusTransition"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Заменить конфигурацию переходов статусов",
+        "description": "Только администратор. Каждый переход задает начальный статус, конечный статус и необязательный код роли. MVP принимает полный массив и заменяет всю матрицу. Удаление старых строк и вставка новых должны выполняться атомарно в одной транзакции. При одновременном редактировании несколькими администраторами сохраняется риск гонки и потери обновлений.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SaveTicketStatusTransitionRequest"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Переходы сохранены"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AssignTicketRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/AssignTicketRequest"
+      },
+      "AssignmentSettings": {
+        "$ref": "../components/schemas.json#/components/schemas/AssignmentSettings"
+      },
+      "CalendarException": {
+        "$ref": "../components/schemas.json#/components/schemas/CalendarException"
+      },
+      "ChangeTicketStatusRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/ChangeTicketStatusRequest"
+      },
+      "CreateCriticalityLevelRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/CreateCriticalityLevelRequest"
+      },
+      "CreateTicketRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/CreateTicketRequest"
+      },
+      "CreateTicketStatusRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/CreateTicketStatusRequest"
+      },
+      "CreateTicketTypeRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/CreateTicketTypeRequest"
+      },
+      "CriticalityLevel": {
+        "$ref": "../components/schemas.json#/components/schemas/CriticalityLevel"
+      },
+      "EscalationRule": {
+        "$ref": "../components/schemas.json#/components/schemas/EscalationRule"
+      },
+      "PortalSlaVisibility": {
+        "$ref": "../components/schemas.json#/components/schemas/PortalSlaVisibility"
+      },
+      "SaveCalendarExceptionRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/SaveCalendarExceptionRequest"
+      },
+      "SaveSlaValueRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/SaveSlaValueRequest"
+      },
+      "SaveTicketStatusTransitionRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/SaveTicketStatusTransitionRequest"
+      },
+      "SaveWorkingScheduleRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/SaveWorkingScheduleRequest"
+      },
+      "ServiceDeskHeadSetting": {
+        "$ref": "../components/schemas.json#/components/schemas/ServiceDeskHeadSetting"
+      },
+      "SetServiceDeskHeadRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/SetServiceDeskHeadRequest"
+      },
+      "SlaSettings": {
+        "$ref": "../components/schemas.json#/components/schemas/SlaSettings"
+      },
+      "SlaValue": {
+        "$ref": "../components/schemas.json#/components/schemas/SlaValue"
+      },
+      "TicketEscalation": {
+        "$ref": "../components/schemas.json#/components/schemas/TicketEscalation"
+      },
+      "TicketStatus": {
+        "$ref": "../components/schemas.json#/components/schemas/TicketStatus"
+      },
+      "TicketStatusTransition": {
+        "$ref": "../components/schemas.json#/components/schemas/TicketStatusTransition"
+      },
+      "TicketType": {
+        "$ref": "../components/schemas.json#/components/schemas/TicketType"
+      },
+      "TicketTypeSlaSettingRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/TicketTypeSlaSettingRequest"
+      },
+      "UpdateAssignmentSettingsRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/UpdateAssignmentSettingsRequest"
+      },
+      "UpdateCriticalityLevelRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/UpdateCriticalityLevelRequest"
+      },
+      "UpdateEscalationRuleRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/UpdateEscalationRuleRequest"
+      },
+      "UpdateTicketRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/UpdateTicketRequest"
+      },
+      "UpdateTicketStatusRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/UpdateTicketStatusRequest"
+      },
+      "UpdateTicketTypeRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/UpdateTicketTypeRequest"
+      },
+      "WorkingHour": {
+        "$ref": "../components/schemas.json#/components/schemas/WorkingHour"
+      },
+      "WorkingSchedule": {
+        "$ref": "../components/schemas.json#/components/schemas/WorkingSchedule"
+      }
+    }
+  }
+}

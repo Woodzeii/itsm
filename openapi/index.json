@@ -1,0 +1,488 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "itsm.WebApi | Сводный контракт",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5062/"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth"
+    },
+    {
+      "name": "AssetClasses"
+    },
+    {
+      "name": "Assets"
+    },
+    {
+      "name": "Dictionaries"
+    },
+    {
+      "name": "Tickets"
+    },
+    {
+      "name": "TicketMessages"
+    },
+    {
+      "name": "FormTemplates"
+    },
+    {
+      "name": "Reports"
+    },
+    {
+      "name": "AdminUsers"
+    },
+    {
+      "name": "Notifications"
+    },
+    {
+      "name": "SLAConfiguration"
+    },
+    {
+      "name": "TicketConfiguration"
+    },
+    {
+      "name": "SecuritySettings"
+    },
+    {
+      "name": "Tenants"
+    }
+  ],
+  "paths": {
+    "/api/auth/login": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1auth~1login"
+    },
+    "/api/auth/verify-2fa": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1auth~1verify-2fa"
+    },
+    "/api/auth/2fa/setup": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1auth~12fa~1setup"
+    },
+    "/api/auth/2fa/verify-setup": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1auth~12fa~1verify-setup"
+    },
+    "/api/auth/2fa/status": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1auth~12fa~1status"
+    },
+    "/api/auth/2fa/disable": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1auth~12fa~1disable"
+    },
+    "/api/asset-classes": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1asset-classes"
+    },
+    "/api/asset-classes/{id}": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1asset-classes~1{id}"
+    },
+    "/api/asset-classes/{id}/deactivate": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1asset-classes~1{id}~1deactivate"
+    },
+    "/api/asset-classes/{id}/activate": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1asset-classes~1{id}~1activate"
+    },
+    "/api/asset-classes/{id}/attributes": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1asset-classes~1{id}~1attributes"
+    },
+    "/api/asset-classes/{id}/attributes/{attributeId}": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1asset-classes~1{id}~1attributes~1{attributeId}"
+    },
+    "/api/assets": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1assets"
+    },
+    "/api/assets/{id}": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1assets~1{id}"
+    },
+    "/api/assets/{id}/movements": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1assets~1{id}~1movements"
+    },
+    "/api/assets/{id}/history": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1assets~1{id}~1history"
+    },
+    "/api/assets/{id}/tickets": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1assets~1{id}~1tickets"
+    },
+    "/api/dictionaries": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries"
+    },
+    "/api/dictionaries/{id}": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{id}"
+    },
+    "/api/dictionaries/{id}/values": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{id}~1values"
+    },
+    "/api/dictionaries/{id}/values/{valueId}": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{id}~1values~1{valueId}"
+    },
+    "/api/dictionaries/{id}/values/{valueId}/archive": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{id}~1values~1{valueId}~1archive"
+    },
+    "/api/tickets": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1tickets"
+    },
+    "/api/tickets/{id}": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1tickets~1{id}"
+    },
+    "/api/tickets/{id}/status": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1tickets~1{id}~1status"
+    },
+    "/api/tickets/{id}/assign": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1tickets~1{id}~1assign"
+    },
+    "/api/tickets/{id}/escalate": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1tickets~1{id}~1escalate"
+    },
+    "/api/tickets/{id}/messages": {
+      "$ref": "./modules/forms-portal.json#/paths/~1api~1tickets~1{id}~1messages"
+    },
+    "/api/form-templates/{ticketTypeId}": {
+      "$ref": "./modules/forms-portal.json#/paths/~1api~1form-templates~1{ticketTypeId}"
+    },
+    "/api/reports/{reportType}": {
+      "$ref": "./modules/reporting.json#/paths/~1api~1reports~1{reportType}"
+    },
+    "/api/report-access": {
+      "$ref": "./modules/reporting.json#/paths/~1api~1report-access"
+    },
+    "/api/auth/admin-create-user": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1auth~1admin-create-user"
+    },
+    "/api/users": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1users"
+    },
+    "/api/users/{id}": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1users~1{id}"
+    },
+    "/api/roles": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1roles"
+    },
+    "/api/security-settings": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1security-settings"
+    },
+    "/api/tenants": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1tenants"
+    },
+    "/api/tenants/{id}/status": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1tenants~1{id}~1status"
+    },
+    "/api/tenants/{id}": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1tenants~1{id}"
+    },
+    "/api/audit-log": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1audit-log"
+    },
+    "/api/notifications": {
+      "$ref": "./modules/forms-portal.json#/paths/~1api~1notifications"
+    },
+    "/api/notifications/{id}/read": {
+      "$ref": "./modules/forms-portal.json#/paths/~1api~1notifications~1{id}~1read"
+    },
+    "/api/calendar-exceptions": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1calendar-exceptions"
+    },
+    "/api/calendar-exceptions/{id}": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1calendar-exceptions~1{id}"
+    },
+    "/api/working-schedules": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1working-schedules"
+    },
+    "/api/working-schedules/{id}": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1working-schedules~1{id}"
+    },
+    "/api/sla-settings": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1sla-settings"
+    },
+    "/api/sla-settings/portal-visibility": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1sla-settings~1portal-visibility"
+    },
+    "/api/sla-settings/ticket-types/{ticketTypeId}": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1sla-settings~1ticket-types~1{ticketTypeId}"
+    },
+    "/api/sla-policies": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1sla-policies"
+    },
+    "/api/ticket-statuses": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1ticket-statuses"
+    },
+    "/api/ticket-types": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1ticket-types"
+    },
+    "/api/ticket-types/{id}": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1ticket-types~1{id}"
+    },
+    "/api/assignment-settings": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1assignment-settings"
+    },
+    "/api/escalation-rules": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1escalation-rules"
+    },
+    "/api/escalation-rules/{ticketTypeId}": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1escalation-rules~1{ticketTypeId}"
+    },
+    "/api/ticket-configuration/service-desk-head": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1ticket-configuration~1service-desk-head"
+    },
+    "/api/criticality-levels": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1criticality-levels"
+    },
+    "/api/criticality-levels/{id}": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1criticality-levels~1{id}"
+    },
+    "/api/ticket-statuses/{id}": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1ticket-statuses~1{id}"
+    },
+    "/api/ticket-status-transitions": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1ticket-status-transitions"
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "CreateAssetClassAttributeRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/CreateAssetClassAttributeRequest"
+      },
+      "CreateAssetClassRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/CreateAssetClassRequest"
+      },
+      "CreateAssetRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/CreateAssetRequest"
+      },
+      "UpdateAssetRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateAssetRequest"
+      },
+      "RegisterAssetMovementRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/RegisterAssetMovementRequest"
+      },
+      "CreateDictionaryRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/CreateDictionaryRequest"
+      },
+      "CreateDictionaryValueRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/CreateDictionaryValueRequest"
+      },
+      "DisableTwoFactorRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/DisableTwoFactorRequest"
+      },
+      "LoginRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/LoginRequest"
+      },
+      "UpdateAssetClassAttributeRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateAssetClassAttributeRequest"
+      },
+      "UpdateAssetClassRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateAssetClassRequest"
+      },
+      "UpdateDictionaryRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateDictionaryRequest"
+      },
+      "UpdateDictionaryValueRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateDictionaryValueRequest"
+      },
+      "VerifyTwoFactorRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/VerifyTwoFactorRequest"
+      },
+      "VerifyTwoFactorSetupRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/VerifyTwoFactorSetupRequest"
+      },
+      "CreateTicketRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/CreateTicketRequest"
+      },
+      "AssignTicketRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/AssignTicketRequest"
+      },
+      "UpdateTicketRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateTicketRequest"
+      },
+      "ChangeTicketStatusRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/ChangeTicketStatusRequest"
+      },
+      "CreateTicketMessageRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/CreateTicketMessageRequest"
+      },
+      "SaveFormTemplateRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/SaveFormTemplateRequest"
+      },
+      "FormTemplateFieldsSchema": {
+        "$ref": "./components/schemas.json#/components/schemas/FormTemplateFieldsSchema"
+      },
+      "FormFieldDefinition": {
+        "$ref": "./components/schemas.json#/components/schemas/FormFieldDefinition"
+      },
+      "FormFieldVisibilityRule": {
+        "$ref": "./components/schemas.json#/components/schemas/FormFieldVisibilityRule"
+      },
+      "FieldDependency": {
+        "$ref": "./components/schemas.json#/components/schemas/FieldDependency"
+      },
+      "TicketType": {
+        "$ref": "./components/schemas.json#/components/schemas/TicketType"
+      },
+      "AssetHistoryItem": {
+        "$ref": "./components/schemas.json#/components/schemas/AssetHistoryItem"
+      },
+      "AssetTicketHistoryItem": {
+        "$ref": "./components/schemas.json#/components/schemas/AssetTicketHistoryItem"
+      },
+      "AssignmentSettings": {
+        "$ref": "./components/schemas.json#/components/schemas/AssignmentSettings"
+      },
+      "UpdateAssignmentSettingsRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateAssignmentSettingsRequest"
+      },
+      "EscalationRule": {
+        "$ref": "./components/schemas.json#/components/schemas/EscalationRule"
+      },
+      "UpdateEscalationRuleRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateEscalationRuleRequest"
+      },
+      "ReportType": {
+        "$ref": "./components/schemas.json#/components/schemas/ReportType"
+      },
+      "ReportAccessSetting": {
+        "$ref": "./components/schemas.json#/components/schemas/ReportAccessSetting"
+      },
+      "TicketsByStatusReportRow": {
+        "$ref": "./components/schemas.json#/components/schemas/TicketsByStatusReportRow"
+      },
+      "TicketsByTypeAndCriticalityReportRow": {
+        "$ref": "./components/schemas.json#/components/schemas/TicketsByTypeAndCriticalityReportRow"
+      },
+      "SlaComplianceReportRow": {
+        "$ref": "./components/schemas.json#/components/schemas/SlaComplianceReportRow"
+      },
+      "AssigneeLoadReportRow": {
+        "$ref": "./components/schemas.json#/components/schemas/AssigneeLoadReportRow"
+      },
+      "AssigneePerformanceReportRow": {
+        "$ref": "./components/schemas.json#/components/schemas/AssigneePerformanceReportRow"
+      },
+      "InspectionReturnsReportRow": {
+        "$ref": "./components/schemas.json#/components/schemas/InspectionReturnsReportRow"
+      },
+      "RepairsSummaryReportRow": {
+        "$ref": "./components/schemas.json#/components/schemas/RepairsSummaryReportRow"
+      },
+      "AssetsByLifecycleStageReportRow": {
+        "$ref": "./components/schemas.json#/components/schemas/AssetsByLifecycleStageReportRow"
+      },
+      "AssetMovementsReportRow": {
+        "$ref": "./components/schemas.json#/components/schemas/AssetMovementsReportRow"
+      },
+      "CreateTicketTypeRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/CreateTicketTypeRequest"
+      },
+      "UpdateTicketTypeRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateTicketTypeRequest"
+      },
+      "CriticalityLevel": {
+        "$ref": "./components/schemas.json#/components/schemas/CriticalityLevel"
+      },
+      "CreateCriticalityLevelRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/CreateCriticalityLevelRequest"
+      },
+      "UpdateCriticalityLevelRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateCriticalityLevelRequest"
+      },
+      "AdminCreateUserRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/AdminCreateUserRequest"
+      },
+      "UpdateUserRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateUserRequest"
+      },
+      "RoleSummary": {
+        "$ref": "./components/schemas.json#/components/schemas/RoleSummary"
+      },
+      "PasswordPolicy": {
+        "$ref": "./components/schemas.json#/components/schemas/PasswordPolicy"
+      },
+      "UpdatePasswordPolicyRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdatePasswordPolicyRequest"
+      },
+      "TenantRecord": {
+        "$ref": "./components/schemas.json#/components/schemas/TenantRecord"
+      },
+      "CreateTenantRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/CreateTenantRequest"
+      },
+      "UpdateTenantStatusRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateTenantStatusRequest"
+      },
+      "ServiceDeskHeadSetting": {
+        "$ref": "./components/schemas.json#/components/schemas/ServiceDeskHeadSetting"
+      },
+      "SetServiceDeskHeadRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/SetServiceDeskHeadRequest"
+      },
+      "AuditLogEntry": {
+        "$ref": "./components/schemas.json#/components/schemas/AuditLogEntry"
+      },
+      "TicketEscalation": {
+        "$ref": "./components/schemas.json#/components/schemas/TicketEscalation"
+      },
+      "UserSummary": {
+        "$ref": "./components/schemas.json#/components/schemas/UserSummary"
+      },
+      "Notification": {
+        "$ref": "./components/schemas.json#/components/schemas/Notification"
+      },
+      "CalendarException": {
+        "$ref": "./components/schemas.json#/components/schemas/CalendarException"
+      },
+      "SaveCalendarExceptionRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/SaveCalendarExceptionRequest"
+      },
+      "WorkingSchedule": {
+        "$ref": "./components/schemas.json#/components/schemas/WorkingSchedule"
+      },
+      "SaveWorkingScheduleRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/SaveWorkingScheduleRequest"
+      },
+      "WorkingHour": {
+        "$ref": "./components/schemas.json#/components/schemas/WorkingHour"
+      },
+      "SlaSettings": {
+        "$ref": "./components/schemas.json#/components/schemas/SlaSettings"
+      },
+      "PortalSlaVisibility": {
+        "$ref": "./components/schemas.json#/components/schemas/PortalSlaVisibility"
+      },
+      "TicketTypeSlaSettingRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/TicketTypeSlaSettingRequest"
+      },
+      "SlaValue": {
+        "$ref": "./components/schemas.json#/components/schemas/SlaValue"
+      },
+      "SaveSlaValueRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/SaveSlaValueRequest"
+      },
+      "TicketStatus": {
+        "$ref": "./components/schemas.json#/components/schemas/TicketStatus"
+      },
+      "CreateTicketStatusRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/CreateTicketStatusRequest"
+      },
+      "UpdateTicketStatusRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/UpdateTicketStatusRequest"
+      },
+      "TicketStatusTransition": {
+        "$ref": "./components/schemas.json#/components/schemas/TicketStatusTransition"
+      },
+      "SaveTicketStatusTransitionRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/SaveTicketStatusTransitionRequest"
+      }
+    }
+  }
+}
