@@ -1,0 +1,4761 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "itsm.WebApi | Сводный контракт",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5062/"
+    }
+  ],
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Auth"
+    },
+    {
+      "name": "AssetClasses"
+    },
+    {
+      "name": "Assets"
+    },
+    {
+      "name": "Dictionaries"
+    },
+    {
+      "name": "Tickets"
+    },
+    {
+      "name": "TicketMessages"
+    },
+    {
+      "name": "FormTemplates"
+    },
+    {
+      "name": "Reports"
+    },
+    {
+      "name": "AdminUsers"
+    },
+    {
+      "name": "Notifications"
+    },
+    {
+      "name": "SLAConfiguration"
+    },
+    {
+      "name": "TicketConfiguration"
+    },
+    {
+      "name": "SecuritySettings"
+    },
+    {
+      "name": "Tenants"
+    }
+  ],
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/verify-2fa": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyTwoFactorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/setup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/verify-setup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyTwoFactorSetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/status": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/disable": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisableTwoFactorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/asset-classes": {
+      "get": {
+        "tags": [
+          "AssetClasses"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AssetClasses"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAssetClassRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/asset-classes/{id}": {
+      "get": {
+        "tags": [
+          "AssetClasses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "AssetClasses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAssetClassRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AssetClasses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/asset-classes/{id}/deactivate": {
+      "post": {
+        "tags": [
+          "AssetClasses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/asset-classes/{id}/activate": {
+      "post": {
+        "tags": [
+          "AssetClasses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/asset-classes/{id}/attributes": {
+      "get": {
+        "tags": [
+          "AssetClasses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "AssetClasses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAssetClassAttributeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/asset-classes/{id}/attributes/{attributeId}": {
+      "get": {
+        "tags": [
+          "AssetClasses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "attributeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "AssetClasses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "attributeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAssetClassAttributeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "AssetClasses"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "attributeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/assets": {
+      "get": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Получить список активов с фильтрацией",
+        "parameters": [
+          {
+            "name": "classId",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Создать карточку актива вручную",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateAssetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/assets/{id}": {
+      "get": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Получить карточку актива по ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Редактировать атрибуты карточки актива",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAssetRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Удалить актив (допускается только на этапе 'Закуплен')",
+        "description": "Удаление разрешено только пока актив находится на этапе «Закуплен» (АКТ-14). Для активов на других этапах возвращается 409 Conflict.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "409": {
+            "description": "Удаление невозможно: актив находится на этапе, отличном от «Закуплен» (АКТ-14)."
+          }
+        }
+      }
+    },
+    "/api/assets/{id}/movements": {
+      "post": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Оформить движение актива",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterAssetMovementRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/assets/{id}/history": {
+      "get": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Получить историю изменений",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "История изменений актива",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssetHistoryItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/assets/{id}/tickets": {
+      "get": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Получить историю заявок по активу с фильтрацией (HIST-05, HIST-06)",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "required": false,
+            "description": "Фильтр по типу заявки.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "statusId",
+            "in": "query",
+            "required": false,
+            "description": "Фильтр по статусу заявки.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "criticalityLevelId",
+            "in": "query",
+            "required": false,
+            "description": "Фильтр по критичности.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "assigneeId",
+            "in": "query",
+            "required": false,
+            "description": "Фильтр по исполнителю.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "required": false,
+            "description": "Начальная дата создания, включительно.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "required": false,
+            "description": "Конечная дата создания, включительно.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "История заявок по активу: номер, тип, тема, автор, исполнитель, статус, критичность, дата создания и дата закрытия.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssetTicketHistoryItem"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dictionaries": {
+      "get": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDictionaryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/dictionaries/{id}": {
+      "get": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDictionaryRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/dictionaries/{id}/values": {
+      "get": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDictionaryValueRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/dictionaries/{id}/values/{valueId}": {
+      "put": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "valueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateDictionaryValueRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "valueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Архивное значение удалено"
+          },
+          "404": {
+            "description": "Справочник или значение не найдены"
+          },
+          "409": {
+            "description": "Нельзя удалить значение справочника, которое используется карточками активов или заявками (SPR-04)."
+          }
+        }
+      }
+    },
+    "/api/dictionaries/{id}/values/{valueId}/archive": {
+      "post": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "valueId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/tickets": {
+      "get": {
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "Очередь заявок",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "Создать заявку",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/tickets/{id}": {
+      "get": {
+        "tags": [
+          "Tickets"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Tickets"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/tickets/{id}/status": {
+      "put": {
+        "tags": [
+          "Tickets"
+        ],
+        "description": "При закрытии тикета на ремонт обязательны repairResolution и repairOutcome. repairOutcome запускает автоматический переход связанного актива в соответствующий этап жизненного цикла.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeTicketStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/tickets/{id}/assign": {
+      "post": {
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "Назначить или переназначить исполнителя заявки (SD-14, РОЛ-02)",
+        "description": "Ручное назначение доступно администратору или пользователю, указанному в manualAssignerUserId глобальной настройки назначения. assigneeId должен принадлежать активному инженеру технической поддержки.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssignTicketRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Исполнитель успешно назначен."
+          },
+          "400": {
+            "description": "Пользователь не является активным инженером технической поддержки."
+          },
+          "403": {
+            "description": "Текущий пользователь не имеет прав диспетчера."
+          },
+          "404": {
+            "description": "Заявка или инженер не найдены."
+          }
+        }
+      }
+    },
+    "/api/tickets/{id}/escalate": {
+      "post": {
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "Запустить ручную эскалацию заявки",
+        "description": "Ручной запуск доступен только автору или исполнителю, если это разрешено правилом для типа заявки. Инициатор определяется по JWT, клиент не передает triggerType или userId. Автоматическая эскалация при нарушении времени решения запускается сервером и не вызывает этот endpoint. При достижении максимальной критичности ее уровень не меняется; создаются персональные внутренние уведомления руководителю и каждому пользователю с ролью admin. Инициатор, причина, изменение критичности, получатели и время фиксируются в истории эскалаций (ESC-03, ESC-04, ESC-08).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Результат эскалации с данными, зафиксированными в истории",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketEscalation"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Текущий пользователь не может запускать ручную эскалацию для этого типа заявки."
+          },
+          "409": {
+            "description": "Эскалация не может быть выполнена для текущего состояния заявки."
+          }
+        }
+      }
+    },
+    "/api/tickets/{id}/messages": {
+      "get": {
+        "tags": [
+          "TicketMessages"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "TicketMessages"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTicketMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/form-templates/{ticketTypeId}": {
+      "get": {
+        "tags": [
+          "FormTemplates"
+        ],
+        "parameters": [
+          {
+            "name": "ticketTypeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "FormTemplates"
+        ],
+        "parameters": [
+          {
+            "name": "ticketTypeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveFormTemplateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Некорректная схема формы или значения полей."
+          },
+          "409": {
+            "description": "Нельзя удалить встроенное поле «Выбор актива», пока оно заполнено хотя бы в одной заявке этого типа (FORM-12)."
+          }
+        }
+      }
+    },
+    "/api/reports/{reportType}": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Получить один из регламентированных отчетов (SD-24)",
+        "parameters": [
+          {
+            "name": "reportType",
+            "in": "path",
+            "required": true,
+            "description": "Тип отчета согласно перечню SD-24.",
+            "schema": {
+              "$ref": "#/components/schemas/ReportType"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "required": false,
+            "description": "Начало периода, включительно; используется отчетами, считающими данные за период.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "required": false,
+            "description": "Конец периода, включительно; используется отчетами, считающими данные за период.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Строки отчета. Состав строки определяется reportType.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TicketsByStatusReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TicketsByTypeAndCriticalityReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SlaComplianceReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssigneeLoadReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssigneePerformanceReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InspectionReturnsReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RepairsSummaryReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssetsByLifecycleStageReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssetMovementsReportRow"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Роль текущего пользователя не имеет доступа к этому отчету."
+          }
+        }
+      }
+    },
+    "/api/report-access": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Получить матрицу доступа к отчетам (SD-24)",
+        "description": "Только администратор.",
+        "responses": {
+          "200": {
+            "description": "Настройки доступа по каждому типу отчета",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReportAccessSetting"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Заменить матрицу доступа к отчетам (SD-24)",
+        "description": "Только администратор. Доступ настраивается по кодам системных ролей; роль admin сохраняет доступ к настройке матрицы.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ReportAccessSetting"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Матрица доступа сохранена"
+          }
+        }
+      }
+    },
+    "/api/auth/admin-create-user": {
+        "post": {
+          "tags": [
+            "AdminUsers"
+          ],
+          "summary": "Создать учетную запись пользователя портала или сотрудника",
+          "description": "Только администратор. Целевой сценарий создания учетных записей согласно PORT-04 и РОЛ-02.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminCreateUserRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Пользователь создан"
+            },
+            "400": {
+              "description": "Некорректные данные"
+            },
+            "409": {
+              "description": "Логин или email уже используются"
+            }
+          }
+        }
+      },
+      "/api/users": {
+        "get": {
+          "tags": [
+            "AdminUsers"
+          ],
+          "summary": "Получить список пользователей для администрирования",
+          "description": "Только администратор. Доступ к данным ограничивается текущим тенантом в SaaS.",
+          "parameters": [
+            {
+              "name": "department",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "roleId",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "integer"
+              }
+            },
+            {
+              "name": "isActive",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "boolean"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Список сотрудников",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/UserSummary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/users/{id}": {
+        "get": {
+          "tags": [
+            "AdminUsers"
+          ],
+          "summary": "Получить карточку пользователя",
+          "description": "Только администратор.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Карточка пользователя",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/UserSummary"
+                  }
+                }
+              }
+            },
+            "404": {
+              "description": "Пользователь не найден"
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "AdminUsers"
+          ],
+          "summary": "Изменить профиль, роли и активность пользователя",
+          "description": "Только администратор. Не удаляет пользователя физически, чтобы сохранить историю.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateUserRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Профиль обновлен"
+            },
+            "404": {
+              "description": "Пользователь не найден"
+            }
+          }
+        }
+      },
+      "/api/roles": {
+        "get": {
+          "tags": [
+            "AdminUsers"
+          ],
+          "summary": "Получить список системных ролей",
+          "description": "Только администратор. Используется для назначения ролей при создании и редактировании пользователей (РОЛ-02).",
+          "responses": {
+            "200": {
+              "description": "Список системных ролей",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/RoleSummary"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/security-settings": {
+        "get": {
+          "tags": [
+            "SecuritySettings"
+          ],
+          "summary": "Получить политику паролей (НФТ-07)",
+          "description": "Только администратор. В SaaS возвращается политика текущего тенанта; в локальном развертывании — системная политика.",
+          "responses": {
+            "200": {
+              "description": "Текущая политика паролей",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/PasswordPolicy"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "SecuritySettings"
+          ],
+          "summary": "Изменить политику паролей (НФТ-07)",
+          "description": "Только администратор. Правила применяются при создании и изменении пароля; MaxFailedAttempts и LockoutMinutes также определяют блокировку при неуспешной аутентификации. В SaaS настройка изолирована в пределах тенанта.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdatePasswordPolicyRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Политика паролей сохранена",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/PasswordPolicy"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Недопустимые значения политики."
+            }
+          }
+        }
+      },
+      "/api/tenants": {
+        "get": {
+          "tags": [
+            "Tenants"
+          ],
+          "summary": "Получить список тенантов",
+          "description": "Только tenant_admin в SaaS-развертывании. Возвращается метаинформация о тенантах, без данных пользователей или заявок.",
+          "responses": {
+            "200": {
+              "description": "Список тенантов",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/TenantRecord"
+                    }
+                  }
+                }
+              }
+            },
+            "403": {
+              "description": "Операция доступна только администратору SaaS-тенантов."
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "Tenants"
+          ],
+          "summary": "Создать тенант и первую учетную запись администратора",
+          "description": "Только tenant_admin в SaaS-развертывании. Создание тенанта и первой учетной записи администратора должно быть атомарным: при ошибке ни одна из записей не сохраняется. Учетная запись создается по логину, а первоначальная настройка учетных данных выполняется безопасным способом вне этого ответа; эта операция не является открытой регистрацией пользователя.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTenantRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Тенант и первая учетная запись администратора созданы",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TenantRecord"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Некорректные данные тенанта или первого администратора."
+            },
+            "403": {
+              "description": "Операция доступна только администратору SaaS-тенантов."
+            },
+            "409": {
+              "description": "Невозможно создать тенант или первую учетную запись из-за конфликта уникальности."
+            }
+          }
+        }
+      },
+      "/api/tenants/{id}/status": {
+        "patch": {
+          "tags": [
+            "Tenants"
+          ],
+          "summary": "Активировать или заблокировать тенант",
+          "description": "Только tenant_admin в SaaS-развертывании. Блокировка должна запрещать доступ пользователям тенанта, не удаляя его данные.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateTenantStatusRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Статус тенанта обновлен",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TenantRecord"
+                  }
+                }
+              }
+            },
+            "403": {
+              "description": "Операция доступна только администратору SaaS-тенантов."
+            },
+            "404": {
+              "description": "Тенант не найден."
+            }
+          }
+        }
+      },
+      "/api/tenants/{id}": {
+        "delete": {
+          "tags": [
+            "Tenants"
+          ],
+          "summary": "Удалить тенант",
+          "description": "Только tenant_admin в SaaS-развертывании. Удаление необратимо и должно обрабатывать связанные данные тенанта согласно политике хранения.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "responses": {
+            "204": {
+              "description": "Тенант удален."
+            },
+            "403": {
+              "description": "Операция доступна только администратору SaaS-тенантов."
+            },
+            "404": {
+              "description": "Тенант не найден."
+            }
+          }
+        }
+      },
+      "/api/audit-log": {
+        "get": {
+          "tags": [
+            "AdminUsers"
+          ],
+          "summary": "Получить системный журнал действий пользователей (НФТ-08)",
+          "description": "Только администратор. Возвращает аудит действий системы: кто, что и когда изменил. Все изменения данных и настроек во всех модулях должны записываться в системный аудит. Пароли, MFA-секреты, токены и другие секреты не должны попадать в oldValues/newValues.",
+          "parameters": [
+            {
+              "name": "userId",
+              "in": "query",
+              "required": false,
+              "description": "Фильтр по пользователю, выполнившему действие.",
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            },
+            {
+              "name": "entityType",
+              "in": "query",
+              "required": false,
+              "description": "Фильтр по типу сущности.",
+              "schema": {
+                "type": "string"
+              }
+            },
+            {
+              "name": "dateFrom",
+              "in": "query",
+              "required": false,
+              "description": "Начало периода, включительно.",
+              "schema": {
+                "type": "string",
+                "format": "date"
+              }
+            },
+            {
+              "name": "dateTo",
+              "in": "query",
+              "required": false,
+              "description": "Конец периода, включительно.",
+              "schema": {
+                "type": "string",
+                "format": "date"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Список записей системного аудита",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/AuditLogEntry"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/notifications": {
+        "get": {
+          "tags": [
+            "Notifications"
+          ],
+          "summary": "Получить внутренние уведомления текущего пользователя",
+          "description": "Пользователь определяется по токену; нельзя читать уведомления другого пользователя.",
+          "parameters": [
+            {
+              "name": "onlyUnread",
+              "in": "query",
+              "required": false,
+              "schema": {
+                "type": "boolean",
+                "default": true
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Уведомления пользователя",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/Notification"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/notifications/{id}/read": {
+        "post": {
+          "tags": [
+            "Notifications"
+          ],
+          "summary": "Отметить уведомление текущего пользователя как прочитанное",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "responses": {
+            "204": {
+              "description": "Уведомление отмечено прочитанным"
+            },
+            "404": {
+              "description": "Уведомление не найдено у текущего пользователя"
+            }
+          }
+        }
+      },
+      "/api/calendar-exceptions": {
+        "get": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Получить исключения производственного календаря",
+          "description": "Праздники и перенесенные рабочие дни. Только администратор.",
+          "responses": {
+            "200": {
+              "description": "Список исключений календаря",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CalendarException"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Добавить исключение в производственный календарь",
+          "description": "Только администратор. Для одной даты допускается одна запись.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveCalendarExceptionRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Исключение создано"
+            },
+            "409": {
+              "description": "Для даты уже задано исключение"
+            }
+          }
+        }
+      },
+      "/api/calendar-exceptions/{id}": {
+        "delete": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Удалить исключение из календаря",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "responses": {
+            "204": {
+              "description": "Исключение удалено"
+            },
+            "404": {
+              "description": "Исключение не найдено"
+            }
+          }
+        }
+      },
+      "/api/working-schedules": {
+        "get": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Получить рабочие графики",
+          "description": "Только администратор. Необходимо для настройки режима учета SLA и рабочих часов по дням недели.",
+          "responses": {
+            "200": {
+              "description": "Рабочие графики",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/WorkingSchedule"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/working-schedules/{id}": {
+        "put": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Изменить рабочий график",
+          "description": "Только администратор. График задает режим 24x7 или рабочие часы и интервалы по дням недели.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveWorkingScheduleRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "График обновлен"
+            },
+            "404": {
+              "description": "График не найден"
+            }
+          }
+        }
+      },
+      "/api/sla-settings": {
+        "get": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Получить глобальные настройки SLA",
+          "description": "Только администратор. Включает глобальный переключатель SLA; настройка должна сохраняться в системной конфигурации.",
+          "responses": {
+            "200": {
+              "description": "Глобальные настройки SLA",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/SlaSettings"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Изменить глобальные настройки SLA",
+          "description": "Только администратор.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SlaSettings"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Настройки сохранены"
+            }
+          }
+        }
+      },
+      "/api/sla-settings/portal-visibility": {
+        "get": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Получить настройки видимости сроков SLA на портале (PORT-10)",
+          "description": "Только администратор.",
+          "responses": {
+            "200": {
+              "description": "Настройки видимости показателей SLA на портале",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/PortalSlaVisibility"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Изменить настройки видимости сроков SLA на портале (PORT-10)",
+          "description": "Только администратор. Настройка управляет показом времени реакции и решения автору заявки на портале.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PortalSlaVisibility"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Настройки видимости сохранены.",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/PortalSlaVisibility"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/sla-settings/ticket-types/{ticketTypeId}": {
+        "put": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Включить или отключить SLA для типа заявки",
+          "description": "Только администратор. Отключение типа SLA применяется ко всем его уровням критичности; индивидуальное отключение задается отдельными значениями SLA.",
+          "parameters": [
+            {
+              "name": "ticketTypeId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketTypeSlaSettingRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Настройка SLA типа заявки сохранена"
+            },
+            "404": {
+              "description": "Тип заявки не найден"
+            }
+          }
+        }
+      },
+      "/api/sla-policies": {
+        "get": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Получить матрицу SLA по типу заявки и критичности",
+          "description": "Только администратор. Значения соответствуют сочетанию TicketType × CriticalityLevel.",
+          "responses": {
+            "200": {
+              "description": "Матрица SLA",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/SlaValue"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "SLAConfiguration"
+          ],
+          "summary": "Создать или обновить значение SLA для типа заявки и критичности",
+          "description": "Только администратор. Upsert по уникальной паре ticketTypeId + criticalityLevelId: создать значение, если пары нет, либо обновить существующее.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SaveSlaValueRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Значение SLA сохранено"
+            }
+          }
+        }
+      },
+      "/api/ticket-statuses": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить статусы заявок",
+          "description": "Только администратор. Стандартные статусы нельзя удалить; пользовательские статусы могут приостанавливать SLA.",
+          "responses": {
+            "200": {
+              "description": "Статусы заявок",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/TicketStatus"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Добавить пользовательский статус заявки",
+          "description": "Только администратор. Стандартные статусы создаются системой и не дублируются этим методом.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTicketStatusRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Статус создан"
+            },
+            "409": {
+              "description": "Код статуса уже используется"
+            }
+          }
+        }
+      },
+      "/api/ticket-types": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить типы заявок",
+          "description": "Только администратор. Включает признак доступности типа на портале.",
+          "responses": {
+            "200": {
+              "description": "Типы заявок",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/TicketType"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Создать тип заявки",
+          "description": "Только администратор. Встроенный тип тикета на ремонт создается системой и не может быть создан повторно.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateTicketTypeRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Тип заявки создан"
+            },
+            "409": {
+              "description": "Код типа уже используется"
+            }
+          }
+        }
+      },
+      "/api/ticket-types/{id}": {
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Изменить параметры типа заявки",
+          "description": "Только администратор. Встроенный тип тикета на ремонт нельзя удалить или изменить по сути (SD-09).",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateTicketTypeRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Тип заявки обновлен"
+            },
+            "404": {
+              "description": "Тип заявки не найден"
+            }
+          }
+        }
+      },
+      "/api/assignment-settings": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить общий способ назначения исполнителей (SD-14)",
+          "description": "Настройка едина для системы, а не для отдельного типа заявки. Только администратор.",
+          "responses": {
+            "200": {
+              "description": "Настройки назначения исполнителей",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/AssignmentSettings"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Изменить общий способ назначения исполнителей (SD-14)",
+          "description": "Только администратор. AutomaticLeastLoaded назначает инженера ТП с наименьшим числом открытых заявок. Manual использует выбранного администратора или назначенного администратором пользователя; manualAssignerUserId может быть null, если назначает сам администратор.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateAssignmentSettingsRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Настройки назначения сохранены"
+            }
+          }
+        }
+      },
+      "/api/escalation-rules": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить настройки эскалации по типам заявок (ESC-03)",
+          "description": "Только администратор. Возвращается правило для каждого типа заявки.",
+          "responses": {
+            "200": {
+              "description": "Правила эскалации",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/EscalationRule"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/api/escalation-rules/{ticketTypeId}": {
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Настроить условия эскалации для типа заявки (ESC-03)",
+          "description": "Только администратор. OnSlaBreach управляет запуском при нарушении времени решения; OnManual разрешает ручную эскалацию автору заявки и исполнителю согласно их ролям. Угроза нарушения SLA и нарушение времени реакции триггерами не являются.",
+          "parameters": [
+            {
+              "name": "ticketTypeId",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateEscalationRuleRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Правило эскалации сохранено"
+            },
+            "404": {
+              "description": "Тип заявки не найден"
+            }
+          }
+        }
+      },
+      "/api/ticket-configuration/service-desk-head": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить назначенного руководителя службы поддержки (ESC-05)",
+          "description": "Только администратор. Руководитель службы поддержки — отдельная системная настройка и не совпадает с managerId, который задает организационную иерархию пользователя.",
+          "responses": {
+            "200": {
+              "description": "Назначенный руководитель либо отсутствие назначения",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ServiceDeskHeadSetting"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Назначить руководителя службы поддержки (ESC-05)",
+          "description": "Только администратор. userId должен принадлежать активному инженеру технической поддержки. Руководитель является получателем эскалаций; это не изменение managerId или роли пользователя.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetServiceDeskHeadRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Руководитель службы поддержки назначен",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/ServiceDeskHeadSetting"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Пользователь не является активным инженером технической поддержки."
+            },
+            "404": {
+              "description": "Пользователь не найден."
+            }
+          }
+        }
+      },
+      "/api/criticality-levels": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить шкалу критичности",
+          "description": "Только администратор. В системе должно оставаться от 3 до 5 активных уровней (SD-11).",
+          "responses": {
+            "200": {
+              "description": "Уровни критичности",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CriticalityLevel"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "post": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Добавить уровень критичности",
+          "description": "Только администратор. Не допускается превышать пять активных уровней.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateCriticalityLevelRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "201": {
+              "description": "Уровень создан"
+            },
+            "409": {
+              "description": "Достигнут максимум уровней или код уже используется"
+            }
+          }
+        }
+      },
+      "/api/criticality-levels/{id}": {
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Изменить уровень критичности",
+          "description": "Только администратор. Уровни, используемые существующими заявками, не удаляются физически. При isActive=false должно остаться не менее 3 активных уровней; при isActive=true активных уровней должно быть не более 5. Нарушение ограничений возвращает 400.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateCriticalityLevelRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Уровень критичности обновлен"
+            },
+            "400": {
+              "description": "Нарушено ограничение шкалы критичности: после изменения должно оставаться строго от 3 до 5 активных уровней (SD-11)."
+            },
+            "404": {
+              "description": "Уровень не найден"
+            }
+          }
+        }
+      },
+      "/api/ticket-statuses/{id}": {
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Изменить название или настройки статуса",
+          "description": "Только администратор. Стандартные статусы можно переименовать, но нельзя удалить.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateTicketStatusRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Статус обновлен"
+            },
+            "404": {
+              "description": "Статус не найден"
+            }
+          }
+        }
+      },
+      "/api/ticket-status-transitions": {
+        "get": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Получить разрешенные переходы между статусами",
+          "description": "Только администратор.",
+          "responses": {
+            "200": {
+              "description": "Правила переходов",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/TicketStatusTransition"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "TicketConfiguration"
+          ],
+          "summary": "Заменить конфигурацию переходов статусов",
+          "description": "Только администратор. Каждый переход задает начальный статус, конечный статус и необязательный код роли. MVP принимает полный массив и заменяет всю матрицу. Удаление старых строк и вставка новых должны выполняться атомарно в одной транзакции. При одновременном редактировании несколькими администраторами сохраняется риск гонки и потери обновлений.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SaveTicketStatusTransitionRequest"
+                  }
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Переходы сохранены"
+            }
+          }
+        }
+      }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "CreateAssetClassAttributeRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "dataType": {
+            "type": "string"
+          },
+          "isRequired": {
+            "type": "boolean"
+          },
+          "defaultValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "options": {
+            "type": "string",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "CreateAssetClassRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateAssetRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "assetClassId"
+        ],
+        "properties": {
+          "inventoryNumber": {
+            "type": "string",
+            "nullable": true,
+            "description": "Необязателен только на этапе «Закуплен»."
+          },
+          "name": {
+            "type": "string"
+          },
+          "assetClassId": {
+            "type": "integer"
+          },
+          "warehouseId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Если inventoryNumber задан, поле обязательно: актив сразу создается на этапе «На складе» (АКТ-19). Без inventoryNumber актив создается на этапе «Закуплен»."
+          },
+          "customAttributes": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "UpdateAssetRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "customAttributes": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "RegisterAssetMovementRequest": {
+        "type": "object",
+        "required": [
+          "movementType"
+        ],
+        "properties": {
+          "movementType": {
+            "type": "string",
+            "enum": [
+              "TransferToEmployee",
+              "Relocation",
+              "WarehouseIssue",
+              "WarehouseReturn"
+            ]
+          },
+          "fromSourceId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "toDestinationId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "assignedUserId": {
+            "type": "integer",
+            "nullable": true
+          }
+        }
+      },
+      "CreateDictionaryRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateDictionaryValueRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DisableTwoFactorRequest": {
+        "type": "object",
+        "properties": {
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "LoginRequest": {
+        "type": "object",
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateAssetClassAttributeRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "dataType": {
+            "type": "string"
+          },
+          "isRequired": {
+            "type": "boolean"
+          },
+          "defaultValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "options": {
+            "type": "string",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "UpdateAssetClassRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateDictionaryRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "UpdateDictionaryValueRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "VerifyTwoFactorRequest": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "VerifyTwoFactorSetupRequest": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        }
+      },
+      "CreateTicketRequest": {
+        "type": "object",
+        "description": "Для встроенного типа «Тикет на ремонт» заявку создает инженер ТП; assetId обязателен, актив должен находиться на этапе «На складе» или «В эксплуатации». Создание такого тикета автоматически переводит актив в этап «В ремонте».",
+        "required": [
+          "title",
+          "description",
+          "typeId",
+          "priority"
+        ],
+        "properties": {
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "typeId": {
+            "type": "integer"
+          },
+          "priority": {
+            "type": "string"
+          },
+          "assetId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Для обычных заявок может быть null. Для тикета на ремонт обязателен; связь с активом одна на заявку."
+          },
+          "customFieldsData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "AssignTicketRequest": {
+        "type": "object",
+        "required": [
+          "assigneeId"
+        ],
+        "properties": {
+          "assigneeId": {
+            "type": "integer",
+            "format": "int32",
+            "description": "ID активного инженера технической поддержки."
+          }
+        }
+      },
+      "UpdateTicketRequest": {
+        "type": "object",
+        "properties": {
+          "priority": {
+            "type": "string"
+          },
+          "assigneeId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "customFieldsData": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "ChangeTicketStatusRequest": {
+        "type": "object",
+        "required": [
+          "statusId"
+        ],
+        "properties": {
+          "statusId": {
+            "type": "integer"
+          },
+          "repairResolution": {
+            "type": "string",
+            "nullable": true,
+            "description": "Свободное описание выполненного ремонта; обязательно при закрытии тикета на ремонт (АКТ-16)."
+          },
+          "repairOutcome": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "ReturnToExploitation",
+              "TransferToWarehouse",
+              "Retire"
+            ],
+            "description": "Обязателен при закрытии тикета на ремонт. Автоматически переводит актив соответственно в «В эксплуатации», «На складе» или «Списан» (АКТ-12)."
+          }
+        }
+      },
+      "CreateTicketMessageRequest": {
+        "type": "object",
+        "required": [
+          "messageBody"
+        ],
+        "properties": {
+          "messageBody": {
+            "type": "string"
+          },
+          "isInternal": {
+            "type": "boolean",
+            "default": false
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "SaveFormTemplateRequest": {
+        "type": "object",
+        "required": [
+          "fieldsSchema"
+        ],
+        "properties": {
+          "fieldsSchema": {
+            "$ref": "#/components/schemas/FormTemplateFieldsSchema"
+          }
+        }
+      },
+      "FormTemplateFieldsSchema": {
+        "type": "object",
+        "required": [
+          "fields"
+        ],
+        "properties": {
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FormFieldDefinition"
+            }
+          }
+        }
+      },
+      "FormFieldDefinition": {
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "fieldType",
+          "isRequired",
+          "isEngineerOnly"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fieldType": {
+            "type": "string",
+            "enum": [
+              "string",
+              "text",
+              "number",
+              "date",
+              "dictionary",
+              "asset",
+              "attachment",
+              "boolean"
+            ]
+          },
+          "isRequired": {
+            "type": "boolean"
+          },
+          "isEngineerOnly": {
+            "type": "boolean",
+            "description": "Поле заполняется только инженером технической поддержки."
+          },
+          "defaultValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "hint": {
+            "type": "string",
+            "nullable": true
+          },
+          "dictionaryId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "visibilities": {
+            "type": "array",
+            "description": "Настройка видимости и редактирования поля по системным ролям, включая роль автора заявки на портале (FORM-10).",
+            "items": {
+              "$ref": "#/components/schemas/FormFieldVisibilityRule"
+            }
+          },
+          "dependencies": {
+            "type": "array",
+            "description": "Условия отображения поля, вычисляемые по значениям других полей (FORM-07).",
+            "items": {
+              "$ref": "#/components/schemas/FieldDependency"
+            }
+          }
+        }
+      },
+      "FormFieldVisibilityRule": {
+        "type": "object",
+        "required": [
+          "roleCode",
+          "isVisible",
+          "isEditable"
+        ],
+        "properties": {
+          "roleCode": {
+            "type": "string"
+          },
+          "isVisible": {
+            "type": "boolean"
+          },
+          "isEditable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "FieldDependency": {
+        "type": "object",
+        "required": [
+          "dependsOnFieldCode",
+          "condition"
+        ],
+        "properties": {
+          "dependsOnFieldCode": {
+            "type": "string"
+          },
+          "condition": {
+            "type": "string",
+            "enum": [
+              "Equals",
+              "NotEquals",
+              "Filled"
+            ]
+          },
+          "value": {
+            "type": "string",
+            "nullable": true,
+            "description": "Сравниваемое значение для Equals или NotEquals; для Filled не требуется."
+          }
+        }
+      },
+      "TicketType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "isBuiltIn": {
+            "type": "boolean"
+          },
+          "isPortalAvailable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AssetHistoryItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "actionType",
+          "description",
+          "performedBy",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "actionType": {
+            "type": "string",
+            "enum": [
+              "entity_created",
+              "attribute_changed",
+              "movement",
+              "stage_changed",
+              "assigned_changed",
+              "ticket_created",
+              "ticket_closed"
+            ],
+            "description": "Типы действий соответствуют AssetHistoryActionTypes в backend."
+          },
+          "description": {
+            "type": "string",
+            "description": "Человекочитаемое описание действия, сформированное из деталей, комментария и связанного тикета."
+          },
+          "performedBy": {
+            "type": "string",
+            "description": "ФИО пользователя или «Система» для автоматического действия."
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Структурированные детали действия из AssetHistoryLog.Details."
+          },
+          "ticketId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Время действия; соответствует ChangedAt в модели истории."
+          }
+        }
+      },
+      "AssetTicketHistoryItem": {
+        "type": "object",
+        "required": [
+          "id",
+          "typeId",
+          "typeName",
+          "title",
+          "creatorId",
+          "creatorName",
+          "statusId",
+          "statusName",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Системный номер заявки."
+          },
+          "typeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "typeName": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "creatorId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "creatorName": {
+            "type": "string"
+          },
+          "assigneeId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "assigneeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "statusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "statusName": {
+            "type": "string"
+          },
+          "criticalityLevelId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "criticalityName": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "closedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        }
+      },
+      "AssignmentSettings": {
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "AutomaticLeastLoaded",
+              "Manual"
+            ]
+          },
+          "manualAssignerUserId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "При ручном режиме — пользователь, определенный администратором; null означает, что назначать может администратор."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UpdateAssignmentSettingsRequest": {
+        "type": "object",
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "AutomaticLeastLoaded",
+              "Manual"
+            ]
+          },
+          "manualAssignerUserId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Допустим только для Manual; null означает, что назначать может администратор."
+          }
+        }
+      },
+      "EscalationRule": {
+        "type": "object",
+        "required": [
+          "ticketTypeId",
+          "onSlaBreach",
+          "onManual",
+          "isActive"
+        ],
+        "properties": {
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "onSlaBreach": {
+            "type": "boolean",
+            "description": "Запускать эскалацию при нарушении времени решения по SLA."
+          },
+          "onManual": {
+            "type": "boolean",
+            "description": "Разрешить ручной запуск автором заявки или исполнителем согласно их ролям."
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "UpdateEscalationRuleRequest": {
+        "type": "object",
+        "required": [
+          "onSlaBreach",
+          "onManual",
+          "isActive"
+        ],
+        "properties": {
+          "onSlaBreach": {
+            "type": "boolean"
+          },
+          "onManual": {
+            "type": "boolean"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ReportType": {
+        "type": "string",
+        "enum": [
+          "TicketsByStatus",
+          "TicketsByTypeAndCriticality",
+          "SlaCompliance",
+          "AssigneeLoad",
+          "AssigneePerformance",
+          "InspectionReturns",
+          "RepairsSummary",
+          "AssetsByLifecycleStage",
+          "AssetMovements"
+        ]
+      },
+      "ReportAccessSetting": {
+        "type": "object",
+        "required": [
+          "reportType",
+          "allowedRoleCodes"
+        ],
+        "properties": {
+          "reportType": {
+            "$ref": "#/components/schemas/ReportType"
+          },
+          "allowedRoleCodes": {
+            "type": "array",
+            "description": "Системные коды ролей, которым разрешен просмотр отчета.",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "TicketsByStatusReportRow": {
+        "type": "object",
+        "required": [
+          "statusId",
+          "statusName",
+          "ticketCount"
+        ],
+        "properties": {
+          "statusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "statusName": {
+            "type": "string"
+          },
+          "ticketCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TicketsByTypeAndCriticalityReportRow": {
+        "type": "object",
+        "required": [
+          "ticketTypeId",
+          "ticketTypeName",
+          "criticalityLevelId",
+          "criticalityName",
+          "ticketCount"
+        ],
+        "properties": {
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ticketTypeName": {
+            "type": "string"
+          },
+          "criticalityLevelId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "criticalityName": {
+            "type": "string"
+          },
+          "ticketCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "SlaComplianceReportRow": {
+        "type": "object",
+        "required": [
+          "ticketTypeId",
+          "ticketTypeName",
+          "criticalityLevelId",
+          "criticalityName",
+          "ticketCount",
+          "reactionBreachCount",
+          "reactionBreachRate",
+          "resolutionBreachCount",
+          "resolutionBreachRate"
+        ],
+        "properties": {
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ticketTypeName": {
+            "type": "string"
+          },
+          "criticalityLevelId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "criticalityName": {
+            "type": "string"
+          },
+          "ticketCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reactionBreachCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reactionBreachRate": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Доля от 0 до 1."
+          },
+          "resolutionBreachCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "resolutionBreachRate": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Доля от 0 до 1."
+          }
+        }
+      },
+      "AssigneeLoadReportRow": {
+        "type": "object",
+        "required": [
+          "assigneeId",
+          "assigneeName",
+          "openTicketCount"
+        ],
+        "properties": {
+          "assigneeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "assigneeName": {
+            "type": "string"
+          },
+          "openTicketCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AssigneePerformanceReportRow": {
+        "type": "object",
+        "required": [
+          "assigneeId",
+          "assigneeName",
+          "closedTicketCount",
+          "averageReactionMinutes",
+          "averageResolutionMinutes"
+        ],
+        "properties": {
+          "assigneeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "assigneeName": {
+            "type": "string"
+          },
+          "closedTicketCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "averageReactionMinutes": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "averageResolutionMinutes": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          }
+        }
+      },
+      "InspectionReturnsReportRow": {
+        "type": "object",
+        "required": [
+          "returnedTicketCount"
+        ],
+        "properties": {
+          "returnedTicketCount": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Число заявок, возвращенных авторами из статуса проверки в статус ожидания выполнения."
+          }
+        }
+      },
+      "RepairsSummaryReportRow": {
+        "type": "object",
+        "required": [
+          "assetId",
+          "assetName",
+          "assetClassId",
+          "assetClassName",
+          "outcome",
+          "ticketCount"
+        ],
+        "properties": {
+          "assetId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inventoryNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "assetName": {
+            "type": "string"
+          },
+          "assetClassId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "assetClassName": {
+            "type": "string",
+            "nullable": true
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "ReturnToExploitation",
+              "TransferToWarehouse",
+              "Retire"
+            ]
+          },
+          "ticketCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AssetsByLifecycleStageReportRow": {
+        "type": "object",
+        "required": [
+          "lifecycleStage",
+          "assetCount"
+        ],
+        "properties": {
+          "assetClassId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "assetClassName": {
+            "type": "string",
+            "nullable": true
+          },
+          "lifecycleStage": {
+            "type": "string",
+            "enum": [
+              "Purchased",
+              "InWarehouse",
+              "InUse",
+              "InRepair",
+              "Retired"
+            ]
+          },
+          "assetCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AssetMovementsReportRow": {
+        "type": "object",
+        "required": [
+          "movementId",
+          "assetId",
+          "assetName",
+          "movementType",
+          "movedAt"
+        ],
+        "properties": {
+          "movementId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "assetId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inventoryNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "assetName": {
+            "type": "string"
+          },
+          "movementType": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string",
+            "nullable": true
+          },
+          "to": {
+            "type": "string",
+            "nullable": true
+          },
+          "performedByUserId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "performedByName": {
+            "type": "string",
+            "nullable": true
+          },
+          "movedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateTicketTypeRequest": {
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isPortalAvailable": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "UpdateTicketTypeRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "isPortalAvailable"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "isPortalAvailable": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CriticalityLevel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CreateCriticalityLevelRequest": {
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "UpdateCriticalityLevelRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "sortOrder",
+          "isActive"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isActive": {
+            "type": "boolean",
+            "description": "Деактивация разрешена, только если после изменения останется минимум 3 активных уровня; активация — если их станет не больше 5."
+          }
+        }
+      },
+      "AdminCreateUserRequest": {
+        "type": "object",
+        "required": [
+          "username",
+          "email",
+          "password",
+          "fullName"
+        ],
+        "properties": {
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "password": {
+            "type": "string",
+            "format": "password"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "UpdateUserRequest": {
+        "type": "object",
+        "required": [
+          "fullName",
+          "roleIds",
+          "isActive"
+        ],
+        "properties": {
+          "fullName": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "RoleSummary": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32",
+            "description": "Внутренний идентификатор роли."
+          },
+          "code": {
+            "type": "string",
+            "description": "Системный код роли, например admin, agent, manager или client."
+          },
+          "name": {
+            "type": "string",
+            "description": "Человекочитаемое название роли."
+          }
+        }
+      },
+      "PasswordPolicy": {
+        "type": "object",
+        "required": [
+          "minLength",
+          "requireDigit",
+          "requireUppercase",
+          "requireLowercase",
+          "requireSpecial",
+          "maxFailedAttempts",
+          "lockoutMinutes",
+          "updatedAt"
+        ],
+        "properties": {
+          "minLength": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "requireDigit": {
+            "type": "boolean"
+          },
+          "requireUppercase": {
+            "type": "boolean"
+          },
+          "requireLowercase": {
+            "type": "boolean"
+          },
+          "requireSpecial": {
+            "type": "boolean"
+          },
+          "expirationDays": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "nullable": true
+          },
+          "maxFailedAttempts": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "lockoutMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UpdatePasswordPolicyRequest": {
+        "type": "object",
+        "required": [
+          "minLength",
+          "requireDigit",
+          "requireUppercase",
+          "requireLowercase",
+          "requireSpecial",
+          "expirationDays",
+          "maxFailedAttempts",
+          "lockoutMinutes"
+        ],
+        "properties": {
+          "minLength": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "requireDigit": {
+            "type": "boolean"
+          },
+          "requireUppercase": {
+            "type": "boolean"
+          },
+          "requireLowercase": {
+            "type": "boolean"
+          },
+          "requireSpecial": {
+            "type": "boolean"
+          },
+          "expirationDays": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1,
+            "nullable": true
+          },
+          "maxFailedAttempts": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          },
+          "lockoutMinutes": {
+            "type": "integer",
+            "format": "int32",
+            "minimum": 1
+          }
+        }
+      },
+      "TenantRecord": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "firstAdminLogin",
+          "active"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "description": "Уникальный код, назначенный сервером при создании тенанта."
+          },
+          "name": {
+            "type": "string"
+          },
+          "firstAdminLogin": {
+            "type": "string",
+            "description": "Логин первого администратора, созданного при регистрации тенанта."
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CreateTenantRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "firstAdminLogin"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "По этому названию сервер назначает уникальный код тенанта."
+          },
+          "firstAdminLogin": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "UpdateTenantStatusRequest": {
+        "type": "object",
+        "required": [
+          "active"
+        ],
+        "properties": {
+          "active": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ServiceDeskHeadSetting": {
+        "type": "object",
+        "required": [
+          "userId"
+        ],
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "login": {
+            "type": "string",
+            "nullable": true
+          },
+          "fullName": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SetServiceDeskHeadRequest": {
+        "type": "object",
+        "required": [
+          "userId"
+        ],
+        "properties": {
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AuditLogEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "entityType",
+          "entityId",
+          "action",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Может быть null для системного действия без пользователя."
+          },
+          "userFullName": {
+            "type": "string",
+            "nullable": true
+          },
+          "entityType": {
+            "type": "string"
+          },
+          "entityId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "action": {
+            "type": "string"
+          },
+          "oldValues": {
+            "type": "string",
+            "nullable": true,
+            "description": "Сериализованные JSON старые значения."
+          },
+          "newValues": {
+            "type": "string",
+            "nullable": true,
+            "description": "Сериализованные JSON новые значения."
+          },
+          "ipAddress": {
+            "type": "string",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TicketEscalation": {
+        "type": "object",
+        "required": [
+          "id",
+          "ticketId",
+          "reason",
+          "escalatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ticketId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "initiatorUserId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Null для автоматической эскалации по SLA; для ручной эскалации определяется сервером по JWT."
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "OnSlaBreach",
+              "OnManual"
+            ]
+          },
+          "fromCriticalityLevelId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "toCriticalityLevelId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Остается равным null, если заявка уже имела максимальную критичность."
+          },
+          "notifiedUserIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "description": "Персональные получатели внутренних уведомлений."
+          },
+          "escalatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "UserSummary": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "username": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string",
+            "format": "email"
+          },
+          "fullName": {
+            "type": "string"
+          },
+          "department": {
+            "type": "string",
+            "nullable": true
+          },
+          "managerId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "roleIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "isActive": {
+            "type": "boolean"
+          }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "type": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "body": {
+            "type": "string",
+            "nullable": true
+          },
+          "ticketId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "isRead": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "CalendarException": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "exceptionDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "isWorkDay": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SaveCalendarExceptionRequest": {
+        "type": "object",
+        "required": [
+          "exceptionDate",
+          "isWorkDay"
+        ],
+        "properties": {
+          "exceptionDate": {
+            "type": "string",
+            "format": "date"
+          },
+          "isWorkDay": {
+            "type": "boolean"
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "WorkingSchedule": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "name": {
+            "type": "string"
+          },
+          "scheduleType": {
+            "type": "string",
+            "enum": [
+              "24x7",
+              "8x5"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "hours": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkingHour"
+            }
+          }
+        }
+      },
+      "SaveWorkingScheduleRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "scheduleType"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "scheduleType": {
+            "type": "string",
+            "enum": [
+              "24x7",
+              "8x5"
+            ]
+          },
+          "isActive": {
+            "type": "boolean"
+          },
+          "hours": {
+            "type": "array",
+            "description": "Для графика 8x5 задает рабочие интервалы по дням недели; для 24x7 может быть пустым.",
+            "items": {
+              "$ref": "#/components/schemas/WorkingHour"
+            }
+          }
+        }
+      },
+      "WorkingHour": {
+        "type": "object",
+        "required": [
+          "dayOfWeek",
+          "startTime",
+          "endTime"
+        ],
+        "properties": {
+          "dayOfWeek": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6,
+            "description": "0 — воскресенье, 6 — суббота."
+          },
+          "startTime": {
+            "type": "string",
+            "format": "time"
+          },
+          "endTime": {
+            "type": "string",
+            "format": "time"
+          }
+        }
+      },
+      "SlaSettings": {
+        "type": "object",
+        "required": [
+          "isEnabled"
+        ],
+        "properties": {
+          "isEnabled": {
+            "type": "boolean",
+            "description": "Глобальный переключатель SLA для системы."
+          },
+          "activeWorkingScheduleId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        }
+      },
+      "PortalSlaVisibility": {
+        "type": "object",
+        "required": [
+          "showReactionTime",
+          "showResolutionTime"
+        ],
+        "properties": {
+          "showReactionTime": {
+            "type": "boolean"
+          },
+          "showResolutionTime": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TicketTypeSlaSettingRequest": {
+        "type": "object",
+        "required": [
+          "isEnabled"
+        ],
+        "properties": {
+          "isEnabled": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SlaValue": {
+        "type": "object",
+        "properties": {
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "criticalityLevelId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reactionTimeMinutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "resolutionTimeMinutes": {
+            "type": "integer",
+            "nullable": true
+          },
+          "isDisabled": {
+            "type": "boolean"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SaveSlaValueRequest": {
+        "type": "object",
+        "required": [
+          "ticketTypeId",
+          "criticalityLevelId"
+        ],
+        "properties": {
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "criticalityLevelId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "reactionTimeMinutes": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "resolutionTimeMinutes": {
+            "type": "integer",
+            "nullable": true,
+            "minimum": 0
+          },
+          "isDisabled": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      },
+      "TicketStatus": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "code": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "isSlaPausing": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "isBuiltIn": {
+            "type": "boolean",
+            "readOnly": true,
+            "description": "Признак защиты стандартного статуса от удаления; определяется системой."
+          }
+        }
+      },
+      "CreateTicketStatusRequest": {
+        "type": "object",
+        "required": [
+          "code",
+          "name"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isSlaPausing": {
+            "type": "boolean",
+            "default": false
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "UpdateTicketStatusRequest": {
+        "type": "object",
+        "required": [
+          "name",
+          "isSlaPausing"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "isSlaPausing": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "TicketStatusTransition": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "fromStatusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "toStatusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "requiredRoleCode": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "SaveTicketStatusTransitionRequest": {
+        "type": "object",
+        "required": [
+          "fromStatusId",
+          "toStatusId"
+        ],
+        "properties": {
+          "fromStatusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "toStatusId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "requiredRoleCode": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      }
+    }
+  }
+}

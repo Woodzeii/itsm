@@ -1,0 +1,598 @@
+{
+  "openapi": "3.0.1",
+  "paths": {
+    "/api/auth/login": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/verify-2fa": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyTwoFactorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/setup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/verify-setup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyTwoFactorSetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/status": {
+      "get": {
+        "tags": [
+          "Auth"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/2fa/disable": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisableTwoFactorRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/auth/admin-create-user": {
+      "post": {
+        "tags": [
+          "AdminUsers"
+        ],
+        "summary": "Создать учетную запись пользователя портала или сотрудника",
+        "description": "Только администратор. Целевой сценарий создания учетных записей согласно PORT-04 и РОЛ-02.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateUserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Пользователь создан"
+          },
+          "400": {
+            "description": "Некорректные данные"
+          },
+          "409": {
+            "description": "Логин или email уже используются"
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "AdminUsers"
+        ],
+        "summary": "Получить список пользователей для администрирования",
+        "description": "Только администратор. Доступ к данным ограничивается текущим тенантом в SaaS.",
+        "parameters": [
+          {
+            "name": "department",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roleId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "isActive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список сотрудников",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/UserSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "tags": [
+          "AdminUsers"
+        ],
+        "summary": "Получить карточку пользователя",
+        "description": "Только администратор.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Карточка пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Пользователь не найден"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "AdminUsers"
+        ],
+        "summary": "Изменить профиль, роли и активность пользователя",
+        "description": "Только администратор. Не удаляет пользователя физически, чтобы сохранить историю.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Профиль обновлен"
+          },
+          "404": {
+            "description": "Пользователь не найден"
+          }
+        }
+      }
+    },
+    "/api/roles": {
+      "get": {
+        "tags": [
+          "AdminUsers"
+        ],
+        "summary": "Получить список системных ролей",
+        "description": "Только администратор. Используется для назначения ролей при создании и редактировании пользователей (РОЛ-02).",
+        "responses": {
+          "200": {
+            "description": "Список системных ролей",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleSummary"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/security-settings": {
+      "get": {
+        "tags": [
+          "SecuritySettings"
+        ],
+        "summary": "Получить политику паролей (НФТ-07)",
+        "description": "Только администратор. В SaaS возвращается политика текущего тенанта; в локальном развертывании — системная политика.",
+        "responses": {
+          "200": {
+            "description": "Текущая политика паролей",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordPolicy"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "SecuritySettings"
+        ],
+        "summary": "Изменить политику паролей (НФТ-07)",
+        "description": "Только администратор. Правила применяются при создании и изменении пароля; MaxFailedAttempts и LockoutMinutes также определяют блокировку при неуспешной аутентификации. В SaaS настройка изолирована в пределах тенанта.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePasswordPolicyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Политика паролей сохранена",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordPolicy"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Недопустимые значения политики."
+          }
+        }
+      }
+    },
+    "/api/tenants": {
+      "get": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Получить список тенантов",
+        "description": "Только tenant_admin в SaaS-развертывании. Возвращается метаинформация о тенантах, без данных пользователей или заявок.",
+        "responses": {
+          "200": {
+            "description": "Список тенантов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TenantRecord"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Операция доступна только администратору SaaS-тенантов."
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Создать тенант и первую учетную запись администратора",
+        "description": "Только tenant_admin в SaaS-развертывании. Создание тенанта и первой учетной записи администратора должно быть атомарным: при ошибке ни одна из записей не сохраняется. Учетная запись создается по логину, а первоначальная настройка учетных данных выполняется безопасным способом вне этого ответа; эта операция не является открытой регистрацией пользователя.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTenantRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Тенант и первая учетная запись администратора созданы",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantRecord"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректные данные тенанта или первого администратора."
+          },
+          "403": {
+            "description": "Операция доступна только администратору SaaS-тенантов."
+          },
+          "409": {
+            "description": "Невозможно создать тенант или первую учетную запись из-за конфликта уникальности."
+          }
+        }
+      }
+    },
+    "/api/tenants/{id}/status": {
+      "patch": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Активировать или заблокировать тенант",
+        "description": "Только tenant_admin в SaaS-развертывании. Блокировка должна запрещать доступ пользователям тенанта, не удаляя его данные.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Статус тенанта обновлен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantRecord"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Операция доступна только администратору SaaS-тенантов."
+          },
+          "404": {
+            "description": "Тенант не найден."
+          }
+        }
+      }
+    },
+    "/api/tenants/{id}": {
+      "delete": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Удалить тенант",
+        "description": "Только tenant_admin в SaaS-развертывании. Удаление необратимо и должно обрабатывать связанные данные тенанта согласно политике хранения.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Тенант удален."
+          },
+          "403": {
+            "description": "Операция доступна только администратору SaaS-тенантов."
+          },
+          "404": {
+            "description": "Тенант не найден."
+          }
+        }
+      }
+    },
+    "/api/audit-log": {
+      "get": {
+        "tags": [
+          "AdminUsers"
+        ],
+        "summary": "Получить системный журнал действий пользователей (НФТ-08)",
+        "description": "Только администратор. Возвращает аудит действий системы: кто, что и когда изменил. Все изменения данных и настроек во всех модулях должны записываться в системный аудит. Пароли, MFA-секреты, токены и другие секреты не должны попадать в oldValues/newValues.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "description": "Фильтр по пользователю, выполнившему действие.",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "entityType",
+            "in": "query",
+            "required": false,
+            "description": "Фильтр по типу сущности.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "required": false,
+            "description": "Начало периода, включительно.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "required": false,
+            "description": "Конец периода, включительно.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список записей системного аудита",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditLogEntry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AdminCreateUserRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/AdminCreateUserRequest"
+      },
+      "AuditLogEntry": {
+        "$ref": "../components/schemas.json#/components/schemas/AuditLogEntry"
+      },
+      "CreateTenantRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/CreateTenantRequest"
+      },
+      "DisableTwoFactorRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/DisableTwoFactorRequest"
+      },
+      "LoginRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/LoginRequest"
+      },
+      "PasswordPolicy": {
+        "$ref": "../components/schemas.json#/components/schemas/PasswordPolicy"
+      },
+      "RoleSummary": {
+        "$ref": "../components/schemas.json#/components/schemas/RoleSummary"
+      },
+      "TenantRecord": {
+        "$ref": "../components/schemas.json#/components/schemas/TenantRecord"
+      },
+      "UpdatePasswordPolicyRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/UpdatePasswordPolicyRequest"
+      },
+      "UpdateTenantStatusRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/UpdateTenantStatusRequest"
+      },
+      "UpdateUserRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/UpdateUserRequest"
+      },
+      "UserSummary": {
+        "$ref": "../components/schemas.json#/components/schemas/UserSummary"
+      },
+      "VerifyTwoFactorRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/VerifyTwoFactorRequest"
+      },
+      "VerifyTwoFactorSetupRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/VerifyTwoFactorSetupRequest"
+      }
+    }
+  }
+}

@@ -1,0 +1,200 @@
+{
+  "openapi": "3.0.1",
+  "paths": {
+    "/api/reports/{reportType}": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Получить один из регламентированных отчетов (SD-24)",
+        "parameters": [
+          {
+            "name": "reportType",
+            "in": "path",
+            "required": true,
+            "description": "Тип отчета согласно перечню SD-24.",
+            "schema": {
+              "$ref": "#/components/schemas/ReportType"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "required": false,
+            "description": "Начало периода, включительно; используется отчетами, считающими данные за период.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "required": false,
+            "description": "Конец периода, включительно; используется отчетами, считающими данные за период.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Строки отчета. Состав строки определяется reportType.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TicketsByStatusReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TicketsByTypeAndCriticalityReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/SlaComplianceReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssigneeLoadReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssigneePerformanceReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InspectionReturnsReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RepairsSummaryReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssetsByLifecycleStageReportRow"
+                      }
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/AssetMovementsReportRow"
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Роль текущего пользователя не имеет доступа к этому отчету."
+          }
+        }
+      }
+    },
+    "/api/report-access": {
+      "get": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Получить матрицу доступа к отчетам (SD-24)",
+        "description": "Только администратор.",
+        "responses": {
+          "200": {
+            "description": "Настройки доступа по каждому типу отчета",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReportAccessSetting"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Reports"
+        ],
+        "summary": "Заменить матрицу доступа к отчетам (SD-24)",
+        "description": "Только администратор. Доступ настраивается по кодам системных ролей; роль admin сохраняет доступ к настройке матрицы.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ReportAccessSetting"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Матрица доступа сохранена"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AssetMovementsReportRow": {
+        "$ref": "../components/schemas.json#/components/schemas/AssetMovementsReportRow"
+      },
+      "AssetsByLifecycleStageReportRow": {
+        "$ref": "../components/schemas.json#/components/schemas/AssetsByLifecycleStageReportRow"
+      },
+      "AssigneeLoadReportRow": {
+        "$ref": "../components/schemas.json#/components/schemas/AssigneeLoadReportRow"
+      },
+      "AssigneePerformanceReportRow": {
+        "$ref": "../components/schemas.json#/components/schemas/AssigneePerformanceReportRow"
+      },
+      "InspectionReturnsReportRow": {
+        "$ref": "../components/schemas.json#/components/schemas/InspectionReturnsReportRow"
+      },
+      "RepairsSummaryReportRow": {
+        "$ref": "../components/schemas.json#/components/schemas/RepairsSummaryReportRow"
+      },
+      "ReportAccessSetting": {
+        "$ref": "../components/schemas.json#/components/schemas/ReportAccessSetting"
+      },
+      "ReportType": {
+        "$ref": "../components/schemas.json#/components/schemas/ReportType"
+      },
+      "SlaComplianceReportRow": {
+        "$ref": "../components/schemas.json#/components/schemas/SlaComplianceReportRow"
+      },
+      "TicketsByStatusReportRow": {
+        "$ref": "../components/schemas.json#/components/schemas/TicketsByStatusReportRow"
+      },
+      "TicketsByTypeAndCriticalityReportRow": {
+        "$ref": "../components/schemas.json#/components/schemas/TicketsByTypeAndCriticalityReportRow"
+      }
+    }
+  }
+}

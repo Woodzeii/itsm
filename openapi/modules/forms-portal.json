@@ -1,0 +1,202 @@
+{
+  "openapi": "3.0.1",
+  "paths": {
+    "/api/tickets/{id}/messages": {
+      "get": {
+        "tags": [
+          "TicketMessages"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "TicketMessages"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTicketMessageRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/form-templates/{ticketTypeId}": {
+      "get": {
+        "tags": [
+          "FormTemplates"
+        ],
+        "parameters": [
+          {
+            "name": "ticketTypeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "FormTemplates"
+        ],
+        "parameters": [
+          {
+            "name": "ticketTypeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveFormTemplateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Некорректная схема формы или значения полей."
+          },
+          "409": {
+            "description": "Нельзя удалить встроенное поле «Выбор актива», пока оно заполнено хотя бы в одной заявке этого типа (FORM-12)."
+          }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Получить внутренние уведомления текущего пользователя",
+        "description": "Пользователь определяется по токену; нельзя читать уведомления другого пользователя.",
+        "parameters": [
+          {
+            "name": "onlyUnread",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Уведомления пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Notification"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Отметить уведомление текущего пользователя как прочитанное",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Уведомление отмечено прочитанным"
+          },
+          "404": {
+            "description": "Уведомление не найдено у текущего пользователя"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CreateTicketMessageRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/CreateTicketMessageRequest"
+      },
+      "FieldDependency": {
+        "$ref": "../components/schemas.json#/components/schemas/FieldDependency"
+      },
+      "FormFieldDefinition": {
+        "$ref": "../components/schemas.json#/components/schemas/FormFieldDefinition"
+      },
+      "FormFieldVisibilityRule": {
+        "$ref": "../components/schemas.json#/components/schemas/FormFieldVisibilityRule"
+      },
+      "FormTemplateFieldsSchema": {
+        "$ref": "../components/schemas.json#/components/schemas/FormTemplateFieldsSchema"
+      },
+      "Notification": {
+        "$ref": "../components/schemas.json#/components/schemas/Notification"
+      },
+      "SaveFormTemplateRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/SaveFormTemplateRequest"
+      }
+    }
+  }
+}
