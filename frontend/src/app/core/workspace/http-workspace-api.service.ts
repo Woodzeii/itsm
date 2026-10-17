@@ -26,6 +26,9 @@ import {
     Ticket,
     TicketType,
     TenantRecord,
+    CreateUserRequest,
+    SystemRoleOption,
+    UserRecord,
 } from './workspace.models';
 
 @Injectable()
@@ -103,6 +106,9 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     createTenant(request: CreateTenantRequest) { return this.http.post<TenantRecord>(`${this.baseUrl}/tenants`, request); }
     setTenantActive(tenantId: string, active: boolean) { return this.http.patch<TenantRecord>(`${this.baseUrl}/tenants/${tenantId}/status`, { active }); }
     deleteTenant(tenantId: string) { return this.http.delete<void>(`${this.baseUrl}/tenants/${tenantId}`); }
+    getUsers() { return this.http.get<UserRecord[]>(`${this.baseUrl}/users`); }
+    getSystemRoles() { return this.http.get<SystemRoleOption[]>(`${this.baseUrl}/system-roles`); }
+    createUser(request: CreateUserRequest) { return this.http.post<UserRecord>(`${this.baseUrl}/users`, request); }
 }
 
 function parseOptions(value: string | null): string[] {

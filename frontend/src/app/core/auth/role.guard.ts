@@ -28,6 +28,13 @@ export const adminAccessGuard: CanActivateFn = () => {
         : router.parseUrl(auth.canRead() ? '/dashboard' : '/portal');
 };
 
+export const adminOnlyAccessGuard: CanActivateFn = () => {
+    const auth = inject(AuthService);
+    const router = inject(Router);
+    if (!auth.isAuthenticated()) return router.parseUrl('/login');
+    return auth.isAdmin() ? true : router.parseUrl(auth.canRead() ? '/dashboard' : '/portal');
+};
+
 export const reportAccessGuard: CanActivateFn = () => {
     const auth = inject(AuthService);
     const router = inject(Router);

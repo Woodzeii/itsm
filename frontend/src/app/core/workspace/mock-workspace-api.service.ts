@@ -4,6 +4,7 @@ import { AuthService } from '../auth/auth.service';
 import { WorkspaceApi } from './workspace-api';
 import {
     AdminSettings,
+    CreateUserRequest,
     CreatePortalAccountRequest,
     AssetDetails,
     AssetClassOption,
@@ -28,6 +29,8 @@ import {
     Ticket,
     TicketType,
     TenantRecord,
+    SystemRoleOption,
+    UserRecord,
 } from './workspace.models';
 
 @Injectable()
@@ -77,6 +80,20 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     private tenants: TenantRecord[] = [
         { id: 'tenant-nocode', name: 'Nocode', firstAdminLogin: 'admin.nocode', active: true },
         { id: 'tenant-demo', name: 'Демонстрационный тенант', firstAdminLogin: 'admin.demo', active: true },
+    ];
+
+    private readonly users: UserRecord[] = [
+        { id: 1, fullName: 'Иван Петров', email: 'ivan.petrov@itsm.local', username: 'ivan.petrov', department: 'Сервис-деск', managerId: null, isActive: true, roleIds: [3, 4] },
+        { id: 2, fullName: 'Сергей Волков', email: 'sergey.volkov@itsm.local', username: 'sergey.volkov', department: 'ИТ-инфраструктура', managerId: 1, isActive: true, roleIds: [3] },
+        { id: 3, fullName: 'Анна Белова', email: 'anna.belova@itsm.local', username: 'anna.belova', department: 'Дизайн', managerId: 1, isActive: true, roleIds: [5] },
+    ];
+
+    private readonly systemRoles: SystemRoleOption[] = [
+        { id: 1, code: 'tenant_admin', name: 'Администратор тенантов' },
+        { id: 2, code: 'admin', name: 'Администратор' },
+        { id: 3, code: 'agent', name: 'Инженер ТП' },
+        { id: 4, code: 'manager', name: 'Руководитель' },
+        { id: 5, code: 'portal_user', name: 'Пользователь портала' },
     ];
 
     private settings: AdminSettings = {
@@ -454,6 +471,41 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         if (!tenant.name || !tenant.firstAdminLogin) return this.fail('Название тенанта и логин администратора обязательны.');
         this.tenants.unshift(tenant);
         return of(tenant);
+    }
+
+    getUsers(): Observable<UserRecord[]> {
+        return of(this.users.map(user => ({ ...user, roleIds: [...user.roleIds] })));
+    }
+
+    getSystemRoles(): Observable<SystemRoleOption[]> {
+        return of(this.systemRoles.map(role => ({ ...role })));
+    }
+
+    createUser(request: CreateUserRequest): Observable<UserRecord> {
+        const email = request.email.trim().toLocaleLowerCase();
+        const username = request.username.trim();
+        const policy = this.settings.passwordPolicy;
+
+        if (!request.fullName.trim() || !request.department.trim() || !email || !username) return this.fail('Заполните все основные данные пользователя.');
+        if (this.users.some(user => user.email.toLocaleLowerCase() === email || user.username.toLocaleLowerCase() === username.toLocaleLowerCase())) return this.fail('Пользователь с таким email или username уже существует.');
+        if (!request.roleIds.length) return this.fail('Назначьте пользователю хотя бы одну роль.');
+        if (request.managerId && !this.users.some(user => user.id === request.managerId && user.isActive)) return this.fail('Выберите действующего руководителя из списка.');
+        if (request.initialPassword.length < (policy?.minLength ?? 12)) return this.fail(`Пароль должен содержать минимум ${policy?.minLength ?? 12} символов.`);
+        if (policy?.requireUppercase && !/[A-ZА-Я]/.test(request.initialPassword)) return this.fail('В пароле должна быть заглавная буква.');
+        if (policy?.requireSpecial && !/[^a-zA-Zа-яА-Я0-9]/.test(request.initialPassword)) return this.fail('В пароле должен быть специальный символ.');
+
+        const user: UserRecord = {
+            id: Math.max(0, ...this.users.map(item => item.id)) + 1,
+            fullName: request.fullName.trim(),
+            email,
+            username,
+            department: request.department.trim(),
+            managerId: request.managerId,
+            isActive: request.isActive,
+            roleIds: [...request.roleIds],
+        };
+        this.users.unshift(user);
+        return of({ ...user, roleIds: [...user.roleIds] });
     }
 
     setTenantActive(tenantId: string, active: boolean): Observable<TenantRecord> {

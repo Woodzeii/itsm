@@ -7,6 +7,7 @@ import {
     CreateAssetRequest,
     CreatePortalAccountRequest,
     CreateTenantRequest,
+    CreateUserRequest,
     CreateTicketRequest,
     EscalationPolicy,
     PortalTicketRequest,
@@ -14,6 +15,8 @@ import {
     TicketFormDefinition,
     TicketType,
     TenantRecord,
+    SystemRoleOption,
+    UserRecord,
 } from './workspace.models';
 
 @Injectable({ providedIn: 'root' })
@@ -57,4 +60,7 @@ export class WorkspaceService {
     createTenant(request: CreateTenantRequest) { return this.api.createTenant(request); }
     setTenantActive(tenantId: string, active: boolean) { return this.api.setTenantActive(tenantId, active); }
     deleteTenant(tenantId: string) { return this.api.deleteTenant(tenantId); }
+    getUsers() { return this.api.getUsers(); }
+    getSystemRoles() { return this.api.getSystemRoles(); }
+    createUser(request: CreateUserRequest) { return this.api.createUser(request); }
 }

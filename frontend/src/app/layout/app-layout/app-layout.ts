@@ -3,10 +3,10 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { AuthService } from '../../core/auth/auth.service';
 
 @Component({
-    selector: 'app-layout',
-    standalone: true,
-    imports: [RouterLink, RouterLinkActive, RouterOutlet],
-    template: `
+  selector: 'app-layout',
+  standalone: true,
+  imports: [RouterLink, RouterLinkActive, RouterOutlet],
+  template: `
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
@@ -49,6 +49,7 @@ import { AuthService } from '../../core/auth/auth.service';
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5 14 5l2.6-.2.9 2.4 2.2 1.3-.7 2.5.7 2.5-2.2 1.3-.9 2.4L14 17l-2 1.5L10 17l-2.6.2-.9-2.4-2.2-1.3.7-2.5-.7-2.5 2.2-1.3.9-2.4L10 5l2-1.5Z"/><circle cx="12" cy="11.5" r="3"/></svg>
               <span>Администрирование</span>
             </a>
+            <a routerLink="/admin/users" routerLinkActive="active"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3"/><path d="M3.5 20v-1.5a5.5 5.5 0 0 1 11 0V20M17 8h4m-2-2v4m-2 5h2a3 3 0 0 1 3 3v2"/></svg><span>Пользователи</span></a>
             <a routerLink="/admin/forms" routerLinkActive="active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8m-8 4h8m-8 4h5"/></svg><span>Конструктор форм</span></a>
             <a routerLink="/admin/escalation-policies" routerLinkActive="active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 20H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg><span>Правила эскалации</span></a>
             <a routerLink="/admin/reports" routerLinkActive="active"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5zM8 8h8m-8 4h8m-8 4h5"/></svg><span>Отчёты</span></a>
@@ -95,8 +96,8 @@ import { AuthService } from '../../core/auth/auth.service';
       </div>
     </div>
   `,
-    styles: [
-        `
+  styles: [
+    `
       :host {
         display: block;
         min-height: 100vh;
@@ -305,40 +306,40 @@ import { AuthService } from '../../core/auth/auth.service';
       .user-meta small { color: #6b7280; }
       .content { flex: 1; padding: 24px; overflow: auto; }
     `,
-    ],
+  ],
 })
 export class AppLayoutComponent implements OnInit {
-    isAdmin = false;
-    isAdminOrAgent = false;
-    isTenantAdmin = false;
-    userInitial = 'П';
-    userTitle = 'Пользователь';
-    userRole = 'Пользователь';
+  isAdmin = false;
+  isAdminOrAgent = false;
+  isTenantAdmin = false;
+  userInitial = 'П';
+  userTitle = 'Пользователь';
+  userRole = 'Пользователь';
 
-    constructor(
-        private readonly authService: AuthService,
-        private readonly router: Router,
-    ) { }
+  constructor(
+    private readonly authService: AuthService,
+    private readonly router: Router,
+  ) { }
 
-    ngOnInit(): void {
-        this.isAdmin = this.authService.isAdmin();
-        this.isAdminOrAgent = this.authService.canRead();
-        this.isTenantAdmin = this.authService.isTenantAdmin();
-        const roleLabels = {
-          admin: 'Администратор',
-          agent: 'Инженер поддержки',
-          manager: 'Руководитель',
-          portal_user: 'Пользователь',
-          tenant_admin: 'Администратор организации',
-        };
-        const login = this.authService.getLogin();
-        this.userRole = roleLabels[this.authService.getRole()];
-        this.userTitle = login || this.userRole;
-        this.userInitial = (login || this.userRole).charAt(0).toLocaleUpperCase();
-    }
+  ngOnInit(): void {
+    this.isAdmin = this.authService.isAdmin();
+    this.isAdminOrAgent = this.authService.canRead();
+    this.isTenantAdmin = this.authService.isTenantAdmin();
+    const roleLabels = {
+      admin: 'Администратор',
+      agent: 'Инженер поддержки',
+      manager: 'Руководитель',
+      portal_user: 'Пользователь',
+      tenant_admin: 'Администратор организации',
+    };
+    const login = this.authService.getLogin();
+    this.userRole = roleLabels[this.authService.getRole()];
+    this.userTitle = login || this.userRole;
+    this.userInitial = (login || this.userRole).charAt(0).toLocaleUpperCase();
+  }
 
-    logout(): void {
-        this.authService.logout();
-        this.router.navigateByUrl('/login');
-    }
+  logout(): void {
+    this.authService.logout();
+    this.router.navigateByUrl('/login');
+  }
 }
