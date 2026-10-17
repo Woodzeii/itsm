@@ -22,6 +22,16 @@ export const adminAccessGuard: CanActivateFn = () => {
     const auth = inject(AuthService);
     const router = inject(Router);
     if (!auth.isAuthenticated()) return router.parseUrl('/login');
+    const role = auth.getRole();
+    return role === 'admin' || role === 'agent'
+        ? true
+        : router.parseUrl(auth.canRead() ? '/dashboard' : '/portal');
+};
+
+export const adminOnlyAccessGuard: CanActivateFn = () => {
+    const auth = inject(AuthService);
+    const router = inject(Router);
+    if (!auth.isAuthenticated()) return router.parseUrl('/login');
     return auth.isAdmin() ? true : router.parseUrl(auth.canRead() ? '/dashboard' : '/portal');
 };
 

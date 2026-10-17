@@ -1,7 +1,7 @@
 import { Routes } from '@angular/router';
 import { AppLayoutComponent } from './layout/app-layout/app-layout';
 import { authGuard } from './core/auth/auth.guard';
-import { adminAccessGuard, internalAccessGuard, portalAccessGuard, reportAccessGuard, tenantAdminAccessGuard } from './core/auth/role.guard';
+import { adminAccessGuard, adminOnlyAccessGuard, internalAccessGuard, portalAccessGuard, reportAccessGuard, tenantAdminAccessGuard } from './core/auth/role.guard';
 
 export const routes: Routes = [
     { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
@@ -18,6 +18,7 @@ export const routes: Routes = [
             { path: 'portal', loadComponent: () => import('./pages/portal/self-service-portal').then(module => module.SelfServicePortalComponent), canActivate: [portalAccessGuard] },
             { path: 'admin/tenants', loadComponent: () => import('./pages/tenant-admin/tenant-management').then(module => module.TenantManagementComponent), canActivate: [tenantAdminAccessGuard] },
             { path: 'admin', redirectTo: '/admin/settings', pathMatch: 'full' },
+            { path: 'admin/users', loadComponent: () => import('./pages/admin/user-create').then(module => module.UserCreateComponent), canActivate: [adminOnlyAccessGuard] },
             { path: 'admin/settings', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'settings' }, canActivate: [adminAccessGuard] },
             { path: 'admin/forms', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'forms' }, canActivate: [adminAccessGuard] },
             { path: 'admin/escalation-policies', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'escalations' }, canActivate: [adminAccessGuard] },

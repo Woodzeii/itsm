@@ -22,6 +22,9 @@ import {
     TicketComment,
     TicketType,
     TenantRecord,
+    CreateUserRequest,
+    SystemRoleOption,
+    UserRecord,
 } from './workspace.models';
 
 export abstract class WorkspaceApi {
@@ -62,4 +65,7 @@ export abstract class WorkspaceApi {
     abstract createTenant(request: CreateTenantRequest): Observable<TenantRecord>;
     abstract setTenantActive(tenantId: string, active: boolean): Observable<TenantRecord>;
     abstract deleteTenant(tenantId: string): Observable<void>;
+    abstract getUsers(): Observable<UserRecord[]>;
+    abstract getSystemRoles(): Observable<SystemRoleOption[]>;
+    abstract createUser(request: CreateUserRequest): Observable<UserRecord>;
 }

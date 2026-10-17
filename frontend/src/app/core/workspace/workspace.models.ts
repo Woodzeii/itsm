@@ -233,6 +233,34 @@ export interface CreateTenantRequest {
     firstAdminLogin: string;
 }
 
+export interface SystemRoleOption {
+    id: number;
+    code: string;
+    name: string;
+}
+
+export interface UserRecord {
+    id: number;
+    fullName: string;
+    email: string;
+    username: string;
+    department: string;
+    managerId: number | null;
+    isActive: boolean;
+    roleIds: number[];
+}
+
+export interface CreateUserRequest {
+    fullName: string;
+    email: string;
+    username: string;
+    department: string;
+    managerId: number | null;
+    initialPassword: string;
+    isActive: boolean;
+    roleIds: number[];
+}
+
 export interface AssetClassAttributeOption {
     code: string;
     name: string;
