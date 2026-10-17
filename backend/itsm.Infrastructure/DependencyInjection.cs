@@ -38,6 +38,8 @@ public static class DependencyInjection
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         services.AddScoped<IDictionaryService, DictionaryService>();
         services.AddScoped<IAssetClassService, AssetClassService>();
+        services.AddScoped<ITicketService, TicketService>();
+        services.AddScoped<ITicketAttachmentStorage, PhysicalTicketAttachmentStorage>();
         services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
 
         return services;

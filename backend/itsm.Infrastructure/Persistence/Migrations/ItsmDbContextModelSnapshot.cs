@@ -907,6 +907,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasName("pk_escalation_rules");
 
                     b.HasIndex("TicketTypeId")
+                        .IsUnique()
                         .HasDatabaseName("ix_escalation_rules_ticket_type_id");
 
                     b.ToTable("escalation_rules", "public");
@@ -1389,6 +1390,37 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.ToTable("service_catalog", "public");
                 });
 
+            modelBuilder.Entity("itsm.Domain.Entities.ServiceDeskHeadSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_service_desk_head_settings");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_service_desk_head_settings_user_id");
+
+                    b.ToTable("service_desk_head_settings", "public", t =>
+                        {
+                            t.HasCheckConstraint("ck_service_desk_head_settings_singleton", "id = 1");
+                        });
+                });
+
             modelBuilder.Entity("itsm.Domain.Entities.SlaPolicy", b =>
                 {
                     b.Property<int>("Id")
@@ -1832,6 +1864,59 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_ticket_asset_mappings_asset_id");
 
                     b.ToTable("ticket_asset_mappings", "public");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.TicketAttachmentUpload", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_at");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("file_name");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("size_bytes");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("storage_key");
+
+                    b.Property<int>("TicketId")
+                        .HasColumnType("integer")
+                        .HasColumnName("ticket_id");
+
+                    b.Property<DateTimeOffset>("UploadedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("uploaded_at")
+                        .HasDefaultValueSql("now()");
+
+                    b.Property<int>("UploadedById")
+                        .HasColumnType("integer")
+                        .HasColumnName("uploaded_by_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_ticket_attachment_uploads");
+
+                    b.HasIndex("UploadedById")
+                        .HasDatabaseName("ix_ticket_attachment_uploads_uploaded_by_id");
+
+                    b.HasIndex("TicketId", "UploadedById", "ExpiresAt")
+                        .HasDatabaseName("ix_ticket_attachment_uploads_ticket_id_uploaded_by_id_expires_");
+
+                    b.ToTable("ticket_attachment_uploads", "public");
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.TicketAuditLog", b =>
@@ -2781,6 +2866,18 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("Parent");
                 });
 
+            modelBuilder.Entity("itsm.Domain.Entities.ServiceDeskHeadSetting", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_service_desk_head_settings_users_user_id");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("itsm.Domain.Entities.SlaValue", b =>
                 {
                     b.HasOne("itsm.Domain.Entities.CriticalityLevel", "CriticalityLevel")
@@ -2926,6 +3023,27 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("Asset");
 
                     b.Navigation("Ticket");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.TicketAttachmentUpload", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.Ticket", "Ticket")
+                        .WithMany()
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_attachment_uploads_tickets_ticket_id");
+
+                    b.HasOne("itsm.Domain.Entities.User", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("fk_ticket_attachment_uploads_users_uploaded_by_id");
+
+                    b.Navigation("Ticket");
+
+                    b.Navigation("UploadedBy");
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.TicketAuditLog", b =>
