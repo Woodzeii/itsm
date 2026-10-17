@@ -87,6 +87,9 @@ import { AuthService } from '../../core/auth/auth.service';
             </div>
             <span class="chevron" aria-hidden="true">⌄</span>
           </div>
+          <button class="icon-button" type="button" (click)="logout()" aria-label="Выйти" title="Выйти">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v16h-6M3 12h11m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
           </div>
         </header>
 
@@ -260,8 +263,6 @@ import { AuthService } from '../../core/auth/auth.service';
         flex-direction: column;
         min-width: 0;
       }
-      .logout-btn:hover { background: #374151; }
-
       .main-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
       .topbar {
         height: 76px;
