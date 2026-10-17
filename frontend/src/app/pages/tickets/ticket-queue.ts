@@ -140,7 +140,16 @@ export class TicketQueueComponent implements OnInit {
         this.route.queryParamMap.subscribe(params => this.query = params.get('q') ?? '');
     }
 
-    select(ticket: Ticket): void { this.selected = ticket; this.repairDescription = ''; this.assigneeDraft = ticket.assignee ?? ''; this.priorityDraft = ticket.priority; }
+    select(ticket: Ticket): void {
+      this.selected = ticket;
+      this.repairDescription = '';
+      this.assigneeDraft = ticket.assignee ?? '';
+      this.priorityDraft = ticket.priority;
+      this.workspace.getTicket(ticket.id).subscribe({
+        next: details => { if (this.selected?.id === details.id) this.selected = details; },
+        error: err => this.error = err.message,
+      });
+    }
     assign(): void {
       if (!this.selected || !this.assigneeDraft) return;
       this.workspace.assignTicket(this.selected.id, this.assigneeDraft).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Назначен исполнитель: ${ticket.assignee}.`; }, error: err => this.error = err.message });

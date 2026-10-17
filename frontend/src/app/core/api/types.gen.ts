@@ -4,10 +4,6 @@ export type ClientOptions = {
     baseUrl: 'http://localhost:5062/' | (string & {});
 };
 
-export type ConfirmEmailRequest = {
-    token?: string;
-};
-
 export type CreateAssetClassAttributeRequest = {
     code?: string;
     name?: string;
@@ -21,6 +17,36 @@ export type CreateAssetClassAttributeRequest = {
 export type CreateAssetClassRequest = {
     code?: string;
     name?: string;
+};
+
+export type CreateAssetRequest = {
+    /**
+     * Необязателен только на этапе «Закуплен».
+     */
+    inventoryNumber?: string | null;
+    name: string;
+    assetClassId: number;
+    /**
+     * Если inventoryNumber задан, поле обязательно: актив сразу создается на этапе «На складе» (АКТ-19). Без inventoryNumber актив создается на этапе «Закуплен».
+     */
+    warehouseId?: number | null;
+    customAttributes?: {
+        [key: string]: unknown;
+    };
+};
+
+export type UpdateAssetRequest = {
+    name: string;
+    customAttributes?: {
+        [key: string]: unknown;
+    };
+};
+
+export type RegisterAssetMovementRequest = {
+    movementType: 'TransferToEmployee' | 'Relocation' | 'WarehouseIssue' | 'WarehouseReturn';
+    fromSourceId?: number | null;
+    toDestinationId?: number | null;
+    assignedUserId?: number | null;
 };
 
 export type CreateDictionaryRequest = {
@@ -41,14 +67,6 @@ export type DisableTwoFactorRequest = {
 export type LoginRequest = {
     username?: string;
     password?: string;
-};
-
-export type RegisterRequest = {
-    username?: string;
-    email?: string;
-    password?: string;
-    fullName?: string | null;
-    department?: string | null;
 };
 
 export type UpdateAssetClassAttributeRequest = {
@@ -82,6 +100,683 @@ export type VerifyTwoFactorSetupRequest = {
     code?: string;
 };
 
+/**
+ * Для встроенного типа «Тикет на ремонт» заявку создает инженер ТП; assetId обязателен, актив должен находиться на этапе «На складе» или «В эксплуатации». Создание такого тикета автоматически переводит актив в этап «В ремонте».
+ */
+export type CreateTicketRequest = {
+    title: string;
+    description: string;
+    typeId: number;
+    priority: string;
+    /**
+     * Для обычных заявок может быть null. Для тикета на ремонт обязателен; связь с активом одна на заявку.
+     */
+    assetId?: number | null;
+    customFieldsData?: {
+        [key: string]: unknown;
+    };
+};
+
+export type AssignTicketRequest = {
+    /**
+     * ID активного инженера технической поддержки.
+     */
+    assigneeId: number;
+};
+
+export type UpdateTicketRequest = {
+    priority?: string;
+    assigneeId?: number | null;
+    customFieldsData?: {
+        [key: string]: unknown;
+    };
+};
+
+export type ChangeTicketStatusRequest = {
+    statusId: number;
+    /**
+     * Свободное описание выполненного ремонта; обязательно при закрытии тикета на ремонт (АКТ-16).
+     */
+    repairResolution?: string | null;
+    /**
+     * Обязателен при закрытии тикета на ремонт. Автоматически переводит актив соответственно в «В эксплуатации», «На складе» или «Списан» (АКТ-12).
+     */
+    repairOutcome?: 'ReturnToExploitation' | 'TransferToWarehouse' | 'Retire';
+};
+
+export type CreateTicketMessageRequest = {
+    messageBody: string;
+    isInternal?: boolean;
+    attachments?: Array<string>;
+};
+
+export type SaveFormTemplateRequest = {
+    fieldsSchema: FormTemplateFieldsSchema;
+};
+
+export type FormTemplateFieldsSchema = {
+    fields: Array<FormFieldDefinition>;
+};
+
+export type FormFieldDefinition = {
+    code: string;
+    name: string;
+    fieldType: 'string' | 'text' | 'number' | 'date' | 'dictionary' | 'asset' | 'attachment' | 'boolean';
+    isRequired: boolean;
+    /**
+     * Поле заполняется только инженером технической поддержки.
+     */
+    isEngineerOnly: boolean;
+    defaultValue?: string | null;
+    hint?: string | null;
+    dictionaryId?: number | null;
+    sortOrder?: number;
+    /**
+     * Настройка видимости и редактирования поля по системным ролям, включая роль автора заявки на портале (FORM-10).
+     */
+    visibilities?: Array<FormFieldVisibilityRule>;
+    /**
+     * Условия отображения поля, вычисляемые по значениям других полей (FORM-07).
+     */
+    dependencies?: Array<FieldDependency>;
+};
+
+export type FormFieldVisibilityRule = {
+    roleCode: string;
+    isVisible: boolean;
+    isEditable: boolean;
+};
+
+export type FieldDependency = {
+    dependsOnFieldCode: string;
+    condition: 'Equals' | 'NotEquals' | 'Filled';
+    /**
+     * Сравниваемое значение для Equals или NotEquals; для Filled не требуется.
+     */
+    value?: string | null;
+};
+
+export type TicketType = {
+    id?: number;
+    code?: string | null;
+    name?: string;
+    isBuiltIn?: boolean;
+    isPortalAvailable?: boolean;
+};
+
+export type AssetHistoryItem = {
+    id: number;
+    /**
+     * Типы действий соответствуют AssetHistoryActionTypes в backend.
+     */
+    actionType: 'entity_created' | 'attribute_changed' | 'movement' | 'stage_changed' | 'assigned_changed' | 'ticket_created' | 'ticket_closed';
+    /**
+     * Человекочитаемое описание действия, сформированное из деталей, комментария и связанного тикета.
+     */
+    description: string;
+    /**
+     * ФИО пользователя или «Система» для автоматического действия.
+     */
+    performedBy: string;
+    userId?: number | null;
+    /**
+     * Структурированные детали действия из AssetHistoryLog.Details.
+     */
+    details?: {
+        [key: string]: unknown;
+    };
+    ticketId?: number | null;
+    comment?: string | null;
+    /**
+     * Время действия; соответствует ChangedAt в модели истории.
+     */
+    createdAt: string;
+};
+
+export type AssetTicketHistoryItem = {
+    /**
+     * Системный номер заявки.
+     */
+    id: number;
+    typeId: number;
+    typeName: string;
+    title: string;
+    creatorId: number;
+    creatorName: string;
+    assigneeId?: number | null;
+    assigneeName?: string | null;
+    statusId: number;
+    statusName: string;
+    criticalityLevelId?: number | null;
+    criticalityName?: string | null;
+    createdAt: string;
+    closedAt?: string | null;
+};
+
+export type AssignmentSettings = {
+    mode: 'AutomaticLeastLoaded' | 'Manual';
+    /**
+     * При ручном режиме — пользователь, определенный администратором; null означает, что назначать может администратор.
+     */
+    manualAssignerUserId?: number | null;
+    updatedAt?: string;
+};
+
+export type UpdateAssignmentSettingsRequest = {
+    mode: 'AutomaticLeastLoaded' | 'Manual';
+    /**
+     * Допустим только для Manual; null означает, что назначать может администратор.
+     */
+    manualAssignerUserId?: number | null;
+};
+
+export type EscalationRule = {
+    ticketTypeId: number;
+    /**
+     * Запускать эскалацию при нарушении времени решения по SLA.
+     */
+    onSlaBreach: boolean;
+    /**
+     * Разрешить ручной запуск автором заявки или исполнителем согласно их ролям.
+     */
+    onManual: boolean;
+    isActive: boolean;
+};
+
+export type UpdateEscalationRuleRequest = {
+    onSlaBreach: boolean;
+    onManual: boolean;
+    isActive: boolean;
+};
+
+export type ReportType = 'TicketsByStatus' | 'TicketsByTypeAndCriticality' | 'SlaCompliance' | 'AssigneeLoad' | 'AssigneePerformance' | 'InspectionReturns' | 'RepairsSummary' | 'AssetsByLifecycleStage' | 'AssetMovements';
+
+export type ReportAccessSetting = {
+    reportType: ReportType;
+    /**
+     * Системные коды ролей, которым разрешен просмотр отчета.
+     */
+    allowedRoleCodes: Array<string>;
+};
+
+export type TicketsByStatusReportRow = {
+    statusId: number;
+    statusName: string;
+    ticketCount: number;
+};
+
+export type TicketsByTypeAndCriticalityReportRow = {
+    ticketTypeId: number;
+    ticketTypeName: string;
+    criticalityLevelId: number;
+    criticalityName: string;
+    ticketCount: number;
+};
+
+export type SlaComplianceReportRow = {
+    ticketTypeId: number;
+    ticketTypeName: string;
+    criticalityLevelId: number;
+    criticalityName: string;
+    ticketCount: number;
+    reactionBreachCount: number;
+    /**
+     * Доля от 0 до 1.
+     */
+    reactionBreachRate: number;
+    resolutionBreachCount: number;
+    /**
+     * Доля от 0 до 1.
+     */
+    resolutionBreachRate: number;
+};
+
+export type AssigneeLoadReportRow = {
+    assigneeId: number;
+    assigneeName: string;
+    openTicketCount: number;
+};
+
+export type AssigneePerformanceReportRow = {
+    assigneeId: number;
+    assigneeName: string;
+    closedTicketCount: number;
+    averageReactionMinutes: number | null;
+    averageResolutionMinutes: number | null;
+};
+
+export type InspectionReturnsReportRow = {
+    /**
+     * Число заявок, возвращенных авторами из статуса проверки в статус ожидания выполнения.
+     */
+    returnedTicketCount: number;
+};
+
+export type RepairsSummaryReportRow = {
+    assetId: number;
+    inventoryNumber?: string | null;
+    assetName: string;
+    assetClassId: number | null;
+    assetClassName: string | null;
+    outcome: 'ReturnToExploitation' | 'TransferToWarehouse' | 'Retire';
+    ticketCount: number;
+};
+
+export type AssetsByLifecycleStageReportRow = {
+    assetClassId?: number | null;
+    assetClassName?: string | null;
+    lifecycleStage: 'Purchased' | 'InWarehouse' | 'InUse' | 'InRepair' | 'Retired';
+    assetCount: number;
+};
+
+export type AssetMovementsReportRow = {
+    movementId: number;
+    assetId: number;
+    inventoryNumber?: string | null;
+    assetName: string;
+    movementType: string;
+    from?: string | null;
+    to?: string | null;
+    performedByUserId?: number | null;
+    performedByName?: string | null;
+    movedAt: string;
+};
+
+export type CreateTicketTypeRequest = {
+    code: string;
+    name: string;
+    isPortalAvailable?: boolean;
+};
+
+export type UpdateTicketTypeRequest = {
+    name: string;
+    isPortalAvailable: boolean;
+};
+
+export type CriticalityLevel = {
+    id?: number;
+    code?: string;
+    name?: string;
+    sortOrder?: number;
+    isActive?: boolean;
+};
+
+export type CreateCriticalityLevelRequest = {
+    code: string;
+    name: string;
+    sortOrder?: number;
+};
+
+export type UpdateCriticalityLevelRequest = {
+    name: string;
+    sortOrder: number;
+    /**
+     * Деактивация разрешена, только если после изменения останется минимум 3 активных уровня; активация — если их станет не больше 5.
+     */
+    isActive: boolean;
+};
+
+export type AdminCreateUserRequest = {
+    username: string;
+    email: string;
+    password: string;
+    fullName: string;
+    department?: string | null;
+    managerId?: number | null;
+    roleIds?: Array<number>;
+    isActive?: boolean;
+};
+
+export type UpdateUserRequest = {
+    fullName: string;
+    department?: string | null;
+    managerId?: number | null;
+    roleIds: Array<number>;
+    isActive: boolean;
+};
+
+export type RoleSummary = {
+    /**
+     * Внутренний идентификатор роли.
+     */
+    id: number;
+    /**
+     * Системный код роли, например admin, agent, manager или client.
+     */
+    code: string;
+    /**
+     * Человекочитаемое название роли.
+     */
+    name: string;
+};
+
+export type PasswordPolicy = {
+    minLength: number;
+    requireDigit: boolean;
+    requireUppercase: boolean;
+    requireLowercase: boolean;
+    requireSpecial: boolean;
+    expirationDays?: number | null;
+    maxFailedAttempts: number;
+    lockoutMinutes: number;
+    updatedAt: string;
+};
+
+export type UpdatePasswordPolicyRequest = {
+    minLength: number;
+    requireDigit: boolean;
+    requireUppercase: boolean;
+    requireLowercase: boolean;
+    requireSpecial: boolean;
+    expirationDays: number | null;
+    maxFailedAttempts: number;
+    lockoutMinutes: number;
+};
+
+export type TenantRecord = {
+    id: number;
+    /**
+     * Уникальный код, назначенный сервером при создании тенанта.
+     */
+    code: string;
+    name: string;
+    /**
+     * Логин первого администратора, созданного при регистрации тенанта.
+     */
+    firstAdminLogin: string;
+    active: boolean;
+    createdAt?: string;
+};
+
+export type CreateTenantRequest = {
+    /**
+     * По этому названию сервер назначает уникальный код тенанта.
+     */
+    name: string;
+    firstAdminLogin: string;
+};
+
+export type UpdateTenantStatusRequest = {
+    active: boolean;
+};
+
+export type ServiceDeskHeadSetting = {
+    userId: number | null;
+    login?: string | null;
+    fullName?: string | null;
+};
+
+export type SetServiceDeskHeadRequest = {
+    userId: number;
+};
+
+export type AuditLogEntry = {
+    id: number;
+    /**
+     * Может быть null для системного действия без пользователя.
+     */
+    userId?: number | null;
+    userFullName?: string | null;
+    entityType: string;
+    entityId: number;
+    action: string;
+    /**
+     * Сериализованные JSON старые значения.
+     */
+    oldValues?: string | null;
+    /**
+     * Сериализованные JSON новые значения.
+     */
+    newValues?: string | null;
+    ipAddress?: string | null;
+    createdAt: string;
+};
+
+export type TicketEscalation = {
+    id: number;
+    ticketId: number;
+    /**
+     * Null для автоматической эскалации по SLA; для ручной эскалации определяется сервером по JWT.
+     */
+    initiatorUserId?: number | null;
+    reason: 'OnSlaBreach' | 'OnManual';
+    fromCriticalityLevelId?: number | null;
+    /**
+     * Остается равным null, если заявка уже имела максимальную критичность.
+     */
+    toCriticalityLevelId?: number | null;
+    /**
+     * Персональные получатели внутренних уведомлений.
+     */
+    notifiedUserIds?: Array<number>;
+    escalatedAt: string;
+};
+
+export type UserSummary = {
+    id?: number;
+    username?: string;
+    email?: string;
+    fullName?: string;
+    department?: string | null;
+    managerId?: number | null;
+    roleIds?: Array<number>;
+    isActive?: boolean;
+};
+
+export type Notification = {
+    id?: number;
+    type?: string;
+    title?: string;
+    body?: string | null;
+    ticketId?: number | null;
+    isRead?: boolean;
+    createdAt?: string;
+};
+
+export type CalendarException = {
+    id?: number;
+    exceptionDate?: string;
+    isWorkDay?: boolean;
+    description?: string | null;
+};
+
+export type SaveCalendarExceptionRequest = {
+    exceptionDate: string;
+    isWorkDay: boolean;
+    description?: string | null;
+};
+
+export type WorkingSchedule = {
+    id?: number;
+    name?: string;
+    scheduleType?: '24x7' | '8x5';
+    isActive?: boolean;
+    hours?: Array<WorkingHour>;
+};
+
+export type SaveWorkingScheduleRequest = {
+    name: string;
+    scheduleType: '24x7' | '8x5';
+    isActive?: boolean;
+    /**
+     * Для графика 8x5 задает рабочие интервалы по дням недели; для 24x7 может быть пустым.
+     */
+    hours?: Array<WorkingHour>;
+};
+
+export type WorkingHour = {
+    /**
+     * 0 — воскресенье, 6 — суббота.
+     */
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+};
+
+export type SlaSettings = {
+    /**
+     * Глобальный переключатель SLA для системы.
+     */
+    isEnabled: boolean;
+    activeWorkingScheduleId?: number | null;
+};
+
+export type PortalSlaVisibility = {
+    showReactionTime: boolean;
+    showResolutionTime: boolean;
+};
+
+export type TicketTypeSlaSettingRequest = {
+    isEnabled: boolean;
+};
+
+export type SlaValue = {
+    ticketTypeId?: number;
+    criticalityLevelId?: number;
+    reactionTimeMinutes?: number | null;
+    resolutionTimeMinutes?: number | null;
+    isDisabled?: boolean;
+    updatedAt?: string;
+};
+
+export type SaveSlaValueRequest = {
+    ticketTypeId: number;
+    criticalityLevelId: number;
+    reactionTimeMinutes?: number | null;
+    resolutionTimeMinutes?: number | null;
+    isDisabled?: boolean;
+};
+
+export type TicketStatus = {
+    id?: number;
+    code?: string | null;
+    name?: string;
+    isSlaPausing?: boolean;
+    sortOrder?: number;
+    /**
+     * Признак защиты стандартного статуса от удаления; определяется системой.
+     */
+    readonly isBuiltIn?: boolean;
+};
+
+export type CreateTicketStatusRequest = {
+    code: string;
+    name: string;
+    isSlaPausing?: boolean;
+    sortOrder?: number;
+};
+
+export type UpdateTicketStatusRequest = {
+    name: string;
+    isSlaPausing: boolean;
+    sortOrder?: number;
+};
+
+export type TicketStatusTransition = {
+    id?: number;
+    fromStatusId?: number;
+    toStatusId?: number;
+    requiredRoleCode?: string | null;
+};
+
+export type SaveTicketStatusTransitionRequest = {
+    fromStatusId: number;
+    toStatusId: number;
+    requiredRoleCode?: string | null;
+};
+
+export type TicketStatusWritable = {
+    id?: number;
+    code?: string | null;
+    name?: string;
+    isSlaPausing?: boolean;
+    sortOrder?: number;
+};
+
+export type PostApiAuthLoginData = {
+    body?: LoginRequest;
+    path?: never;
+    query?: never;
+    url: '/api/auth/login';
+};
+
+export type PostApiAuthLoginResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type PostApiAuthVerify2FaData = {
+    body?: VerifyTwoFactorRequest;
+    path?: never;
+    query?: never;
+    url: '/api/auth/verify-2fa';
+};
+
+export type PostApiAuthVerify2FaResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type PostApiAuth2FaSetupData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/auth/2fa/setup';
+};
+
+export type PostApiAuth2FaSetupResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type PostApiAuth2FaVerifySetupData = {
+    body?: VerifyTwoFactorSetupRequest;
+    path?: never;
+    query?: never;
+    url: '/api/auth/2fa/verify-setup';
+};
+
+export type PostApiAuth2FaVerifySetupResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type GetApiAuth2FaStatusData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/auth/2fa/status';
+};
+
+export type GetApiAuth2FaStatusResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type PostApiAuth2FaDisableData = {
+    body?: DisableTwoFactorRequest;
+    path?: never;
+    query?: never;
+    url: '/api/auth/2fa/disable';
+};
+
+export type PostApiAuth2FaDisableResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
 export type GetApiAssetClassesData = {
     body?: never;
     path?: never;
@@ -97,7 +792,7 @@ export type GetApiAssetClassesResponses = {
 };
 
 export type PostApiAssetClassesData = {
-    body: CreateAssetClassRequest;
+    body?: CreateAssetClassRequest;
     path?: never;
     query?: never;
     url: '/api/asset-classes';
@@ -143,7 +838,7 @@ export type GetApiAssetClassesByIdResponses = {
 };
 
 export type PutApiAssetClassesByIdData = {
-    body: UpdateAssetClassRequest;
+    body?: UpdateAssetClassRequest;
     path: {
         id: number;
     };
@@ -207,7 +902,7 @@ export type GetApiAssetClassesByIdAttributesResponses = {
 };
 
 export type PostApiAssetClassesByIdAttributesData = {
-    body: CreateAssetClassAttributeRequest;
+    body?: CreateAssetClassAttributeRequest;
     path: {
         id: number;
     };
@@ -257,7 +952,7 @@ export type GetApiAssetClassesByIdAttributesByAttributeIdResponses = {
 };
 
 export type PutApiAssetClassesByIdAttributesByAttributeIdData = {
-    body: UpdateAssetClassAttributeRequest;
+    body?: UpdateAssetClassAttributeRequest;
     path: {
         id: number;
         attributeId: number;
@@ -273,117 +968,168 @@ export type PutApiAssetClassesByIdAttributesByAttributeIdResponses = {
     200: unknown;
 };
 
-export type PostApiAuthRegisterData = {
-    body: RegisterRequest;
-    path?: never;
-    query?: never;
-    url: '/api/auth/register';
-};
-
-export type PostApiAuthRegisterResponses = {
-    /**
-     * OK
-     */
-    200: unknown;
-};
-
-export type PostApiAuthConfirmEmailData = {
-    body: ConfirmEmailRequest;
-    path?: never;
-    query?: never;
-    url: '/api/auth/confirm-email';
-};
-
-export type PostApiAuthConfirmEmailResponses = {
-    /**
-     * OK
-     */
-    200: unknown;
-};
-
-export type PostApiAuthLoginData = {
-    body: LoginRequest;
-    path?: never;
-    query?: never;
-    url: '/api/auth/login';
-};
-
-export type PostApiAuthLoginResponses = {
-    /**
-     * OK
-     */
-    200: unknown;
-};
-
-export type PostApiAuthVerify2FaData = {
-    body: VerifyTwoFactorRequest;
-    path?: never;
-    query?: never;
-    url: '/api/auth/verify-2fa';
-};
-
-export type PostApiAuthVerify2FaResponses = {
-    /**
-     * OK
-     */
-    200: unknown;
-};
-
-export type PostApiAuth2FaSetupData = {
+export type GetApiAssetsData = {
     body?: never;
     path?: never;
-    query?: never;
-    url: '/api/auth/2fa/setup';
+    query?: {
+        classId?: number;
+        status?: string;
+    };
+    url: '/api/assets';
 };
 
-export type PostApiAuth2FaSetupResponses = {
+export type GetApiAssetsResponses = {
     /**
      * OK
      */
     200: unknown;
 };
 
-export type PostApiAuth2FaVerifySetupData = {
-    body: VerifyTwoFactorSetupRequest;
+export type PostApiAssetsData = {
+    body: CreateAssetRequest;
     path?: never;
     query?: never;
-    url: '/api/auth/2fa/verify-setup';
+    url: '/api/assets';
 };
 
-export type PostApiAuth2FaVerifySetupResponses = {
+export type PostApiAssetsResponses = {
     /**
      * OK
      */
     200: unknown;
 };
 
-export type GetApiAuth2FaStatusData = {
+export type DeleteApiAssetsByIdData = {
     body?: never;
-    path?: never;
+    path: {
+        id: number;
+    };
     query?: never;
-    url: '/api/auth/2fa/status';
+    url: '/api/assets/{id}';
 };
 
-export type GetApiAuth2FaStatusResponses = {
+export type DeleteApiAssetsByIdErrors = {
+    /**
+     * Удаление невозможно: актив находится на этапе, отличном от «Закуплен» (АКТ-14).
+     */
+    409: unknown;
+};
+
+export type DeleteApiAssetsByIdResponses = {
     /**
      * OK
      */
     200: unknown;
 };
 
-export type PostApiAuth2FaDisableData = {
-    body: DisableTwoFactorRequest;
-    path?: never;
+export type GetApiAssetsByIdData = {
+    body?: never;
+    path: {
+        id: number;
+    };
     query?: never;
-    url: '/api/auth/2fa/disable';
+    url: '/api/assets/{id}';
 };
 
-export type PostApiAuth2FaDisableResponses = {
+export type GetApiAssetsByIdResponses = {
     /**
      * OK
      */
     200: unknown;
 };
+
+export type PutApiAssetsByIdData = {
+    body: UpdateAssetRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/assets/{id}';
+};
+
+export type PutApiAssetsByIdResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type PostApiAssetsByIdMovementsData = {
+    body: RegisterAssetMovementRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/assets/{id}/movements';
+};
+
+export type PostApiAssetsByIdMovementsResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type GetApiAssetsByIdHistoryData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/assets/{id}/history';
+};
+
+export type GetApiAssetsByIdHistoryResponses = {
+    /**
+     * История изменений актива
+     */
+    200: Array<AssetHistoryItem>;
+};
+
+export type GetApiAssetsByIdHistoryResponse = GetApiAssetsByIdHistoryResponses[keyof GetApiAssetsByIdHistoryResponses];
+
+export type GetApiAssetsByIdTicketsData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: {
+        /**
+         * Фильтр по типу заявки.
+         */
+        typeId?: number;
+        /**
+         * Фильтр по статусу заявки.
+         */
+        statusId?: number;
+        /**
+         * Фильтр по критичности.
+         */
+        criticalityLevelId?: number;
+        /**
+         * Фильтр по исполнителю.
+         */
+        assigneeId?: number;
+        /**
+         * Начальная дата создания, включительно.
+         */
+        dateFrom?: string;
+        /**
+         * Конечная дата создания, включительно.
+         */
+        dateTo?: string;
+    };
+    url: '/api/assets/{id}/tickets';
+};
+
+export type GetApiAssetsByIdTicketsResponses = {
+    /**
+     * История заявок по активу: номер, тип, тема, автор, исполнитель, статус, критичность, дата создания и дата закрытия.
+     */
+    200: Array<AssetTicketHistoryItem>;
+};
+
+export type GetApiAssetsByIdTicketsResponse = GetApiAssetsByIdTicketsResponses[keyof GetApiAssetsByIdTicketsResponses];
 
 export type GetApiDictionariesData = {
     body?: never;
@@ -400,7 +1146,7 @@ export type GetApiDictionariesResponses = {
 };
 
 export type PostApiDictionariesData = {
-    body: CreateDictionaryRequest;
+    body?: CreateDictionaryRequest;
     path?: never;
     query?: never;
     url: '/api/dictionaries';
@@ -446,7 +1192,7 @@ export type GetApiDictionariesByIdResponses = {
 };
 
 export type PutApiDictionariesByIdData = {
-    body: UpdateDictionaryRequest;
+    body?: UpdateDictionaryRequest;
     path: {
         id: number;
     };
@@ -466,9 +1212,7 @@ export type GetApiDictionariesByIdValuesData = {
     path: {
         id: number;
     };
-    query?: {
-        includeArchived?: boolean;
-    };
+    query?: never;
     url: '/api/dictionaries/{id}/values';
 };
 
@@ -480,7 +1224,7 @@ export type GetApiDictionariesByIdValuesResponses = {
 };
 
 export type PostApiDictionariesByIdValuesData = {
-    body: CreateDictionaryValueRequest;
+    body?: CreateDictionaryValueRequest;
     path: {
         id: number;
     };
@@ -505,15 +1249,28 @@ export type DeleteApiDictionariesByIdValuesByValueIdData = {
     url: '/api/dictionaries/{id}/values/{valueId}';
 };
 
-export type DeleteApiDictionariesByIdValuesByValueIdResponses = {
+export type DeleteApiDictionariesByIdValuesByValueIdErrors = {
     /**
-     * OK
+     * Справочник или значение не найдены
      */
-    200: unknown;
+    404: unknown;
+    /**
+     * Нельзя удалить значение справочника, которое используется карточками активов или заявками (SPR-04).
+     */
+    409: unknown;
 };
 
+export type DeleteApiDictionariesByIdValuesByValueIdResponses = {
+    /**
+     * Архивное значение удалено
+     */
+    204: void;
+};
+
+export type DeleteApiDictionariesByIdValuesByValueIdResponse = DeleteApiDictionariesByIdValuesByValueIdResponses[keyof DeleteApiDictionariesByIdValuesByValueIdResponses];
+
 export type PutApiDictionariesByIdValuesByValueIdData = {
-    body: UpdateDictionaryValueRequest;
+    body?: UpdateDictionaryValueRequest;
     path: {
         id: number;
         valueId: number;
@@ -542,6 +1299,1162 @@ export type PostApiDictionariesByIdValuesByValueIdArchiveData = {
 export type PostApiDictionariesByIdValuesByValueIdArchiveResponses = {
     /**
      * OK
+     */
+    200: unknown;
+};
+
+export type GetApiTicketsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/tickets';
+};
+
+export type GetApiTicketsResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type PostApiTicketsData = {
+    body: CreateTicketRequest;
+    path?: never;
+    query?: never;
+    url: '/api/tickets';
+};
+
+export type PostApiTicketsResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type GetApiTicketsByIdData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/tickets/{id}';
+};
+
+export type GetApiTicketsByIdResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type PutApiTicketsByIdData = {
+    body: UpdateTicketRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/tickets/{id}';
+};
+
+export type PutApiTicketsByIdResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type PutApiTicketsByIdStatusData = {
+    body: ChangeTicketStatusRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/tickets/{id}/status';
+};
+
+export type PutApiTicketsByIdStatusResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type PostApiTicketsByIdAssignData = {
+    body: AssignTicketRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/tickets/{id}/assign';
+};
+
+export type PostApiTicketsByIdAssignErrors = {
+    /**
+     * Пользователь не является активным инженером технической поддержки.
+     */
+    400: unknown;
+    /**
+     * Текущий пользователь не имеет прав диспетчера.
+     */
+    403: unknown;
+    /**
+     * Заявка или инженер не найдены.
+     */
+    404: unknown;
+};
+
+export type PostApiTicketsByIdAssignResponses = {
+    /**
+     * Исполнитель успешно назначен.
+     */
+    200: unknown;
+};
+
+export type PostApiTicketsByIdEscalateData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/tickets/{id}/escalate';
+};
+
+export type PostApiTicketsByIdEscalateErrors = {
+    /**
+     * Текущий пользователь не может запускать ручную эскалацию для этого типа заявки.
+     */
+    403: unknown;
+    /**
+     * Эскалация не может быть выполнена для текущего состояния заявки.
+     */
+    409: unknown;
+};
+
+export type PostApiTicketsByIdEscalateResponses = {
+    /**
+     * Результат эскалации с данными, зафиксированными в истории
+     */
+    200: TicketEscalation;
+};
+
+export type PostApiTicketsByIdEscalateResponse = PostApiTicketsByIdEscalateResponses[keyof PostApiTicketsByIdEscalateResponses];
+
+export type GetApiTicketsByIdMessagesData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/tickets/{id}/messages';
+};
+
+export type GetApiTicketsByIdMessagesResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type PostApiTicketsByIdMessagesData = {
+    body: CreateTicketMessageRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/tickets/{id}/messages';
+};
+
+export type PostApiTicketsByIdMessagesResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type GetApiFormTemplatesByTicketTypeIdData = {
+    body?: never;
+    path: {
+        ticketTypeId: number;
+    };
+    query?: never;
+    url: '/api/form-templates/{ticketTypeId}';
+};
+
+export type GetApiFormTemplatesByTicketTypeIdResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type PutApiFormTemplatesByTicketTypeIdData = {
+    body: SaveFormTemplateRequest;
+    path: {
+        ticketTypeId: number;
+    };
+    query?: never;
+    url: '/api/form-templates/{ticketTypeId}';
+};
+
+export type PutApiFormTemplatesByTicketTypeIdErrors = {
+    /**
+     * Некорректная схема формы или значения полей.
+     */
+    400: unknown;
+    /**
+     * Нельзя удалить встроенное поле «Выбор актива», пока оно заполнено хотя бы в одной заявке этого типа (FORM-12).
+     */
+    409: unknown;
+};
+
+export type PutApiFormTemplatesByTicketTypeIdResponses = {
+    /**
+     * OK
+     */
+    200: unknown;
+};
+
+export type GetApiReportsByReportTypeData = {
+    body?: never;
+    path: {
+        /**
+         * Тип отчета согласно перечню SD-24.
+         */
+        reportType: ReportType;
+    };
+    query?: {
+        /**
+         * Начало периода, включительно; используется отчетами, считающими данные за период.
+         */
+        dateFrom?: string;
+        /**
+         * Конец периода, включительно; используется отчетами, считающими данные за период.
+         */
+        dateTo?: string;
+    };
+    url: '/api/reports/{reportType}';
+};
+
+export type GetApiReportsByReportTypeErrors = {
+    /**
+     * Роль текущего пользователя не имеет доступа к этому отчету.
+     */
+    403: unknown;
+};
+
+export type GetApiReportsByReportTypeResponses = {
+    /**
+     * Строки отчета. Состав строки определяется reportType.
+     */
+    200: Array<TicketsByStatusReportRow> | Array<TicketsByTypeAndCriticalityReportRow> | Array<SlaComplianceReportRow> | Array<AssigneeLoadReportRow> | Array<AssigneePerformanceReportRow> | Array<InspectionReturnsReportRow> | Array<RepairsSummaryReportRow> | Array<AssetsByLifecycleStageReportRow> | Array<AssetMovementsReportRow>;
+};
+
+export type GetApiReportsByReportTypeResponse = GetApiReportsByReportTypeResponses[keyof GetApiReportsByReportTypeResponses];
+
+export type GetApiReportAccessData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/report-access';
+};
+
+export type GetApiReportAccessResponses = {
+    /**
+     * Настройки доступа по каждому типу отчета
+     */
+    200: Array<ReportAccessSetting>;
+};
+
+export type GetApiReportAccessResponse = GetApiReportAccessResponses[keyof GetApiReportAccessResponses];
+
+export type PutApiReportAccessData = {
+    body: Array<ReportAccessSetting>;
+    path?: never;
+    query?: never;
+    url: '/api/report-access';
+};
+
+export type PutApiReportAccessResponses = {
+    /**
+     * Матрица доступа сохранена
+     */
+    200: unknown;
+};
+
+export type PostApiAuthAdminCreateUserData = {
+    body: AdminCreateUserRequest;
+    path?: never;
+    query?: never;
+    url: '/api/auth/admin-create-user';
+};
+
+export type PostApiAuthAdminCreateUserErrors = {
+    /**
+     * Некорректные данные
+     */
+    400: unknown;
+    /**
+     * Логин или email уже используются
+     */
+    409: unknown;
+};
+
+export type PostApiAuthAdminCreateUserResponses = {
+    /**
+     * Пользователь создан
+     */
+    201: unknown;
+};
+
+export type GetApiUsersData = {
+    body?: never;
+    path?: never;
+    query?: {
+        department?: string;
+        roleId?: number;
+        isActive?: boolean;
+    };
+    url: '/api/users';
+};
+
+export type GetApiUsersResponses = {
+    /**
+     * Список сотрудников
+     */
+    200: Array<UserSummary>;
+};
+
+export type GetApiUsersResponse = GetApiUsersResponses[keyof GetApiUsersResponses];
+
+export type GetApiUsersByIdData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/users/{id}';
+};
+
+export type GetApiUsersByIdErrors = {
+    /**
+     * Пользователь не найден
+     */
+    404: unknown;
+};
+
+export type GetApiUsersByIdResponses = {
+    /**
+     * Карточка пользователя
+     */
+    200: UserSummary;
+};
+
+export type GetApiUsersByIdResponse = GetApiUsersByIdResponses[keyof GetApiUsersByIdResponses];
+
+export type PutApiUsersByIdData = {
+    body: UpdateUserRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/users/{id}';
+};
+
+export type PutApiUsersByIdErrors = {
+    /**
+     * Пользователь не найден
+     */
+    404: unknown;
+};
+
+export type PutApiUsersByIdResponses = {
+    /**
+     * Профиль обновлен
+     */
+    200: unknown;
+};
+
+export type GetApiRolesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/roles';
+};
+
+export type GetApiRolesResponses = {
+    /**
+     * Список системных ролей
+     */
+    200: Array<RoleSummary>;
+};
+
+export type GetApiRolesResponse = GetApiRolesResponses[keyof GetApiRolesResponses];
+
+export type GetApiSecuritySettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/security-settings';
+};
+
+export type GetApiSecuritySettingsResponses = {
+    /**
+     * Текущая политика паролей
+     */
+    200: PasswordPolicy;
+};
+
+export type GetApiSecuritySettingsResponse = GetApiSecuritySettingsResponses[keyof GetApiSecuritySettingsResponses];
+
+export type PutApiSecuritySettingsData = {
+    body: UpdatePasswordPolicyRequest;
+    path?: never;
+    query?: never;
+    url: '/api/security-settings';
+};
+
+export type PutApiSecuritySettingsErrors = {
+    /**
+     * Недопустимые значения политики.
+     */
+    400: unknown;
+};
+
+export type PutApiSecuritySettingsResponses = {
+    /**
+     * Политика паролей сохранена
+     */
+    200: PasswordPolicy;
+};
+
+export type PutApiSecuritySettingsResponse = PutApiSecuritySettingsResponses[keyof PutApiSecuritySettingsResponses];
+
+export type GetApiTenantsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/tenants';
+};
+
+export type GetApiTenantsErrors = {
+    /**
+     * Операция доступна только администратору SaaS-тенантов.
+     */
+    403: unknown;
+};
+
+export type GetApiTenantsResponses = {
+    /**
+     * Список тенантов
+     */
+    200: Array<TenantRecord>;
+};
+
+export type GetApiTenantsResponse = GetApiTenantsResponses[keyof GetApiTenantsResponses];
+
+export type PostApiTenantsData = {
+    body: CreateTenantRequest;
+    path?: never;
+    query?: never;
+    url: '/api/tenants';
+};
+
+export type PostApiTenantsErrors = {
+    /**
+     * Некорректные данные тенанта или первого администратора.
+     */
+    400: unknown;
+    /**
+     * Операция доступна только администратору SaaS-тенантов.
+     */
+    403: unknown;
+    /**
+     * Невозможно создать тенант или первую учетную запись из-за конфликта уникальности.
+     */
+    409: unknown;
+};
+
+export type PostApiTenantsResponses = {
+    /**
+     * Тенант и первая учетная запись администратора созданы
+     */
+    201: TenantRecord;
+};
+
+export type PostApiTenantsResponse = PostApiTenantsResponses[keyof PostApiTenantsResponses];
+
+export type PatchApiTenantsByIdStatusData = {
+    body: UpdateTenantStatusRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/tenants/{id}/status';
+};
+
+export type PatchApiTenantsByIdStatusErrors = {
+    /**
+     * Операция доступна только администратору SaaS-тенантов.
+     */
+    403: unknown;
+    /**
+     * Тенант не найден.
+     */
+    404: unknown;
+};
+
+export type PatchApiTenantsByIdStatusResponses = {
+    /**
+     * Статус тенанта обновлен
+     */
+    200: TenantRecord;
+};
+
+export type PatchApiTenantsByIdStatusResponse = PatchApiTenantsByIdStatusResponses[keyof PatchApiTenantsByIdStatusResponses];
+
+export type DeleteApiTenantsByIdData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/tenants/{id}';
+};
+
+export type DeleteApiTenantsByIdErrors = {
+    /**
+     * Операция доступна только администратору SaaS-тенантов.
+     */
+    403: unknown;
+    /**
+     * Тенант не найден.
+     */
+    404: unknown;
+};
+
+export type DeleteApiTenantsByIdResponses = {
+    /**
+     * Тенант удален.
+     */
+    204: void;
+};
+
+export type DeleteApiTenantsByIdResponse = DeleteApiTenantsByIdResponses[keyof DeleteApiTenantsByIdResponses];
+
+export type GetApiAuditLogData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Фильтр по пользователю, выполнившему действие.
+         */
+        userId?: number;
+        /**
+         * Фильтр по типу сущности.
+         */
+        entityType?: string;
+        /**
+         * Начало периода, включительно.
+         */
+        dateFrom?: string;
+        /**
+         * Конец периода, включительно.
+         */
+        dateTo?: string;
+    };
+    url: '/api/audit-log';
+};
+
+export type GetApiAuditLogResponses = {
+    /**
+     * Список записей системного аудита
+     */
+    200: Array<AuditLogEntry>;
+};
+
+export type GetApiAuditLogResponse = GetApiAuditLogResponses[keyof GetApiAuditLogResponses];
+
+export type GetApiNotificationsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        onlyUnread?: boolean;
+    };
+    url: '/api/notifications';
+};
+
+export type GetApiNotificationsResponses = {
+    /**
+     * Уведомления пользователя
+     */
+    200: Array<Notification>;
+};
+
+export type GetApiNotificationsResponse = GetApiNotificationsResponses[keyof GetApiNotificationsResponses];
+
+export type PostApiNotificationsByIdReadData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/notifications/{id}/read';
+};
+
+export type PostApiNotificationsByIdReadErrors = {
+    /**
+     * Уведомление не найдено у текущего пользователя
+     */
+    404: unknown;
+};
+
+export type PostApiNotificationsByIdReadResponses = {
+    /**
+     * Уведомление отмечено прочитанным
+     */
+    204: void;
+};
+
+export type PostApiNotificationsByIdReadResponse = PostApiNotificationsByIdReadResponses[keyof PostApiNotificationsByIdReadResponses];
+
+export type GetApiCalendarExceptionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/calendar-exceptions';
+};
+
+export type GetApiCalendarExceptionsResponses = {
+    /**
+     * Список исключений календаря
+     */
+    200: Array<CalendarException>;
+};
+
+export type GetApiCalendarExceptionsResponse = GetApiCalendarExceptionsResponses[keyof GetApiCalendarExceptionsResponses];
+
+export type PostApiCalendarExceptionsData = {
+    body: SaveCalendarExceptionRequest;
+    path?: never;
+    query?: never;
+    url: '/api/calendar-exceptions';
+};
+
+export type PostApiCalendarExceptionsErrors = {
+    /**
+     * Для даты уже задано исключение
+     */
+    409: unknown;
+};
+
+export type PostApiCalendarExceptionsResponses = {
+    /**
+     * Исключение создано
+     */
+    201: unknown;
+};
+
+export type DeleteApiCalendarExceptionsByIdData = {
+    body?: never;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/calendar-exceptions/{id}';
+};
+
+export type DeleteApiCalendarExceptionsByIdErrors = {
+    /**
+     * Исключение не найдено
+     */
+    404: unknown;
+};
+
+export type DeleteApiCalendarExceptionsByIdResponses = {
+    /**
+     * Исключение удалено
+     */
+    204: void;
+};
+
+export type DeleteApiCalendarExceptionsByIdResponse = DeleteApiCalendarExceptionsByIdResponses[keyof DeleteApiCalendarExceptionsByIdResponses];
+
+export type GetApiWorkingSchedulesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/working-schedules';
+};
+
+export type GetApiWorkingSchedulesResponses = {
+    /**
+     * Рабочие графики
+     */
+    200: Array<WorkingSchedule>;
+};
+
+export type GetApiWorkingSchedulesResponse = GetApiWorkingSchedulesResponses[keyof GetApiWorkingSchedulesResponses];
+
+export type PutApiWorkingSchedulesByIdData = {
+    body: SaveWorkingScheduleRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/working-schedules/{id}';
+};
+
+export type PutApiWorkingSchedulesByIdErrors = {
+    /**
+     * График не найден
+     */
+    404: unknown;
+};
+
+export type PutApiWorkingSchedulesByIdResponses = {
+    /**
+     * График обновлен
+     */
+    200: unknown;
+};
+
+export type GetApiSlaSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/sla-settings';
+};
+
+export type GetApiSlaSettingsResponses = {
+    /**
+     * Глобальные настройки SLA
+     */
+    200: SlaSettings;
+};
+
+export type GetApiSlaSettingsResponse = GetApiSlaSettingsResponses[keyof GetApiSlaSettingsResponses];
+
+export type PutApiSlaSettingsData = {
+    body: SlaSettings;
+    path?: never;
+    query?: never;
+    url: '/api/sla-settings';
+};
+
+export type PutApiSlaSettingsResponses = {
+    /**
+     * Настройки сохранены
+     */
+    200: unknown;
+};
+
+export type GetApiSlaSettingsPortalVisibilityData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/sla-settings/portal-visibility';
+};
+
+export type GetApiSlaSettingsPortalVisibilityResponses = {
+    /**
+     * Настройки видимости показателей SLA на портале
+     */
+    200: PortalSlaVisibility;
+};
+
+export type GetApiSlaSettingsPortalVisibilityResponse = GetApiSlaSettingsPortalVisibilityResponses[keyof GetApiSlaSettingsPortalVisibilityResponses];
+
+export type PutApiSlaSettingsPortalVisibilityData = {
+    body: PortalSlaVisibility;
+    path?: never;
+    query?: never;
+    url: '/api/sla-settings/portal-visibility';
+};
+
+export type PutApiSlaSettingsPortalVisibilityResponses = {
+    /**
+     * Настройки видимости сохранены.
+     */
+    200: PortalSlaVisibility;
+};
+
+export type PutApiSlaSettingsPortalVisibilityResponse = PutApiSlaSettingsPortalVisibilityResponses[keyof PutApiSlaSettingsPortalVisibilityResponses];
+
+export type PutApiSlaSettingsTicketTypesByTicketTypeIdData = {
+    body: TicketTypeSlaSettingRequest;
+    path: {
+        ticketTypeId: number;
+    };
+    query?: never;
+    url: '/api/sla-settings/ticket-types/{ticketTypeId}';
+};
+
+export type PutApiSlaSettingsTicketTypesByTicketTypeIdErrors = {
+    /**
+     * Тип заявки не найден
+     */
+    404: unknown;
+};
+
+export type PutApiSlaSettingsTicketTypesByTicketTypeIdResponses = {
+    /**
+     * Настройка SLA типа заявки сохранена
+     */
+    200: unknown;
+};
+
+export type GetApiSlaPoliciesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/sla-policies';
+};
+
+export type GetApiSlaPoliciesResponses = {
+    /**
+     * Матрица SLA
+     */
+    200: Array<SlaValue>;
+};
+
+export type GetApiSlaPoliciesResponse = GetApiSlaPoliciesResponses[keyof GetApiSlaPoliciesResponses];
+
+export type PutApiSlaPoliciesData = {
+    body: SaveSlaValueRequest;
+    path?: never;
+    query?: never;
+    url: '/api/sla-policies';
+};
+
+export type PutApiSlaPoliciesResponses = {
+    /**
+     * Значение SLA сохранено
+     */
+    200: unknown;
+};
+
+export type GetApiTicketStatusesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ticket-statuses';
+};
+
+export type GetApiTicketStatusesResponses = {
+    /**
+     * Статусы заявок
+     */
+    200: Array<TicketStatus>;
+};
+
+export type GetApiTicketStatusesResponse = GetApiTicketStatusesResponses[keyof GetApiTicketStatusesResponses];
+
+export type PostApiTicketStatusesData = {
+    body: CreateTicketStatusRequest;
+    path?: never;
+    query?: never;
+    url: '/api/ticket-statuses';
+};
+
+export type PostApiTicketStatusesErrors = {
+    /**
+     * Код статуса уже используется
+     */
+    409: unknown;
+};
+
+export type PostApiTicketStatusesResponses = {
+    /**
+     * Статус создан
+     */
+    201: unknown;
+};
+
+export type GetApiTicketTypesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ticket-types';
+};
+
+export type GetApiTicketTypesResponses = {
+    /**
+     * Типы заявок
+     */
+    200: Array<TicketType>;
+};
+
+export type GetApiTicketTypesResponse = GetApiTicketTypesResponses[keyof GetApiTicketTypesResponses];
+
+export type PostApiTicketTypesData = {
+    body: CreateTicketTypeRequest;
+    path?: never;
+    query?: never;
+    url: '/api/ticket-types';
+};
+
+export type PostApiTicketTypesErrors = {
+    /**
+     * Код типа уже используется
+     */
+    409: unknown;
+};
+
+export type PostApiTicketTypesResponses = {
+    /**
+     * Тип заявки создан
+     */
+    201: unknown;
+};
+
+export type PutApiTicketTypesByIdData = {
+    body: UpdateTicketTypeRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/ticket-types/{id}';
+};
+
+export type PutApiTicketTypesByIdErrors = {
+    /**
+     * Тип заявки не найден
+     */
+    404: unknown;
+};
+
+export type PutApiTicketTypesByIdResponses = {
+    /**
+     * Тип заявки обновлен
+     */
+    200: unknown;
+};
+
+export type GetApiAssignmentSettingsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/assignment-settings';
+};
+
+export type GetApiAssignmentSettingsResponses = {
+    /**
+     * Настройки назначения исполнителей
+     */
+    200: AssignmentSettings;
+};
+
+export type GetApiAssignmentSettingsResponse = GetApiAssignmentSettingsResponses[keyof GetApiAssignmentSettingsResponses];
+
+export type PutApiAssignmentSettingsData = {
+    body: UpdateAssignmentSettingsRequest;
+    path?: never;
+    query?: never;
+    url: '/api/assignment-settings';
+};
+
+export type PutApiAssignmentSettingsResponses = {
+    /**
+     * Настройки назначения сохранены
+     */
+    200: unknown;
+};
+
+export type GetApiEscalationRulesData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/escalation-rules';
+};
+
+export type GetApiEscalationRulesResponses = {
+    /**
+     * Правила эскалации
+     */
+    200: Array<EscalationRule>;
+};
+
+export type GetApiEscalationRulesResponse = GetApiEscalationRulesResponses[keyof GetApiEscalationRulesResponses];
+
+export type PutApiEscalationRulesByTicketTypeIdData = {
+    body: UpdateEscalationRuleRequest;
+    path: {
+        ticketTypeId: number;
+    };
+    query?: never;
+    url: '/api/escalation-rules/{ticketTypeId}';
+};
+
+export type PutApiEscalationRulesByTicketTypeIdErrors = {
+    /**
+     * Тип заявки не найден
+     */
+    404: unknown;
+};
+
+export type PutApiEscalationRulesByTicketTypeIdResponses = {
+    /**
+     * Правило эскалации сохранено
+     */
+    200: unknown;
+};
+
+export type GetApiTicketConfigurationServiceDeskHeadData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ticket-configuration/service-desk-head';
+};
+
+export type GetApiTicketConfigurationServiceDeskHeadResponses = {
+    /**
+     * Назначенный руководитель либо отсутствие назначения
+     */
+    200: ServiceDeskHeadSetting;
+};
+
+export type GetApiTicketConfigurationServiceDeskHeadResponse = GetApiTicketConfigurationServiceDeskHeadResponses[keyof GetApiTicketConfigurationServiceDeskHeadResponses];
+
+export type PutApiTicketConfigurationServiceDeskHeadData = {
+    body: SetServiceDeskHeadRequest;
+    path?: never;
+    query?: never;
+    url: '/api/ticket-configuration/service-desk-head';
+};
+
+export type PutApiTicketConfigurationServiceDeskHeadErrors = {
+    /**
+     * Пользователь не является активным инженером технической поддержки.
+     */
+    400: unknown;
+    /**
+     * Пользователь не найден.
+     */
+    404: unknown;
+};
+
+export type PutApiTicketConfigurationServiceDeskHeadResponses = {
+    /**
+     * Руководитель службы поддержки назначен
+     */
+    200: ServiceDeskHeadSetting;
+};
+
+export type PutApiTicketConfigurationServiceDeskHeadResponse = PutApiTicketConfigurationServiceDeskHeadResponses[keyof PutApiTicketConfigurationServiceDeskHeadResponses];
+
+export type GetApiCriticalityLevelsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/criticality-levels';
+};
+
+export type GetApiCriticalityLevelsResponses = {
+    /**
+     * Уровни критичности
+     */
+    200: Array<CriticalityLevel>;
+};
+
+export type GetApiCriticalityLevelsResponse = GetApiCriticalityLevelsResponses[keyof GetApiCriticalityLevelsResponses];
+
+export type PostApiCriticalityLevelsData = {
+    body: CreateCriticalityLevelRequest;
+    path?: never;
+    query?: never;
+    url: '/api/criticality-levels';
+};
+
+export type PostApiCriticalityLevelsErrors = {
+    /**
+     * Достигнут максимум уровней или код уже используется
+     */
+    409: unknown;
+};
+
+export type PostApiCriticalityLevelsResponses = {
+    /**
+     * Уровень создан
+     */
+    201: unknown;
+};
+
+export type PutApiCriticalityLevelsByIdData = {
+    body: UpdateCriticalityLevelRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/criticality-levels/{id}';
+};
+
+export type PutApiCriticalityLevelsByIdErrors = {
+    /**
+     * Нарушено ограничение шкалы критичности: после изменения должно оставаться строго от 3 до 5 активных уровней (SD-11).
+     */
+    400: unknown;
+    /**
+     * Уровень не найден
+     */
+    404: unknown;
+};
+
+export type PutApiCriticalityLevelsByIdResponses = {
+    /**
+     * Уровень критичности обновлен
+     */
+    200: unknown;
+};
+
+export type PutApiTicketStatusesByIdData = {
+    body: UpdateTicketStatusRequest;
+    path: {
+        id: number;
+    };
+    query?: never;
+    url: '/api/ticket-statuses/{id}';
+};
+
+export type PutApiTicketStatusesByIdErrors = {
+    /**
+     * Статус не найден
+     */
+    404: unknown;
+};
+
+export type PutApiTicketStatusesByIdResponses = {
+    /**
+     * Статус обновлен
+     */
+    200: unknown;
+};
+
+export type GetApiTicketStatusTransitionsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/ticket-status-transitions';
+};
+
+export type GetApiTicketStatusTransitionsResponses = {
+    /**
+     * Правила переходов
+     */
+    200: Array<TicketStatusTransition>;
+};
+
+export type GetApiTicketStatusTransitionsResponse = GetApiTicketStatusTransitionsResponses[keyof GetApiTicketStatusTransitionsResponses];
+
+export type PutApiTicketStatusTransitionsData = {
+    body: Array<SaveTicketStatusTransitionRequest>;
+    path?: never;
+    query?: never;
+    url: '/api/ticket-status-transitions';
+};
+
+export type PutApiTicketStatusTransitionsResponses = {
+    /**
+     * Переходы сохранены
      */
     200: unknown;
 };

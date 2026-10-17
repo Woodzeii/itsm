@@ -16,7 +16,7 @@ export class TwoFactorService {
     private readonly http = inject(HttpClient);
 
     setup(): Observable<TwoFactorSetupResponse> {
-        return this.http.post<TwoFactorSetupResponse>(`${API}/2fa/setup`, {});
+        return this.http.post<TwoFactorSetupResponse>(`${API}/2fa/setup`, null);
     }
 
     verifySetup(req: VerifyTwoFactorSetupRequest): Observable<{ message: string }> {

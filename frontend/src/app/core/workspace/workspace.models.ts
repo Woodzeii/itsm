@@ -123,7 +123,7 @@ export interface OverviewData {
     metrics: WorkspaceMetric[];
     series: { label: string; resolved: number; incoming: number }[];
     recentTickets: Ticket[];
-    activeEscalations: number;
+    activeEscalations: number | null;
 }
 
 export interface CreateTicketRequest {

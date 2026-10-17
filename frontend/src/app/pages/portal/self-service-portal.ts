@@ -3,7 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, Ticket, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
+import { AssetRecord, FormFieldDefinition, PortalTicketRequest, Ticket, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
 
 @Component({
     selector: 'app-self-service-portal',
@@ -127,7 +127,7 @@ export class SelfServicePortalComponent implements OnInit {
     ticketTypes: TicketType[] = [];
     forms: TicketFormDefinition[] = [];
     assets: AssetRecord[] = [];
-    settings: AdminSettings | null = null;
+    settings: Pick<import('../../core/workspace/workspace.models').AdminSettings, 'criticalities' | 'portalSlaFields'> | null = null;
     policies = this.workspace.getEscalationPolicies();
     policyList = [] as import('../../core/workspace/workspace.models').EscalationPolicy[];
     typeId = '';
@@ -154,7 +154,7 @@ export class SelfServicePortalComponent implements OnInit {
         this.workspace.getTicketTypes().subscribe({ next: types => { this.ticketTypes = types; this.typeId = this.portalTypes[0]?.id ?? ''; }, error: err => this.error = err.message });
         this.workspace.getForms().subscribe({ next: forms => this.forms = forms, error: err => this.error = err.message });
         this.workspace.getAssets().subscribe({ next: assets => this.assets = assets.filter(asset => asset.lifecycle !== 'Списан'), error: err => this.error = err.message });
-        this.workspace.getAdminSettings().subscribe({ next: settings => { this.settings = settings; this.priority = settings.criticalities[1] ?? ''; }, error: err => this.error = err.message });
+        this.workspace.getPortalSettings().subscribe({ next: settings => { this.settings = settings; this.priority = settings.criticalities[1] ?? ''; }, error: err => this.error = err.message });
         this.workspace.getEscalationPolicies().subscribe({ next: policies => this.policyList = policies, error: err => this.error = err.message });
     }
 
@@ -171,7 +171,14 @@ export class SelfServicePortalComponent implements OnInit {
       this.error = '';
       for (const field of this.activeForm?.fields ?? []) if (field.defaultValue !== undefined) this.values[field.id] = field.defaultValue;
     }
-    openTicket(ticket: Ticket): void { this.active = ticket; this.view = 'detail'; }
+    openTicket(ticket: Ticket): void {
+        this.active = ticket;
+        this.view = 'detail';
+        this.workspace.getTicket(ticket.id).subscribe({
+            next: details => { if (this.active?.id === details.id) this.active = details; },
+            error: err => this.error = err.message,
+        });
+    }
     pickFiles(event: Event, fieldId: string): void {
       this.fieldAttachments[fieldId] = [...(this.fieldAttachments[fieldId] ?? []), ...Array.from((event.target as HTMLInputElement).files ?? [])];
       this.attachments = Object.values(this.fieldAttachments).flat();

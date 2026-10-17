@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "generate:types": "openapi-ts -i http://localhost:5062/openapi/v1.json -o src/app/core/api",
+    "generate:types": "openapi-ts -i ../API_CONTRACT.json -o src/app/core/api",
     "generate:types:check": "npm run generate:types && git diff --exit-code src/app/core/api/"
   },
   "private": true,
