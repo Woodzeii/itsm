@@ -20,3 +20,5 @@ Some API operations in the contract do not declare response schemas. The
 workspace adapter uses its UI-facing models for those response bodies. UI
 actions with no matching contract operation report an explicit unsupported
 operation error rather than calling an assumed route.
+
+В целом ветка дополняет моки, насколько я заметил, но я не успел её протестировать. Если можете- проверьте изменения агентом.
