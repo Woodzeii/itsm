@@ -38,7 +38,9 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
     public DbSet<KnowledgeBaseArticle> KnowledgeBaseArticles => Set<KnowledgeBaseArticle>();
     public DbSet<TicketMessage> TicketMessages => Set<TicketMessage>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
+    public DbSet<TicketAttachmentUpload> TicketAttachmentUploads => Set<TicketAttachmentUpload>();
     public DbSet<TicketAuditLog> TicketAuditLogs => Set<TicketAuditLog>();
+    public DbSet<ServiceDeskHeadSetting> ServiceDeskHeadSettings => Set<ServiceDeskHeadSetting>();
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Dictionary> Dictionaries => Set<Dictionary>();
@@ -238,6 +240,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         {
             entity.ToTable("escalation_rules");
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.TicketTypeId).IsUnique();
             entity.Property(x => x.OnSlaBreach).HasDefaultValue(true);
             entity.Property(x => x.OnManual).HasDefaultValue(true);
             entity.Property(x => x.IsActive).HasDefaultValue(true);
@@ -433,6 +436,28 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
 
             entity.HasOne(x => x.TicketMessage).WithMany(m => m.Attachments).HasForeignKey(x => x.TicketMessageId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(x => x.UploadedBy).WithMany().HasForeignKey(x => x.UploadedById).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<TicketAttachmentUpload>(entity =>
+        {
+            entity.ToTable("ticket_attachment_uploads");
+            entity.HasKey(x => x.Id);
+            entity.HasIndex(x => new { x.TicketId, x.UploadedById, x.ExpiresAt });
+            entity.Property(x => x.FileName).HasMaxLength(255).IsRequired();
+            entity.Property(x => x.StorageKey).HasMaxLength(64).IsRequired();
+            entity.Property(x => x.UploadedAt).HasDefaultValueSql("now()");
+
+            entity.HasOne(x => x.Ticket).WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.UploadedBy).WithMany().HasForeignKey(x => x.UploadedById).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ServiceDeskHeadSetting>(entity =>
+        {
+            entity.ToTable("service_desk_head_settings", table => table.HasCheckConstraint("ck_service_desk_head_settings_singleton", "id = 1"));
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
+
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<TicketAuditLog>(entity =>

@@ -15,6 +15,7 @@ npm-debug.log*
 *.swp
 *.swo
 logs/
+App_Data/
 
 .DS_Store
 Thumbs.db
