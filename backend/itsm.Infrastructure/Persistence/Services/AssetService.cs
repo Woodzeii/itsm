@@ -179,10 +179,142 @@ public class AssetService : IAssetService
 
     // ==================== MOVEMENTS (Часть 2) ====================
 
-    public Task<AssetMovementDto?> RegisterMovementAsync(int id, RegisterAssetMovementRequest request, int performedById, CancellationToken ct = default)
-    {
-        throw new NotImplementedException("RegisterMovement будет реализован в Части 2.");
-    }
+    public async Task<AssetMovementDto?> RegisterMovementAsync(
+    int id,
+    RegisterAssetMovementRequest request,
+    int performedById,
+    CancellationToken ct = default)
+	{
+		var asset = await _db.Assets
+			.Include(a => a.AssetClass)
+			.Include(a => a.AssignedUser)
+			.FirstOrDefaultAsync(a => a.Id == id, ct);
+
+		if (asset is null) return null;
+
+		// Валидация вида движения
+		var validTypes = new[] { "TransferToEmployee", "Relocation", "WarehouseIssue", "WarehouseReturn" };
+		if (!validTypes.Contains(request.MovementType))
+			throw new InvalidOperationException($"Недопустимый MovementType: {request.MovementType}");
+
+		// Логика ЖЦ (АКТ-12, АКТ-13)
+		switch (request.MovementType)
+		{
+			case "WarehouseIssue":
+				if (asset.LifecycleStage != StageInWarehouse)
+					throw new InvalidOperationException(
+						$"«Выдача со склада» допустима только из «На складе» (текущий: {asset.LifecycleStage}).");
+				if (request.ToUserId is null || request.ToUserId <= 0)
+					throw new InvalidOperationException("Для «Выдача со склада» обязателен ToUserId (кому выдать).");
+				asset.LifecycleStage = StageInUse;
+				asset.AssignedUserId = request.ToUserId;
+				asset.WarehouseId = null;
+				break;
+
+			case "WarehouseReturn":
+				if (asset.LifecycleStage != StageInUse)
+					throw new InvalidOperationException(
+						$"«Возврат на склад» допустим только из «В эксплуатации» (текущий: {asset.LifecycleStage}).");
+				if (request.ToWarehouseId is null || request.ToWarehouseId <= 0)
+					throw new InvalidOperationException("Для «Возврат на склад» обязателен ToWarehouseId.");
+				asset.LifecycleStage = StageInWarehouse;
+				asset.AssignedUserId = null;
+				asset.WarehouseId = request.ToWarehouseId;
+				break;
+
+			case "TransferToEmployee":
+				if (asset.LifecycleStage != StageInUse)
+					throw new InvalidOperationException(
+						$"«Передача сотруднику» допустима только из «В эксплуатации» (текущий: {asset.LifecycleStage}).");
+				if (request.ToUserId is null || request.ToUserId <= 0)
+					throw new InvalidOperationException("Для «Передача сотруднику» обязателен ToUserId.");
+				asset.AssignedUserId = request.ToUserId;
+				break;
+
+			case "Relocation":
+				if (asset.LifecycleStage != StageInUse && asset.LifecycleStage != StageInWarehouse)
+					throw new InvalidOperationException(
+						$"«Перемещение» допустимо только из «В эксплуатации» или «На складе» (текущий: {asset.LifecycleStage}).");
+				if (request.ToLocationId is not null)
+					asset.LocationId = request.ToLocationId;
+				if (request.ToDepartmentId is not null)
+					asset.DepartmentId = request.ToDepartmentId;
+				break;
+		}
+
+		// Запись движения
+		var movement = new AssetMovement
+		{
+			AssetId = asset.Id,
+			MovementType = request.MovementType,
+			FromUserId = request.FromUserId,
+			ToUserId = request.ToUserId,
+			FromWarehouseId = request.FromWarehouseId,
+			ToWarehouseId = request.ToWarehouseId,
+			FromLocationId = request.FromLocationId,
+			ToLocationId = request.ToLocationId,
+			FromDepartmentId = request.FromDepartmentId,
+			ToDepartmentId = request.ToDepartmentId,
+			PerformedById = performedById,
+			PerformedAt = DateTimeOffset.UtcNow,
+			Comment = request.Comment,
+		};
+
+		_db.AssetMovements.Add(movement);
+		await _db.SaveChangesAsync(ct);
+
+		// История: движение
+		await _history.LogAsync(
+			asset.Id,
+			AssetHistoryActionTypes.Movement,
+			$"Движение: {request.MovementType}" + (string.IsNullOrEmpty(request.Comment) ? "" : $" ({request.Comment})"),
+			userId: performedById,
+			details: System.Text.Json.JsonSerializer.Serialize(new
+			{
+				movementType = request.MovementType,
+				fromUserId = request.FromUserId,
+				toUserId = request.ToUserId,
+				fromWarehouseId = request.FromWarehouseId,
+				toWarehouseId = request.ToWarehouseId,
+				fromLocationId = request.FromLocationId,
+				toLocationId = request.ToLocationId,
+				fromDepartmentId = request.FromDepartmentId,
+				toDepartmentId = request.ToDepartmentId,
+			}),
+			ct: ct);
+
+		// История: смена этапа (если изменился)
+		if (request.MovementType == "WarehouseIssue" || request.MovementType == "WarehouseReturn")
+		{
+			await _history.LogAsync(
+				asset.Id,
+				AssetHistoryActionTypes.StageChanged,
+				$"Этап ЖЦ изменён: {request.MovementType}",
+				userId: performedById,
+				ct: ct);
+		}
+
+		// DTO
+		var performedBy = await _db.Users.FirstOrDefaultAsync(u => u.Id == performedById, ct);
+		return new AssetMovementDto
+		{
+			Id = movement.Id,
+			AssetId = movement.AssetId,
+			MovementType = movement.MovementType,
+			FromUserId = movement.FromUserId,
+			ToUserId = movement.ToUserId,
+			FromWarehouseId = movement.FromWarehouseId,
+			ToWarehouseId = movement.ToWarehouseId,
+			FromLocationId = movement.FromLocationId,
+			ToLocationId = movement.ToLocationId,
+			FromDepartmentId = movement.FromDepartmentId,
+			ToDepartmentId = movement.ToDepartmentId,
+			PerformedById = movement.PerformedById,
+			PerformedByName = performedBy?.FullName ?? string.Empty,
+			PerformedAt = movement.PerformedAt,
+			Comment = movement.Comment,
+		};
+	}
 
     // ==================== HISTORY ====================
 
