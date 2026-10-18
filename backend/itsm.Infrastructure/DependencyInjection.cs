@@ -33,6 +33,8 @@ public static class DependencyInjection
 
         // Auth / Registration
         services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
+		services.AddScoped<IAssetService, AssetService>();
+		services.AddScoped<IAssetHistoryService, AssetHistoryService>();
         services.AddScoped<IEmailService, LoggingEmailService>();
         services.AddScoped<IUserService, UserService>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
