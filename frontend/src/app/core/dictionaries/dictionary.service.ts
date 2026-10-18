@@ -46,7 +46,7 @@ export class DictionaryApiService {
     }
 
     archiveValue(dictionaryId: number, valueId: number): Observable<DictionaryValueDto> {
-        return this.http.post<DictionaryValueDto>(`${API}/${dictionaryId}/values/${valueId}/archive`, {});
+        return this.http.post<DictionaryValueDto>(`${API}/${dictionaryId}/values/${valueId}/archive`, null);
     }
 
     deleteValue(dictionaryId: number, valueId: number): Observable<void> {

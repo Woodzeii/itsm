@@ -1,17 +1,24 @@
-# Генерация TypeScript-типов из OpenAPI
+# OpenAPI Type Generation
 
-Типы генерируются напрямую из **живого OpenAPI backend**
-(`http://localhost:5062/openapi/v1.json`), которое также отображает
-**Scalar** (`http://localhost:5062/scalar`).
+The TypeScript client and types are generated from the repository-root
+[`API_CONTRACT.json`](../API_CONTRACT.json). Generation does not require a
+running backend, so frontend work can proceed before backend mocks are available.
 
-## Зачем
+From the `frontend` directory, run:
 
-- Единый источник правды для типов между frontend и backend.
-- Автоматически ловим рассинхрон: если backend изменил DTO, а фронт — нет,
-  проверка `generate:types:check` падает.
-
-## Требования
-
-Backend запущен:
 ```powershell
-docker compose up -d backend
+npm run generate:types
+```
+
+To regenerate and check for uncommitted generated-client differences:
+
+```powershell
+npm run generate:types:check
+```
+
+Some API operations in the contract do not declare response schemas. The
+workspace adapter uses its UI-facing models for those response bodies. UI
+actions with no matching contract operation report an explicit unsupported
+operation error rather than calling an assumed route.
+
+В целом ветка дополняет моки, насколько я заметил, но я не успел её протестировать. Если можете- проверьте изменения агентом.

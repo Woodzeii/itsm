@@ -39,11 +39,11 @@ export class AssetClassApiService {
     }
 
     deactivate(id: number): Observable<AssetClassDto> {
-        return this.http.post<AssetClassDto>(`${API}/${id}/deactivate`, {});
+        return this.http.post<AssetClassDto>(`${API}/${id}/deactivate`, null);
     }
 
     activate(id: number): Observable<AssetClassDto> {
-        return this.http.post<AssetClassDto>(`${API}/${id}/activate`, {});
+        return this.http.post<AssetClassDto>(`${API}/${id}/activate`, null);
     }
 
     getAttributes(classId: number): Observable<AssetClassAttributeDto[]> {

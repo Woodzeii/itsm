@@ -25,6 +25,7 @@ export class WorkspaceService {
 
     getOverview() { return this.api.getOverview(); }
     getTickets() { return this.api.getTickets(); }
+    getTicket(ticketId: string) { return this.api.getTicket(ticketId); }
     getAssets() { return this.api.getAssets(); }
     getAssetClasses() { return this.api.getAssetClasses(); }
     getEscalations() { return this.api.getEscalations(); }
@@ -48,6 +49,7 @@ export class WorkspaceService {
     getEscalationPolicies() { return this.api.getEscalationPolicies(); }
     saveEscalationPolicies(policies: EscalationPolicy[]) { return this.api.saveEscalationPolicies(policies); }
     getEscalationHistory() { return this.api.getEscalationHistory(); }
+    getPortalSettings() { return this.api.getPortalSettings(); }
     getAdminSettings() { return this.api.getAdminSettings(); }
     saveAdminSettings(settings: AdminSettings) { return this.api.saveAdminSettings(settings); }
     getReports(from?: string, to?: string) { return this.api.getReports(from, to); }
@@ -63,4 +65,5 @@ export class WorkspaceService {
     getUsers() { return this.api.getUsers(); }
     getSystemRoles() { return this.api.getSystemRoles(); }
     createUser(request: CreateUserRequest) { return this.api.createUser(request); }
+    hasReportAccess(roleCode: string) { return this.api.hasReportAccess(roleCode); }
 }

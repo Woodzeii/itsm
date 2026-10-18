@@ -174,6 +174,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     }
 
     getTickets(): Observable<Ticket[]> { return of([...this.tickets]); }
+    getTicket(ticketId: string): Observable<Ticket> { return of(this.findTicket(ticketId)); }
     getAssets(): Observable<AssetRecord[]> { return of(this.assets.map(({ history, movements, relatedTickets, ...asset }) => asset)); }
     getAssetClasses(): Observable<AssetClassOption[]> { return of(this.assetClasses.filter(assetClass => assetClass.active).map(assetClass => ({ ...assetClass, attributes: assetClass.attributes.map(attribute => ({ ...attribute, options: [...attribute.options] })) }))); }
     getEscalations(): Observable<Escalation[]> { return of([...this.escalations]); }
@@ -391,6 +392,12 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     getEscalationPolicies(): Observable<EscalationPolicy[]> { return of(this.policies.map(policy => ({ ...policy }))); }
     saveEscalationPolicies(policies: EscalationPolicy[]): Observable<EscalationPolicy[]> { this.policies = policies.map(policy => ({ ...policy })); return of(this.policies); }
     getEscalationHistory(): Observable<EscalationHistoryEntry[]> { return of(this.escalationHistory.map(entry => ({ ...entry, recipients: [...entry.recipients] }))); }
+    getPortalSettings(): Observable<Pick<AdminSettings, 'criticalities' | 'portalSlaFields'>> {
+        return of({
+            criticalities: [...this.settings.criticalities],
+            portalSlaFields: [...this.settings.portalSlaFields],
+        });
+    }
     getAdminSettings(): Observable<AdminSettings> { return of({ ...this.settings, criticalities: [...this.settings.criticalities], statuses: this.settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(this.settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...this.settings.workingDays], holidays: [...this.settings.holidays], portalSlaFields: [...this.settings.portalSlaFields], portalAccounts: [...(this.settings.portalAccounts ?? [])], engineers: [...(this.settings.engineers ?? [])], passwordPolicy: this.settings.passwordPolicy ? { ...this.settings.passwordPolicy } : undefined, reportAccessRoles: [...(this.settings.reportAccessRoles ?? [])] }); }
 
     saveAdminSettings(settings: AdminSettings): Observable<AdminSettings> {
@@ -506,6 +513,10 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         };
         this.users.unshift(user);
         return of({ ...user, roleIds: [...user.roleIds] });
+    }
+
+    hasReportAccess(roleCode: string): Observable<boolean> {
+        return of(this.settings.reportAccessRoles?.includes(roleCode) ?? false);
     }
 
     setTenantActive(tenantId: string, active: boolean): Observable<TenantRecord> {

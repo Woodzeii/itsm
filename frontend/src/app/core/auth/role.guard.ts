@@ -39,13 +39,14 @@ export const reportAccessGuard: CanActivateFn = () => {
     const auth = inject(AuthService);
     const router = inject(Router);
     if (!auth.isAuthenticated()) return router.parseUrl('/login');
-    return inject(WorkspaceService).getAdminSettings().pipe(map(settings => settings.reportAccessRoles?.includes(auth.getRole()) ? true : router.parseUrl('/dashboard')));
+    return inject(WorkspaceService).hasReportAccess(auth.getRole()).pipe(
+        map(allowed => allowed ? true : router.parseUrl('/dashboard')),
+    );
 };
 
 export const tenantAdminAccessGuard: CanActivateFn = () => {
     const auth = inject(AuthService);
     const router = inject(Router);
     if (!auth.isAuthenticated()) return router.parseUrl('/login');
-    if (!auth.isTenantAdmin()) return router.parseUrl(auth.canRead() ? '/dashboard' : '/portal');
-    return inject(WorkspaceService).getAdminSettings().pipe(map(settings => settings.tenantMode === 'saas' ? true : router.parseUrl('/login')));
+    return auth.isTenantAdmin() ? true : router.parseUrl(auth.canRead() ? '/dashboard' : '/portal');
 };

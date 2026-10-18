@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { DeleteApiAssetClassesByIdAttributesByAttributeIdData, DeleteApiAssetClassesByIdAttributesByAttributeIdResponses, DeleteApiAssetClassesByIdData, DeleteApiAssetClassesByIdResponses, DeleteApiDictionariesByIdData, DeleteApiDictionariesByIdResponses, DeleteApiDictionariesByIdValuesByValueIdData, DeleteApiDictionariesByIdValuesByValueIdResponses, GetApiAssetClassesByIdAttributesByAttributeIdData, GetApiAssetClassesByIdAttributesByAttributeIdResponses, GetApiAssetClassesByIdAttributesData, GetApiAssetClassesByIdAttributesResponses, GetApiAssetClassesByIdData, GetApiAssetClassesByIdResponses, GetApiAssetClassesData, GetApiAssetClassesResponses, GetApiAuth2FaStatusData, GetApiAuth2FaStatusResponses, GetApiDictionariesByIdData, GetApiDictionariesByIdResponses, GetApiDictionariesByIdValuesData, GetApiDictionariesByIdValuesResponses, GetApiDictionariesData, GetApiDictionariesResponses, PostApiAssetClassesByIdActivateData, PostApiAssetClassesByIdActivateResponses, PostApiAssetClassesByIdAttributesData, PostApiAssetClassesByIdAttributesResponses, PostApiAssetClassesByIdDeactivateData, PostApiAssetClassesByIdDeactivateResponses, PostApiAssetClassesData, PostApiAssetClassesResponses, PostApiAuth2FaDisableData, PostApiAuth2FaDisableResponses, PostApiAuth2FaSetupData, PostApiAuth2FaSetupResponses, PostApiAuth2FaVerifySetupData, PostApiAuth2FaVerifySetupResponses, PostApiAuthConfirmEmailData, PostApiAuthConfirmEmailResponses, PostApiAuthLoginData, PostApiAuthLoginResponses, PostApiAuthRegisterData, PostApiAuthRegisterResponses, PostApiAuthVerify2FaData, PostApiAuthVerify2FaResponses, PostApiDictionariesByIdValuesByValueIdArchiveData, PostApiDictionariesByIdValuesByValueIdArchiveResponses, PostApiDictionariesByIdValuesData, PostApiDictionariesByIdValuesResponses, PostApiDictionariesData, PostApiDictionariesResponses, PutApiAssetClassesByIdAttributesByAttributeIdData, PutApiAssetClassesByIdAttributesByAttributeIdResponses, PutApiAssetClassesByIdData, PutApiAssetClassesByIdResponses, PutApiDictionariesByIdData, PutApiDictionariesByIdResponses, PutApiDictionariesByIdValuesByValueIdData, PutApiDictionariesByIdValuesByValueIdResponses } from './types.gen';
+import type { DeleteApiAssetClassesByIdAttributesByAttributeIdData, DeleteApiAssetClassesByIdAttributesByAttributeIdResponses, DeleteApiAssetClassesByIdData, DeleteApiAssetClassesByIdResponses, DeleteApiAssetsByIdData, DeleteApiAssetsByIdErrors, DeleteApiAssetsByIdResponses, DeleteApiCalendarExceptionsByIdData, DeleteApiCalendarExceptionsByIdErrors, DeleteApiCalendarExceptionsByIdResponses, DeleteApiDictionariesByIdData, DeleteApiDictionariesByIdResponses, DeleteApiDictionariesByIdValuesByValueIdData, DeleteApiDictionariesByIdValuesByValueIdErrors, DeleteApiDictionariesByIdValuesByValueIdResponses, DeleteApiTenantsByIdData, DeleteApiTenantsByIdErrors, DeleteApiTenantsByIdResponses, GetApiAssetClassesByIdAttributesByAttributeIdData, GetApiAssetClassesByIdAttributesByAttributeIdResponses, GetApiAssetClassesByIdAttributesData, GetApiAssetClassesByIdAttributesResponses, GetApiAssetClassesByIdData, GetApiAssetClassesByIdResponses, GetApiAssetClassesData, GetApiAssetClassesResponses, GetApiAssetsByIdData, GetApiAssetsByIdHistoryData, GetApiAssetsByIdHistoryResponses, GetApiAssetsByIdResponses, GetApiAssetsByIdTicketsData, GetApiAssetsByIdTicketsResponses, GetApiAssetsData, GetApiAssetsResponses, GetApiAssignmentSettingsData, GetApiAssignmentSettingsResponses, GetApiAuditLogData, GetApiAuditLogResponses, GetApiAuth2FaStatusData, GetApiAuth2FaStatusResponses, GetApiCalendarExceptionsData, GetApiCalendarExceptionsResponses, GetApiCriticalityLevelsData, GetApiCriticalityLevelsResponses, GetApiDictionariesByIdData, GetApiDictionariesByIdResponses, GetApiDictionariesByIdValuesData, GetApiDictionariesByIdValuesResponses, GetApiDictionariesData, GetApiDictionariesResponses, GetApiEscalationRulesData, GetApiEscalationRulesResponses, GetApiFormTemplatesByTicketTypeIdData, GetApiFormTemplatesByTicketTypeIdResponses, GetApiNotificationsData, GetApiNotificationsResponses, GetApiReportAccessData, GetApiReportAccessResponses, GetApiReportsByReportTypeData, GetApiReportsByReportTypeErrors, GetApiReportsByReportTypeResponses, GetApiRolesData, GetApiRolesResponses, GetApiSecuritySettingsData, GetApiSecuritySettingsResponses, GetApiSlaPoliciesData, GetApiSlaPoliciesResponses, GetApiSlaSettingsData, GetApiSlaSettingsPortalVisibilityData, GetApiSlaSettingsPortalVisibilityResponses, GetApiSlaSettingsResponses, GetApiTenantsData, GetApiTenantsErrors, GetApiTenantsResponses, GetApiTicketConfigurationServiceDeskHeadData, GetApiTicketConfigurationServiceDeskHeadResponses, GetApiTicketsByIdData, GetApiTicketsByIdMessagesData, GetApiTicketsByIdMessagesResponses, GetApiTicketsByIdResponses, GetApiTicketsData, GetApiTicketsResponses, GetApiTicketStatusesData, GetApiTicketStatusesResponses, GetApiTicketStatusTransitionsData, GetApiTicketStatusTransitionsResponses, GetApiTicketTypesData, GetApiTicketTypesResponses, GetApiUsersByIdData, GetApiUsersByIdErrors, GetApiUsersByIdResponses, GetApiUsersData, GetApiUsersResponses, GetApiWorkingSchedulesData, GetApiWorkingSchedulesResponses, PatchApiTenantsByIdStatusData, PatchApiTenantsByIdStatusErrors, PatchApiTenantsByIdStatusResponses, PostApiAssetClassesByIdActivateData, PostApiAssetClassesByIdActivateResponses, PostApiAssetClassesByIdAttributesData, PostApiAssetClassesByIdAttributesResponses, PostApiAssetClassesByIdDeactivateData, PostApiAssetClassesByIdDeactivateResponses, PostApiAssetClassesData, PostApiAssetClassesResponses, PostApiAssetsByIdMovementsData, PostApiAssetsByIdMovementsResponses, PostApiAssetsData, PostApiAssetsResponses, PostApiAuth2FaDisableData, PostApiAuth2FaDisableResponses, PostApiAuth2FaSetupData, PostApiAuth2FaSetupResponses, PostApiAuth2FaVerifySetupData, PostApiAuth2FaVerifySetupResponses, PostApiAuthAdminCreateUserData, PostApiAuthAdminCreateUserErrors, PostApiAuthAdminCreateUserResponses, PostApiAuthLoginData, PostApiAuthLoginResponses, PostApiAuthVerify2FaData, PostApiAuthVerify2FaResponses, PostApiCalendarExceptionsData, PostApiCalendarExceptionsErrors, PostApiCalendarExceptionsResponses, PostApiCriticalityLevelsData, PostApiCriticalityLevelsErrors, PostApiCriticalityLevelsResponses, PostApiDictionariesByIdValuesByValueIdArchiveData, PostApiDictionariesByIdValuesByValueIdArchiveResponses, PostApiDictionariesByIdValuesData, PostApiDictionariesByIdValuesResponses, PostApiDictionariesData, PostApiDictionariesResponses, PostApiNotificationsByIdReadData, PostApiNotificationsByIdReadErrors, PostApiNotificationsByIdReadResponses, PostApiTenantsData, PostApiTenantsErrors, PostApiTenantsResponses, PostApiTicketsByIdAssignData, PostApiTicketsByIdAssignErrors, PostApiTicketsByIdAssignResponses, PostApiTicketsByIdEscalateData, PostApiTicketsByIdEscalateErrors, PostApiTicketsByIdEscalateResponses, PostApiTicketsByIdMessagesData, PostApiTicketsByIdMessagesResponses, PostApiTicketsData, PostApiTicketsResponses, PostApiTicketStatusesData, PostApiTicketStatusesErrors, PostApiTicketStatusesResponses, PostApiTicketTypesData, PostApiTicketTypesErrors, PostApiTicketTypesResponses, PutApiAssetClassesByIdAttributesByAttributeIdData, PutApiAssetClassesByIdAttributesByAttributeIdResponses, PutApiAssetClassesByIdData, PutApiAssetClassesByIdResponses, PutApiAssetsByIdData, PutApiAssetsByIdResponses, PutApiAssignmentSettingsData, PutApiAssignmentSettingsResponses, PutApiCriticalityLevelsByIdData, PutApiCriticalityLevelsByIdErrors, PutApiCriticalityLevelsByIdResponses, PutApiDictionariesByIdData, PutApiDictionariesByIdResponses, PutApiDictionariesByIdValuesByValueIdData, PutApiDictionariesByIdValuesByValueIdResponses, PutApiEscalationRulesByTicketTypeIdData, PutApiEscalationRulesByTicketTypeIdErrors, PutApiEscalationRulesByTicketTypeIdResponses, PutApiFormTemplatesByTicketTypeIdData, PutApiFormTemplatesByTicketTypeIdErrors, PutApiFormTemplatesByTicketTypeIdResponses, PutApiReportAccessData, PutApiReportAccessResponses, PutApiSecuritySettingsData, PutApiSecuritySettingsErrors, PutApiSecuritySettingsResponses, PutApiSlaPoliciesData, PutApiSlaPoliciesResponses, PutApiSlaSettingsData, PutApiSlaSettingsPortalVisibilityData, PutApiSlaSettingsPortalVisibilityResponses, PutApiSlaSettingsResponses, PutApiSlaSettingsTicketTypesByTicketTypeIdData, PutApiSlaSettingsTicketTypesByTicketTypeIdErrors, PutApiSlaSettingsTicketTypesByTicketTypeIdResponses, PutApiTicketConfigurationServiceDeskHeadData, PutApiTicketConfigurationServiceDeskHeadErrors, PutApiTicketConfigurationServiceDeskHeadResponses, PutApiTicketsByIdData, PutApiTicketsByIdResponses, PutApiTicketsByIdStatusData, PutApiTicketsByIdStatusResponses, PutApiTicketStatusesByIdData, PutApiTicketStatusesByIdErrors, PutApiTicketStatusesByIdResponses, PutApiTicketStatusTransitionsData, PutApiTicketStatusTransitionsResponses, PutApiTicketTypesByIdData, PutApiTicketTypesByIdErrors, PutApiTicketTypesByIdResponses, PutApiUsersByIdData, PutApiUsersByIdErrors, PutApiUsersByIdResponses, PutApiWorkingSchedulesByIdData, PutApiWorkingSchedulesByIdErrors, PutApiWorkingSchedulesByIdResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -18,22 +18,86 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
 
-export const getApiAssetClasses = <ThrowOnError extends boolean = false>(options?: Options<GetApiAssetClassesData, ThrowOnError>): RequestResult<GetApiAssetClassesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiAssetClassesResponses, unknown, ThrowOnError>({ url: '/api/asset-classes', ...options });
+export const postApiAuthLogin = <ThrowOnError extends boolean = false>(options?: Options<PostApiAuthLoginData, ThrowOnError>): RequestResult<PostApiAuthLoginResponses, unknown, ThrowOnError> => (options?.client ?? client).post<PostApiAuthLoginResponses, unknown, ThrowOnError>({
+    url: '/api/auth/login',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
+});
 
-export const postApiAssetClasses = <ThrowOnError extends boolean = false>(options: Options<PostApiAssetClassesData, ThrowOnError>): RequestResult<PostApiAssetClassesResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAssetClassesResponses, unknown, ThrowOnError>({
+export const postApiAuthVerify2Fa = <ThrowOnError extends boolean = false>(options?: Options<PostApiAuthVerify2FaData, ThrowOnError>): RequestResult<PostApiAuthVerify2FaResponses, unknown, ThrowOnError> => (options?.client ?? client).post<PostApiAuthVerify2FaResponses, unknown, ThrowOnError>({
+    url: '/api/auth/verify-2fa',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
+});
+
+export const postApiAuth2FaSetup = <ThrowOnError extends boolean = false>(options?: Options<PostApiAuth2FaSetupData, ThrowOnError>): RequestResult<PostApiAuth2FaSetupResponses, unknown, ThrowOnError> => (options?.client ?? client).post<PostApiAuth2FaSetupResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/auth/2fa/setup',
+    ...options
+});
+
+export const postApiAuth2FaVerifySetup = <ThrowOnError extends boolean = false>(options?: Options<PostApiAuth2FaVerifySetupData, ThrowOnError>): RequestResult<PostApiAuth2FaVerifySetupResponses, unknown, ThrowOnError> => (options?.client ?? client).post<PostApiAuth2FaVerifySetupResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/auth/2fa/verify-setup',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
+});
+
+export const getApiAuth2FaStatus = <ThrowOnError extends boolean = false>(options?: Options<GetApiAuth2FaStatusData, ThrowOnError>): RequestResult<GetApiAuth2FaStatusResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiAuth2FaStatusResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/auth/2fa/status',
+    ...options
+});
+
+export const postApiAuth2FaDisable = <ThrowOnError extends boolean = false>(options?: Options<PostApiAuth2FaDisableData, ThrowOnError>): RequestResult<PostApiAuth2FaDisableResponses, unknown, ThrowOnError> => (options?.client ?? client).post<PostApiAuth2FaDisableResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/auth/2fa/disable',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options?.headers
+    }
+});
+
+export const getApiAssetClasses = <ThrowOnError extends boolean = false>(options?: Options<GetApiAssetClassesData, ThrowOnError>): RequestResult<GetApiAssetClassesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiAssetClassesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/asset-classes',
+    ...options
+});
+
+export const postApiAssetClasses = <ThrowOnError extends boolean = false>(options?: Options<PostApiAssetClassesData, ThrowOnError>): RequestResult<PostApiAssetClassesResponses, unknown, ThrowOnError> => (options?.client ?? client).post<PostApiAssetClassesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/asset-classes',
     ...options,
     headers: {
         'Content-Type': 'application/json',
-        ...options.headers
+        ...options?.headers
     }
 });
 
-export const deleteApiAssetClassesById = <ThrowOnError extends boolean = false>(options: Options<DeleteApiAssetClassesByIdData, ThrowOnError>): RequestResult<DeleteApiAssetClassesByIdResponses, unknown, ThrowOnError> => (options.client ?? client).delete<DeleteApiAssetClassesByIdResponses, unknown, ThrowOnError>({ url: '/api/asset-classes/{id}', ...options });
+export const deleteApiAssetClassesById = <ThrowOnError extends boolean = false>(options: Options<DeleteApiAssetClassesByIdData, ThrowOnError>): RequestResult<DeleteApiAssetClassesByIdResponses, unknown, ThrowOnError> => (options.client ?? client).delete<DeleteApiAssetClassesByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/asset-classes/{id}',
+    ...options
+});
 
-export const getApiAssetClassesById = <ThrowOnError extends boolean = false>(options: Options<GetApiAssetClassesByIdData, ThrowOnError>): RequestResult<GetApiAssetClassesByIdResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiAssetClassesByIdResponses, unknown, ThrowOnError>({ url: '/api/asset-classes/{id}', ...options });
+export const getApiAssetClassesById = <ThrowOnError extends boolean = false>(options: Options<GetApiAssetClassesByIdData, ThrowOnError>): RequestResult<GetApiAssetClassesByIdResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiAssetClassesByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/asset-classes/{id}',
+    ...options
+});
 
 export const putApiAssetClassesById = <ThrowOnError extends boolean = false>(options: Options<PutApiAssetClassesByIdData, ThrowOnError>): RequestResult<PutApiAssetClassesByIdResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiAssetClassesByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/asset-classes/{id}',
     ...options,
     headers: {
@@ -42,13 +106,26 @@ export const putApiAssetClassesById = <ThrowOnError extends boolean = false>(opt
     }
 });
 
-export const postApiAssetClassesByIdDeactivate = <ThrowOnError extends boolean = false>(options: Options<PostApiAssetClassesByIdDeactivateData, ThrowOnError>): RequestResult<PostApiAssetClassesByIdDeactivateResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAssetClassesByIdDeactivateResponses, unknown, ThrowOnError>({ url: '/api/asset-classes/{id}/deactivate', ...options });
+export const postApiAssetClassesByIdDeactivate = <ThrowOnError extends boolean = false>(options: Options<PostApiAssetClassesByIdDeactivateData, ThrowOnError>): RequestResult<PostApiAssetClassesByIdDeactivateResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAssetClassesByIdDeactivateResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/asset-classes/{id}/deactivate',
+    ...options
+});
 
-export const postApiAssetClassesByIdActivate = <ThrowOnError extends boolean = false>(options: Options<PostApiAssetClassesByIdActivateData, ThrowOnError>): RequestResult<PostApiAssetClassesByIdActivateResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAssetClassesByIdActivateResponses, unknown, ThrowOnError>({ url: '/api/asset-classes/{id}/activate', ...options });
+export const postApiAssetClassesByIdActivate = <ThrowOnError extends boolean = false>(options: Options<PostApiAssetClassesByIdActivateData, ThrowOnError>): RequestResult<PostApiAssetClassesByIdActivateResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAssetClassesByIdActivateResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/asset-classes/{id}/activate',
+    ...options
+});
 
-export const getApiAssetClassesByIdAttributes = <ThrowOnError extends boolean = false>(options: Options<GetApiAssetClassesByIdAttributesData, ThrowOnError>): RequestResult<GetApiAssetClassesByIdAttributesResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiAssetClassesByIdAttributesResponses, unknown, ThrowOnError>({ url: '/api/asset-classes/{id}/attributes', ...options });
+export const getApiAssetClassesByIdAttributes = <ThrowOnError extends boolean = false>(options: Options<GetApiAssetClassesByIdAttributesData, ThrowOnError>): RequestResult<GetApiAssetClassesByIdAttributesResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiAssetClassesByIdAttributesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/asset-classes/{id}/attributes',
+    ...options
+});
 
 export const postApiAssetClassesByIdAttributes = <ThrowOnError extends boolean = false>(options: Options<PostApiAssetClassesByIdAttributesData, ThrowOnError>): RequestResult<PostApiAssetClassesByIdAttributesResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAssetClassesByIdAttributesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/asset-classes/{id}/attributes',
     ...options,
     headers: {
@@ -57,11 +134,20 @@ export const postApiAssetClassesByIdAttributes = <ThrowOnError extends boolean =
     }
 });
 
-export const deleteApiAssetClassesByIdAttributesByAttributeId = <ThrowOnError extends boolean = false>(options: Options<DeleteApiAssetClassesByIdAttributesByAttributeIdData, ThrowOnError>): RequestResult<DeleteApiAssetClassesByIdAttributesByAttributeIdResponses, unknown, ThrowOnError> => (options.client ?? client).delete<DeleteApiAssetClassesByIdAttributesByAttributeIdResponses, unknown, ThrowOnError>({ url: '/api/asset-classes/{id}/attributes/{attributeId}', ...options });
+export const deleteApiAssetClassesByIdAttributesByAttributeId = <ThrowOnError extends boolean = false>(options: Options<DeleteApiAssetClassesByIdAttributesByAttributeIdData, ThrowOnError>): RequestResult<DeleteApiAssetClassesByIdAttributesByAttributeIdResponses, unknown, ThrowOnError> => (options.client ?? client).delete<DeleteApiAssetClassesByIdAttributesByAttributeIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/asset-classes/{id}/attributes/{attributeId}',
+    ...options
+});
 
-export const getApiAssetClassesByIdAttributesByAttributeId = <ThrowOnError extends boolean = false>(options: Options<GetApiAssetClassesByIdAttributesByAttributeIdData, ThrowOnError>): RequestResult<GetApiAssetClassesByIdAttributesByAttributeIdResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiAssetClassesByIdAttributesByAttributeIdResponses, unknown, ThrowOnError>({ url: '/api/asset-classes/{id}/attributes/{attributeId}', ...options });
+export const getApiAssetClassesByIdAttributesByAttributeId = <ThrowOnError extends boolean = false>(options: Options<GetApiAssetClassesByIdAttributesByAttributeIdData, ThrowOnError>): RequestResult<GetApiAssetClassesByIdAttributesByAttributeIdResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiAssetClassesByIdAttributesByAttributeIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/asset-classes/{id}/attributes/{attributeId}',
+    ...options
+});
 
 export const putApiAssetClassesByIdAttributesByAttributeId = <ThrowOnError extends boolean = false>(options: Options<PutApiAssetClassesByIdAttributesByAttributeIdData, ThrowOnError>): RequestResult<PutApiAssetClassesByIdAttributesByAttributeIdResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiAssetClassesByIdAttributesByAttributeIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/asset-classes/{id}/attributes/{attributeId}',
     ...options,
     headers: {
@@ -70,8 +156,21 @@ export const putApiAssetClassesByIdAttributesByAttributeId = <ThrowOnError exten
     }
 });
 
-export const postApiAuthRegister = <ThrowOnError extends boolean = false>(options: Options<PostApiAuthRegisterData, ThrowOnError>): RequestResult<PostApiAuthRegisterResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAuthRegisterResponses, unknown, ThrowOnError>({
-    url: '/api/auth/register',
+/**
+ * Получить список активов с фильтрацией
+ */
+export const getApiAssets = <ThrowOnError extends boolean = false>(options?: Options<GetApiAssetsData, ThrowOnError>): RequestResult<GetApiAssetsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiAssetsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/assets',
+    ...options
+});
+
+/**
+ * Создать карточку актива вручную
+ */
+export const postApiAssets = <ThrowOnError extends boolean = false>(options: Options<PostApiAssetsData, ThrowOnError>): RequestResult<PostApiAssetsResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAssetsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/assets',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -79,8 +178,32 @@ export const postApiAuthRegister = <ThrowOnError extends boolean = false>(option
     }
 });
 
-export const postApiAuthConfirmEmail = <ThrowOnError extends boolean = false>(options: Options<PostApiAuthConfirmEmailData, ThrowOnError>): RequestResult<PostApiAuthConfirmEmailResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAuthConfirmEmailResponses, unknown, ThrowOnError>({
-    url: '/api/auth/confirm-email',
+/**
+ * Удалить актив (допускается только на этапе 'Закуплен')
+ *
+ * Удаление разрешено только пока актив находится на этапе «Закуплен» (АКТ-14). Для активов на других этапах возвращается 409 Conflict.
+ */
+export const deleteApiAssetsById = <ThrowOnError extends boolean = false>(options: Options<DeleteApiAssetsByIdData, ThrowOnError>): RequestResult<DeleteApiAssetsByIdResponses, DeleteApiAssetsByIdErrors, ThrowOnError> => (options.client ?? client).delete<DeleteApiAssetsByIdResponses, DeleteApiAssetsByIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/assets/{id}',
+    ...options
+});
+
+/**
+ * Получить карточку актива по ID
+ */
+export const getApiAssetsById = <ThrowOnError extends boolean = false>(options: Options<GetApiAssetsByIdData, ThrowOnError>): RequestResult<GetApiAssetsByIdResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiAssetsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/assets/{id}',
+    ...options
+});
+
+/**
+ * Редактировать атрибуты карточки актива
+ */
+export const putApiAssetsById = <ThrowOnError extends boolean = false>(options: Options<PutApiAssetsByIdData, ThrowOnError>): RequestResult<PutApiAssetsByIdResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiAssetsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/assets/{id}',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -88,8 +211,12 @@ export const postApiAuthConfirmEmail = <ThrowOnError extends boolean = false>(op
     }
 });
 
-export const postApiAuthLogin = <ThrowOnError extends boolean = false>(options: Options<PostApiAuthLoginData, ThrowOnError>): RequestResult<PostApiAuthLoginResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAuthLoginResponses, unknown, ThrowOnError>({
-    url: '/api/auth/login',
+/**
+ * Оформить движение актива
+ */
+export const postApiAssetsByIdMovements = <ThrowOnError extends boolean = false>(options: Options<PostApiAssetsByIdMovementsData, ThrowOnError>): RequestResult<PostApiAssetsByIdMovementsResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAssetsByIdMovementsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/assets/{id}/movements',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -97,53 +224,54 @@ export const postApiAuthLogin = <ThrowOnError extends boolean = false>(options: 
     }
 });
 
-export const postApiAuthVerify2Fa = <ThrowOnError extends boolean = false>(options: Options<PostApiAuthVerify2FaData, ThrowOnError>): RequestResult<PostApiAuthVerify2FaResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAuthVerify2FaResponses, unknown, ThrowOnError>({
-    url: '/api/auth/verify-2fa',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
+/**
+ * Получить историю изменений
+ */
+export const getApiAssetsByIdHistory = <ThrowOnError extends boolean = false>(options: Options<GetApiAssetsByIdHistoryData, ThrowOnError>): RequestResult<GetApiAssetsByIdHistoryResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiAssetsByIdHistoryResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/assets/{id}/history',
+    ...options
 });
 
-export const postApiAuth2FaSetup = <ThrowOnError extends boolean = false>(options?: Options<PostApiAuth2FaSetupData, ThrowOnError>): RequestResult<PostApiAuth2FaSetupResponses, unknown, ThrowOnError> => (options?.client ?? client).post<PostApiAuth2FaSetupResponses, unknown, ThrowOnError>({ url: '/api/auth/2fa/setup', ...options });
-
-export const postApiAuth2FaVerifySetup = <ThrowOnError extends boolean = false>(options: Options<PostApiAuth2FaVerifySetupData, ThrowOnError>): RequestResult<PostApiAuth2FaVerifySetupResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAuth2FaVerifySetupResponses, unknown, ThrowOnError>({
-    url: '/api/auth/2fa/verify-setup',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
+/**
+ * Получить историю заявок по активу с фильтрацией (HIST-05, HIST-06)
+ */
+export const getApiAssetsByIdTickets = <ThrowOnError extends boolean = false>(options: Options<GetApiAssetsByIdTicketsData, ThrowOnError>): RequestResult<GetApiAssetsByIdTicketsResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiAssetsByIdTicketsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/assets/{id}/tickets',
+    ...options
 });
 
-export const getApiAuth2FaStatus = <ThrowOnError extends boolean = false>(options?: Options<GetApiAuth2FaStatusData, ThrowOnError>): RequestResult<GetApiAuth2FaStatusResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiAuth2FaStatusResponses, unknown, ThrowOnError>({ url: '/api/auth/2fa/status', ...options });
-
-export const postApiAuth2FaDisable = <ThrowOnError extends boolean = false>(options: Options<PostApiAuth2FaDisableData, ThrowOnError>): RequestResult<PostApiAuth2FaDisableResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiAuth2FaDisableResponses, unknown, ThrowOnError>({
-    url: '/api/auth/2fa/disable',
-    ...options,
-    headers: {
-        'Content-Type': 'application/json',
-        ...options.headers
-    }
+export const getApiDictionaries = <ThrowOnError extends boolean = false>(options?: Options<GetApiDictionariesData, ThrowOnError>): RequestResult<GetApiDictionariesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiDictionariesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/dictionaries',
+    ...options
 });
 
-export const getApiDictionaries = <ThrowOnError extends boolean = false>(options?: Options<GetApiDictionariesData, ThrowOnError>): RequestResult<GetApiDictionariesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiDictionariesResponses, unknown, ThrowOnError>({ url: '/api/dictionaries', ...options });
-
-export const postApiDictionaries = <ThrowOnError extends boolean = false>(options: Options<PostApiDictionariesData, ThrowOnError>): RequestResult<PostApiDictionariesResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiDictionariesResponses, unknown, ThrowOnError>({
+export const postApiDictionaries = <ThrowOnError extends boolean = false>(options?: Options<PostApiDictionariesData, ThrowOnError>): RequestResult<PostApiDictionariesResponses, unknown, ThrowOnError> => (options?.client ?? client).post<PostApiDictionariesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/dictionaries',
     ...options,
     headers: {
         'Content-Type': 'application/json',
-        ...options.headers
+        ...options?.headers
     }
 });
 
-export const deleteApiDictionariesById = <ThrowOnError extends boolean = false>(options: Options<DeleteApiDictionariesByIdData, ThrowOnError>): RequestResult<DeleteApiDictionariesByIdResponses, unknown, ThrowOnError> => (options.client ?? client).delete<DeleteApiDictionariesByIdResponses, unknown, ThrowOnError>({ url: '/api/dictionaries/{id}', ...options });
+export const deleteApiDictionariesById = <ThrowOnError extends boolean = false>(options: Options<DeleteApiDictionariesByIdData, ThrowOnError>): RequestResult<DeleteApiDictionariesByIdResponses, unknown, ThrowOnError> => (options.client ?? client).delete<DeleteApiDictionariesByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/dictionaries/{id}',
+    ...options
+});
 
-export const getApiDictionariesById = <ThrowOnError extends boolean = false>(options: Options<GetApiDictionariesByIdData, ThrowOnError>): RequestResult<GetApiDictionariesByIdResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiDictionariesByIdResponses, unknown, ThrowOnError>({ url: '/api/dictionaries/{id}', ...options });
+export const getApiDictionariesById = <ThrowOnError extends boolean = false>(options: Options<GetApiDictionariesByIdData, ThrowOnError>): RequestResult<GetApiDictionariesByIdResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiDictionariesByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/dictionaries/{id}',
+    ...options
+});
 
 export const putApiDictionariesById = <ThrowOnError extends boolean = false>(options: Options<PutApiDictionariesByIdData, ThrowOnError>): RequestResult<PutApiDictionariesByIdResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiDictionariesByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/dictionaries/{id}',
     ...options,
     headers: {
@@ -152,9 +280,14 @@ export const putApiDictionariesById = <ThrowOnError extends boolean = false>(opt
     }
 });
 
-export const getApiDictionariesByIdValues = <ThrowOnError extends boolean = false>(options: Options<GetApiDictionariesByIdValuesData, ThrowOnError>): RequestResult<GetApiDictionariesByIdValuesResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiDictionariesByIdValuesResponses, unknown, ThrowOnError>({ url: '/api/dictionaries/{id}/values', ...options });
+export const getApiDictionariesByIdValues = <ThrowOnError extends boolean = false>(options: Options<GetApiDictionariesByIdValuesData, ThrowOnError>): RequestResult<GetApiDictionariesByIdValuesResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiDictionariesByIdValuesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/dictionaries/{id}/values',
+    ...options
+});
 
 export const postApiDictionariesByIdValues = <ThrowOnError extends boolean = false>(options: Options<PostApiDictionariesByIdValuesData, ThrowOnError>): RequestResult<PostApiDictionariesByIdValuesResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiDictionariesByIdValuesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/dictionaries/{id}/values',
     ...options,
     headers: {
@@ -163,9 +296,14 @@ export const postApiDictionariesByIdValues = <ThrowOnError extends boolean = fal
     }
 });
 
-export const deleteApiDictionariesByIdValuesByValueId = <ThrowOnError extends boolean = false>(options: Options<DeleteApiDictionariesByIdValuesByValueIdData, ThrowOnError>): RequestResult<DeleteApiDictionariesByIdValuesByValueIdResponses, unknown, ThrowOnError> => (options.client ?? client).delete<DeleteApiDictionariesByIdValuesByValueIdResponses, unknown, ThrowOnError>({ url: '/api/dictionaries/{id}/values/{valueId}', ...options });
+export const deleteApiDictionariesByIdValuesByValueId = <ThrowOnError extends boolean = false>(options: Options<DeleteApiDictionariesByIdValuesByValueIdData, ThrowOnError>): RequestResult<DeleteApiDictionariesByIdValuesByValueIdResponses, DeleteApiDictionariesByIdValuesByValueIdErrors, ThrowOnError> => (options.client ?? client).delete<DeleteApiDictionariesByIdValuesByValueIdResponses, DeleteApiDictionariesByIdValuesByValueIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/dictionaries/{id}/values/{valueId}',
+    ...options
+});
 
 export const putApiDictionariesByIdValuesByValueId = <ThrowOnError extends boolean = false>(options: Options<PutApiDictionariesByIdValuesByValueIdData, ThrowOnError>): RequestResult<PutApiDictionariesByIdValuesByValueIdResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiDictionariesByIdValuesByValueIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/dictionaries/{id}/values/{valueId}',
     ...options,
     headers: {
@@ -174,4 +312,705 @@ export const putApiDictionariesByIdValuesByValueId = <ThrowOnError extends boole
     }
 });
 
-export const postApiDictionariesByIdValuesByValueIdArchive = <ThrowOnError extends boolean = false>(options: Options<PostApiDictionariesByIdValuesByValueIdArchiveData, ThrowOnError>): RequestResult<PostApiDictionariesByIdValuesByValueIdArchiveResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiDictionariesByIdValuesByValueIdArchiveResponses, unknown, ThrowOnError>({ url: '/api/dictionaries/{id}/values/{valueId}/archive', ...options });
+export const postApiDictionariesByIdValuesByValueIdArchive = <ThrowOnError extends boolean = false>(options: Options<PostApiDictionariesByIdValuesByValueIdArchiveData, ThrowOnError>): RequestResult<PostApiDictionariesByIdValuesByValueIdArchiveResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiDictionariesByIdValuesByValueIdArchiveResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/dictionaries/{id}/values/{valueId}/archive',
+    ...options
+});
+
+/**
+ * Очередь заявок
+ */
+export const getApiTickets = <ThrowOnError extends boolean = false>(options?: Options<GetApiTicketsData, ThrowOnError>): RequestResult<GetApiTicketsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiTicketsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tickets',
+    ...options
+});
+
+/**
+ * Создать заявку
+ */
+export const postApiTickets = <ThrowOnError extends boolean = false>(options: Options<PostApiTicketsData, ThrowOnError>): RequestResult<PostApiTicketsResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiTicketsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tickets',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getApiTicketsById = <ThrowOnError extends boolean = false>(options: Options<GetApiTicketsByIdData, ThrowOnError>): RequestResult<GetApiTicketsByIdResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiTicketsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tickets/{id}',
+    ...options
+});
+
+export const putApiTicketsById = <ThrowOnError extends boolean = false>(options: Options<PutApiTicketsByIdData, ThrowOnError>): RequestResult<PutApiTicketsByIdResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiTicketsByIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tickets/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * При закрытии тикета на ремонт обязательны repairResolution и repairOutcome. repairOutcome запускает автоматический переход связанного актива в соответствующий этап жизненного цикла.
+ */
+export const putApiTicketsByIdStatus = <ThrowOnError extends boolean = false>(options: Options<PutApiTicketsByIdStatusData, ThrowOnError>): RequestResult<PutApiTicketsByIdStatusResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiTicketsByIdStatusResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tickets/{id}/status',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Назначить или переназначить исполнителя заявки (SD-14, РОЛ-02)
+ *
+ * Ручное назначение доступно администратору или пользователю, указанному в manualAssignerUserId глобальной настройки назначения. assigneeId должен принадлежать активному инженеру технической поддержки.
+ */
+export const postApiTicketsByIdAssign = <ThrowOnError extends boolean = false>(options: Options<PostApiTicketsByIdAssignData, ThrowOnError>): RequestResult<PostApiTicketsByIdAssignResponses, PostApiTicketsByIdAssignErrors, ThrowOnError> => (options.client ?? client).post<PostApiTicketsByIdAssignResponses, PostApiTicketsByIdAssignErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tickets/{id}/assign',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Запустить ручную эскалацию заявки
+ *
+ * Ручной запуск доступен только автору или исполнителю, если это разрешено правилом для типа заявки. Инициатор определяется по JWT, клиент не передает triggerType или userId. Автоматическая эскалация при нарушении времени решения запускается сервером и не вызывает этот endpoint. При достижении максимальной критичности ее уровень не меняется; создаются персональные внутренние уведомления руководителю и каждому пользователю с ролью admin. Инициатор, причина, изменение критичности, получатели и время фиксируются в истории эскалаций (ESC-03, ESC-04, ESC-08).
+ */
+export const postApiTicketsByIdEscalate = <ThrowOnError extends boolean = false>(options: Options<PostApiTicketsByIdEscalateData, ThrowOnError>): RequestResult<PostApiTicketsByIdEscalateResponses, PostApiTicketsByIdEscalateErrors, ThrowOnError> => (options.client ?? client).post<PostApiTicketsByIdEscalateResponses, PostApiTicketsByIdEscalateErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tickets/{id}/escalate',
+    ...options
+});
+
+export const getApiTicketsByIdMessages = <ThrowOnError extends boolean = false>(options: Options<GetApiTicketsByIdMessagesData, ThrowOnError>): RequestResult<GetApiTicketsByIdMessagesResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiTicketsByIdMessagesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tickets/{id}/messages',
+    ...options
+});
+
+export const postApiTicketsByIdMessages = <ThrowOnError extends boolean = false>(options: Options<PostApiTicketsByIdMessagesData, ThrowOnError>): RequestResult<PostApiTicketsByIdMessagesResponses, unknown, ThrowOnError> => (options.client ?? client).post<PostApiTicketsByIdMessagesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tickets/{id}/messages',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+export const getApiFormTemplatesByTicketTypeId = <ThrowOnError extends boolean = false>(options: Options<GetApiFormTemplatesByTicketTypeIdData, ThrowOnError>): RequestResult<GetApiFormTemplatesByTicketTypeIdResponses, unknown, ThrowOnError> => (options.client ?? client).get<GetApiFormTemplatesByTicketTypeIdResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/form-templates/{ticketTypeId}',
+    ...options
+});
+
+export const putApiFormTemplatesByTicketTypeId = <ThrowOnError extends boolean = false>(options: Options<PutApiFormTemplatesByTicketTypeIdData, ThrowOnError>): RequestResult<PutApiFormTemplatesByTicketTypeIdResponses, PutApiFormTemplatesByTicketTypeIdErrors, ThrowOnError> => (options.client ?? client).put<PutApiFormTemplatesByTicketTypeIdResponses, PutApiFormTemplatesByTicketTypeIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/form-templates/{ticketTypeId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить один из регламентированных отчетов (SD-24)
+ */
+export const getApiReportsByReportType = <ThrowOnError extends boolean = false>(options: Options<GetApiReportsByReportTypeData, ThrowOnError>): RequestResult<GetApiReportsByReportTypeResponses, GetApiReportsByReportTypeErrors, ThrowOnError> => (options.client ?? client).get<GetApiReportsByReportTypeResponses, GetApiReportsByReportTypeErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/reports/{reportType}',
+    ...options
+});
+
+/**
+ * Получить матрицу доступа к отчетам (SD-24)
+ *
+ * Только администратор.
+ */
+export const getApiReportAccess = <ThrowOnError extends boolean = false>(options?: Options<GetApiReportAccessData, ThrowOnError>): RequestResult<GetApiReportAccessResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiReportAccessResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/report-access',
+    ...options
+});
+
+/**
+ * Заменить матрицу доступа к отчетам (SD-24)
+ *
+ * Только администратор. Доступ настраивается по кодам системных ролей; роль admin сохраняет доступ к настройке матрицы.
+ */
+export const putApiReportAccess = <ThrowOnError extends boolean = false>(options: Options<PutApiReportAccessData, ThrowOnError>): RequestResult<PutApiReportAccessResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiReportAccessResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/report-access',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Создать учетную запись пользователя портала или сотрудника
+ *
+ * Только администратор. Целевой сценарий создания учетных записей согласно PORT-04 и РОЛ-02.
+ */
+export const postApiAuthAdminCreateUser = <ThrowOnError extends boolean = false>(options: Options<PostApiAuthAdminCreateUserData, ThrowOnError>): RequestResult<PostApiAuthAdminCreateUserResponses, PostApiAuthAdminCreateUserErrors, ThrowOnError> => (options.client ?? client).post<PostApiAuthAdminCreateUserResponses, PostApiAuthAdminCreateUserErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/auth/admin-create-user',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить список пользователей для администрирования
+ *
+ * Только администратор. Доступ к данным ограничивается текущим тенантом в SaaS.
+ */
+export const getApiUsers = <ThrowOnError extends boolean = false>(options?: Options<GetApiUsersData, ThrowOnError>): RequestResult<GetApiUsersResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiUsersResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/users',
+    ...options
+});
+
+/**
+ * Получить карточку пользователя
+ *
+ * Только администратор.
+ */
+export const getApiUsersById = <ThrowOnError extends boolean = false>(options: Options<GetApiUsersByIdData, ThrowOnError>): RequestResult<GetApiUsersByIdResponses, GetApiUsersByIdErrors, ThrowOnError> => (options.client ?? client).get<GetApiUsersByIdResponses, GetApiUsersByIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/users/{id}',
+    ...options
+});
+
+/**
+ * Изменить профиль, роли и активность пользователя
+ *
+ * Только администратор. Не удаляет пользователя физически, чтобы сохранить историю.
+ */
+export const putApiUsersById = <ThrowOnError extends boolean = false>(options: Options<PutApiUsersByIdData, ThrowOnError>): RequestResult<PutApiUsersByIdResponses, PutApiUsersByIdErrors, ThrowOnError> => (options.client ?? client).put<PutApiUsersByIdResponses, PutApiUsersByIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/users/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить список системных ролей
+ *
+ * Только администратор. Используется для назначения ролей при создании и редактировании пользователей (РОЛ-02).
+ */
+export const getApiRoles = <ThrowOnError extends boolean = false>(options?: Options<GetApiRolesData, ThrowOnError>): RequestResult<GetApiRolesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiRolesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/roles',
+    ...options
+});
+
+/**
+ * Получить политику паролей (НФТ-07)
+ *
+ * Только администратор. В SaaS возвращается политика текущего тенанта; в локальном развертывании — системная политика.
+ */
+export const getApiSecuritySettings = <ThrowOnError extends boolean = false>(options?: Options<GetApiSecuritySettingsData, ThrowOnError>): RequestResult<GetApiSecuritySettingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiSecuritySettingsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/security-settings',
+    ...options
+});
+
+/**
+ * Изменить политику паролей (НФТ-07)
+ *
+ * Только администратор. Правила применяются при создании и изменении пароля; MaxFailedAttempts и LockoutMinutes также определяют блокировку при неуспешной аутентификации. В SaaS настройка изолирована в пределах тенанта.
+ */
+export const putApiSecuritySettings = <ThrowOnError extends boolean = false>(options: Options<PutApiSecuritySettingsData, ThrowOnError>): RequestResult<PutApiSecuritySettingsResponses, PutApiSecuritySettingsErrors, ThrowOnError> => (options.client ?? client).put<PutApiSecuritySettingsResponses, PutApiSecuritySettingsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/security-settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить список тенантов
+ *
+ * Только tenant_admin в SaaS-развертывании. Возвращается метаинформация о тенантах, без данных пользователей или заявок.
+ */
+export const getApiTenants = <ThrowOnError extends boolean = false>(options?: Options<GetApiTenantsData, ThrowOnError>): RequestResult<GetApiTenantsResponses, GetApiTenantsErrors, ThrowOnError> => (options?.client ?? client).get<GetApiTenantsResponses, GetApiTenantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tenants',
+    ...options
+});
+
+/**
+ * Создать тенант и первую учетную запись администратора
+ *
+ * Только tenant_admin в SaaS-развертывании. Создание тенанта и первой учетной записи администратора должно быть атомарным: при ошибке ни одна из записей не сохраняется. Учетная запись создается по логину, а первоначальная настройка учетных данных выполняется безопасным способом вне этого ответа; эта операция не является открытой регистрацией пользователя.
+ */
+export const postApiTenants = <ThrowOnError extends boolean = false>(options: Options<PostApiTenantsData, ThrowOnError>): RequestResult<PostApiTenantsResponses, PostApiTenantsErrors, ThrowOnError> => (options.client ?? client).post<PostApiTenantsResponses, PostApiTenantsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tenants',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Активировать или заблокировать тенант
+ *
+ * Только tenant_admin в SaaS-развертывании. Блокировка должна запрещать доступ пользователям тенанта, не удаляя его данные.
+ */
+export const patchApiTenantsByIdStatus = <ThrowOnError extends boolean = false>(options: Options<PatchApiTenantsByIdStatusData, ThrowOnError>): RequestResult<PatchApiTenantsByIdStatusResponses, PatchApiTenantsByIdStatusErrors, ThrowOnError> => (options.client ?? client).patch<PatchApiTenantsByIdStatusResponses, PatchApiTenantsByIdStatusErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tenants/{id}/status',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Удалить тенант
+ *
+ * Только tenant_admin в SaaS-развертывании. Удаление необратимо и должно обрабатывать связанные данные тенанта согласно политике хранения.
+ */
+export const deleteApiTenantsById = <ThrowOnError extends boolean = false>(options: Options<DeleteApiTenantsByIdData, ThrowOnError>): RequestResult<DeleteApiTenantsByIdResponses, DeleteApiTenantsByIdErrors, ThrowOnError> => (options.client ?? client).delete<DeleteApiTenantsByIdResponses, DeleteApiTenantsByIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/tenants/{id}',
+    ...options
+});
+
+/**
+ * Получить системный журнал действий пользователей (НФТ-08)
+ *
+ * Только администратор. Возвращает аудит действий системы: кто, что и когда изменил. Все изменения данных и настроек во всех модулях должны записываться в системный аудит. Пароли, MFA-секреты, токены и другие секреты не должны попадать в oldValues/newValues.
+ */
+export const getApiAuditLog = <ThrowOnError extends boolean = false>(options?: Options<GetApiAuditLogData, ThrowOnError>): RequestResult<GetApiAuditLogResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiAuditLogResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/audit-log',
+    ...options
+});
+
+/**
+ * Получить внутренние уведомления текущего пользователя
+ *
+ * Пользователь определяется по токену; нельзя читать уведомления другого пользователя.
+ */
+export const getApiNotifications = <ThrowOnError extends boolean = false>(options?: Options<GetApiNotificationsData, ThrowOnError>): RequestResult<GetApiNotificationsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiNotificationsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/notifications',
+    ...options
+});
+
+/**
+ * Отметить уведомление текущего пользователя как прочитанное
+ */
+export const postApiNotificationsByIdRead = <ThrowOnError extends boolean = false>(options: Options<PostApiNotificationsByIdReadData, ThrowOnError>): RequestResult<PostApiNotificationsByIdReadResponses, PostApiNotificationsByIdReadErrors, ThrowOnError> => (options.client ?? client).post<PostApiNotificationsByIdReadResponses, PostApiNotificationsByIdReadErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/notifications/{id}/read',
+    ...options
+});
+
+/**
+ * Получить исключения производственного календаря
+ *
+ * Праздники и перенесенные рабочие дни. Только администратор.
+ */
+export const getApiCalendarExceptions = <ThrowOnError extends boolean = false>(options?: Options<GetApiCalendarExceptionsData, ThrowOnError>): RequestResult<GetApiCalendarExceptionsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiCalendarExceptionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/calendar-exceptions',
+    ...options
+});
+
+/**
+ * Добавить исключение в производственный календарь
+ *
+ * Только администратор. Для одной даты допускается одна запись.
+ */
+export const postApiCalendarExceptions = <ThrowOnError extends boolean = false>(options: Options<PostApiCalendarExceptionsData, ThrowOnError>): RequestResult<PostApiCalendarExceptionsResponses, PostApiCalendarExceptionsErrors, ThrowOnError> => (options.client ?? client).post<PostApiCalendarExceptionsResponses, PostApiCalendarExceptionsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/calendar-exceptions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Удалить исключение из календаря
+ */
+export const deleteApiCalendarExceptionsById = <ThrowOnError extends boolean = false>(options: Options<DeleteApiCalendarExceptionsByIdData, ThrowOnError>): RequestResult<DeleteApiCalendarExceptionsByIdResponses, DeleteApiCalendarExceptionsByIdErrors, ThrowOnError> => (options.client ?? client).delete<DeleteApiCalendarExceptionsByIdResponses, DeleteApiCalendarExceptionsByIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/calendar-exceptions/{id}',
+    ...options
+});
+
+/**
+ * Получить рабочие графики
+ *
+ * Только администратор. Необходимо для настройки режима учета SLA и рабочих часов по дням недели.
+ */
+export const getApiWorkingSchedules = <ThrowOnError extends boolean = false>(options?: Options<GetApiWorkingSchedulesData, ThrowOnError>): RequestResult<GetApiWorkingSchedulesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiWorkingSchedulesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/working-schedules',
+    ...options
+});
+
+/**
+ * Изменить рабочий график
+ *
+ * Только администратор. График задает режим 24x7 или рабочие часы и интервалы по дням недели.
+ */
+export const putApiWorkingSchedulesById = <ThrowOnError extends boolean = false>(options: Options<PutApiWorkingSchedulesByIdData, ThrowOnError>): RequestResult<PutApiWorkingSchedulesByIdResponses, PutApiWorkingSchedulesByIdErrors, ThrowOnError> => (options.client ?? client).put<PutApiWorkingSchedulesByIdResponses, PutApiWorkingSchedulesByIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/working-schedules/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить глобальные настройки SLA
+ *
+ * Только администратор. Включает глобальный переключатель SLA; настройка должна сохраняться в системной конфигурации.
+ */
+export const getApiSlaSettings = <ThrowOnError extends boolean = false>(options?: Options<GetApiSlaSettingsData, ThrowOnError>): RequestResult<GetApiSlaSettingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiSlaSettingsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/sla-settings',
+    ...options
+});
+
+/**
+ * Изменить глобальные настройки SLA
+ *
+ * Только администратор.
+ */
+export const putApiSlaSettings = <ThrowOnError extends boolean = false>(options: Options<PutApiSlaSettingsData, ThrowOnError>): RequestResult<PutApiSlaSettingsResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiSlaSettingsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/sla-settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить настройки видимости сроков SLA на портале (PORT-10)
+ *
+ * Только администратор.
+ */
+export const getApiSlaSettingsPortalVisibility = <ThrowOnError extends boolean = false>(options?: Options<GetApiSlaSettingsPortalVisibilityData, ThrowOnError>): RequestResult<GetApiSlaSettingsPortalVisibilityResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiSlaSettingsPortalVisibilityResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/sla-settings/portal-visibility',
+    ...options
+});
+
+/**
+ * Изменить настройки видимости сроков SLA на портале (PORT-10)
+ *
+ * Только администратор. Настройка управляет показом времени реакции и решения автору заявки на портале.
+ */
+export const putApiSlaSettingsPortalVisibility = <ThrowOnError extends boolean = false>(options: Options<PutApiSlaSettingsPortalVisibilityData, ThrowOnError>): RequestResult<PutApiSlaSettingsPortalVisibilityResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiSlaSettingsPortalVisibilityResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/sla-settings/portal-visibility',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Включить или отключить SLA для типа заявки
+ *
+ * Только администратор. Отключение типа SLA применяется ко всем его уровням критичности; индивидуальное отключение задается отдельными значениями SLA.
+ */
+export const putApiSlaSettingsTicketTypesByTicketTypeId = <ThrowOnError extends boolean = false>(options: Options<PutApiSlaSettingsTicketTypesByTicketTypeIdData, ThrowOnError>): RequestResult<PutApiSlaSettingsTicketTypesByTicketTypeIdResponses, PutApiSlaSettingsTicketTypesByTicketTypeIdErrors, ThrowOnError> => (options.client ?? client).put<PutApiSlaSettingsTicketTypesByTicketTypeIdResponses, PutApiSlaSettingsTicketTypesByTicketTypeIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/sla-settings/ticket-types/{ticketTypeId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить матрицу SLA по типу заявки и критичности
+ *
+ * Только администратор. Значения соответствуют сочетанию TicketType × CriticalityLevel.
+ */
+export const getApiSlaPolicies = <ThrowOnError extends boolean = false>(options?: Options<GetApiSlaPoliciesData, ThrowOnError>): RequestResult<GetApiSlaPoliciesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiSlaPoliciesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/sla-policies',
+    ...options
+});
+
+/**
+ * Создать или обновить значение SLA для типа заявки и критичности
+ *
+ * Только администратор. Upsert по уникальной паре ticketTypeId + criticalityLevelId: создать значение, если пары нет, либо обновить существующее.
+ */
+export const putApiSlaPolicies = <ThrowOnError extends boolean = false>(options: Options<PutApiSlaPoliciesData, ThrowOnError>): RequestResult<PutApiSlaPoliciesResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiSlaPoliciesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/sla-policies',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить статусы заявок
+ *
+ * Только администратор. Стандартные статусы нельзя удалить; пользовательские статусы могут приостанавливать SLA.
+ */
+export const getApiTicketStatuses = <ThrowOnError extends boolean = false>(options?: Options<GetApiTicketStatusesData, ThrowOnError>): RequestResult<GetApiTicketStatusesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiTicketStatusesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ticket-statuses',
+    ...options
+});
+
+/**
+ * Добавить пользовательский статус заявки
+ *
+ * Только администратор. Стандартные статусы создаются системой и не дублируются этим методом.
+ */
+export const postApiTicketStatuses = <ThrowOnError extends boolean = false>(options: Options<PostApiTicketStatusesData, ThrowOnError>): RequestResult<PostApiTicketStatusesResponses, PostApiTicketStatusesErrors, ThrowOnError> => (options.client ?? client).post<PostApiTicketStatusesResponses, PostApiTicketStatusesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ticket-statuses',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить типы заявок
+ *
+ * Только администратор. Включает признак доступности типа на портале.
+ */
+export const getApiTicketTypes = <ThrowOnError extends boolean = false>(options?: Options<GetApiTicketTypesData, ThrowOnError>): RequestResult<GetApiTicketTypesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiTicketTypesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ticket-types',
+    ...options
+});
+
+/**
+ * Создать тип заявки
+ *
+ * Только администратор. Встроенный тип тикета на ремонт создается системой и не может быть создан повторно.
+ */
+export const postApiTicketTypes = <ThrowOnError extends boolean = false>(options: Options<PostApiTicketTypesData, ThrowOnError>): RequestResult<PostApiTicketTypesResponses, PostApiTicketTypesErrors, ThrowOnError> => (options.client ?? client).post<PostApiTicketTypesResponses, PostApiTicketTypesErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ticket-types',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Изменить параметры типа заявки
+ *
+ * Только администратор. Встроенный тип тикета на ремонт нельзя удалить или изменить по сути (SD-09).
+ */
+export const putApiTicketTypesById = <ThrowOnError extends boolean = false>(options: Options<PutApiTicketTypesByIdData, ThrowOnError>): RequestResult<PutApiTicketTypesByIdResponses, PutApiTicketTypesByIdErrors, ThrowOnError> => (options.client ?? client).put<PutApiTicketTypesByIdResponses, PutApiTicketTypesByIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ticket-types/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить общий способ назначения исполнителей (SD-14)
+ *
+ * Настройка едина для системы, а не для отдельного типа заявки. Только администратор.
+ */
+export const getApiAssignmentSettings = <ThrowOnError extends boolean = false>(options?: Options<GetApiAssignmentSettingsData, ThrowOnError>): RequestResult<GetApiAssignmentSettingsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiAssignmentSettingsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/assignment-settings',
+    ...options
+});
+
+/**
+ * Изменить общий способ назначения исполнителей (SD-14)
+ *
+ * Только администратор. AutomaticLeastLoaded назначает инженера ТП с наименьшим числом открытых заявок. Manual использует выбранного администратора или назначенного администратором пользователя; manualAssignerUserId может быть null, если назначает сам администратор.
+ */
+export const putApiAssignmentSettings = <ThrowOnError extends boolean = false>(options: Options<PutApiAssignmentSettingsData, ThrowOnError>): RequestResult<PutApiAssignmentSettingsResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiAssignmentSettingsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/assignment-settings',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить настройки эскалации по типам заявок (ESC-03)
+ *
+ * Только администратор. Возвращается правило для каждого типа заявки.
+ */
+export const getApiEscalationRules = <ThrowOnError extends boolean = false>(options?: Options<GetApiEscalationRulesData, ThrowOnError>): RequestResult<GetApiEscalationRulesResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiEscalationRulesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/escalation-rules',
+    ...options
+});
+
+/**
+ * Настроить условия эскалации для типа заявки (ESC-03)
+ *
+ * Только администратор. OnSlaBreach управляет запуском при нарушении времени решения; OnManual разрешает ручную эскалацию автору заявки и исполнителю согласно их ролям. Угроза нарушения SLA и нарушение времени реакции триггерами не являются.
+ */
+export const putApiEscalationRulesByTicketTypeId = <ThrowOnError extends boolean = false>(options: Options<PutApiEscalationRulesByTicketTypeIdData, ThrowOnError>): RequestResult<PutApiEscalationRulesByTicketTypeIdResponses, PutApiEscalationRulesByTicketTypeIdErrors, ThrowOnError> => (options.client ?? client).put<PutApiEscalationRulesByTicketTypeIdResponses, PutApiEscalationRulesByTicketTypeIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/escalation-rules/{ticketTypeId}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить назначенного руководителя службы поддержки (ESC-05)
+ *
+ * Только администратор. Руководитель службы поддержки — отдельная системная настройка и не совпадает с managerId, который задает организационную иерархию пользователя.
+ */
+export const getApiTicketConfigurationServiceDeskHead = <ThrowOnError extends boolean = false>(options?: Options<GetApiTicketConfigurationServiceDeskHeadData, ThrowOnError>): RequestResult<GetApiTicketConfigurationServiceDeskHeadResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiTicketConfigurationServiceDeskHeadResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ticket-configuration/service-desk-head',
+    ...options
+});
+
+/**
+ * Назначить руководителя службы поддержки (ESC-05)
+ *
+ * Только администратор. userId должен принадлежать активному инженеру технической поддержки. Руководитель является получателем эскалаций; это не изменение managerId или роли пользователя.
+ */
+export const putApiTicketConfigurationServiceDeskHead = <ThrowOnError extends boolean = false>(options: Options<PutApiTicketConfigurationServiceDeskHeadData, ThrowOnError>): RequestResult<PutApiTicketConfigurationServiceDeskHeadResponses, PutApiTicketConfigurationServiceDeskHeadErrors, ThrowOnError> => (options.client ?? client).put<PutApiTicketConfigurationServiceDeskHeadResponses, PutApiTicketConfigurationServiceDeskHeadErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ticket-configuration/service-desk-head',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить шкалу критичности
+ *
+ * Только администратор. В системе должно оставаться от 3 до 5 активных уровней (SD-11).
+ */
+export const getApiCriticalityLevels = <ThrowOnError extends boolean = false>(options?: Options<GetApiCriticalityLevelsData, ThrowOnError>): RequestResult<GetApiCriticalityLevelsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiCriticalityLevelsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/criticality-levels',
+    ...options
+});
+
+/**
+ * Добавить уровень критичности
+ *
+ * Только администратор. Не допускается превышать пять активных уровней.
+ */
+export const postApiCriticalityLevels = <ThrowOnError extends boolean = false>(options: Options<PostApiCriticalityLevelsData, ThrowOnError>): RequestResult<PostApiCriticalityLevelsResponses, PostApiCriticalityLevelsErrors, ThrowOnError> => (options.client ?? client).post<PostApiCriticalityLevelsResponses, PostApiCriticalityLevelsErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/criticality-levels',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Изменить уровень критичности
+ *
+ * Только администратор. Уровни, используемые существующими заявками, не удаляются физически. При isActive=false должно остаться не менее 3 активных уровней; при isActive=true активных уровней должно быть не более 5. Нарушение ограничений возвращает 400.
+ */
+export const putApiCriticalityLevelsById = <ThrowOnError extends boolean = false>(options: Options<PutApiCriticalityLevelsByIdData, ThrowOnError>): RequestResult<PutApiCriticalityLevelsByIdResponses, PutApiCriticalityLevelsByIdErrors, ThrowOnError> => (options.client ?? client).put<PutApiCriticalityLevelsByIdResponses, PutApiCriticalityLevelsByIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/criticality-levels/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Изменить название или настройки статуса
+ *
+ * Только администратор. Стандартные статусы можно переименовать, но нельзя удалить.
+ */
+export const putApiTicketStatusesById = <ThrowOnError extends boolean = false>(options: Options<PutApiTicketStatusesByIdData, ThrowOnError>): RequestResult<PutApiTicketStatusesByIdResponses, PutApiTicketStatusesByIdErrors, ThrowOnError> => (options.client ?? client).put<PutApiTicketStatusesByIdResponses, PutApiTicketStatusesByIdErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ticket-statuses/{id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Получить разрешенные переходы между статусами
+ *
+ * Только администратор.
+ */
+export const getApiTicketStatusTransitions = <ThrowOnError extends boolean = false>(options?: Options<GetApiTicketStatusTransitionsData, ThrowOnError>): RequestResult<GetApiTicketStatusTransitionsResponses, unknown, ThrowOnError> => (options?.client ?? client).get<GetApiTicketStatusTransitionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ticket-status-transitions',
+    ...options
+});
+
+/**
+ * Заменить конфигурацию переходов статусов
+ *
+ * Только администратор. Каждый переход задает начальный статус, конечный статус и необязательный код роли. MVP принимает полный массив и заменяет всю матрицу. Удаление старых строк и вставка новых должны выполняться атомарно в одной транзакции. При одновременном редактировании несколькими администраторами сохраняется риск гонки и потери обновлений.
+ */
+export const putApiTicketStatusTransitions = <ThrowOnError extends boolean = false>(options: Options<PutApiTicketStatusTransitionsData, ThrowOnError>): RequestResult<PutApiTicketStatusTransitionsResponses, unknown, ThrowOnError> => (options.client ?? client).put<PutApiTicketStatusTransitionsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/ticket-status-transitions',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});

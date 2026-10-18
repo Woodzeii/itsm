@@ -9,6 +9,12 @@ import { AuthApi } from './core/auth/auth-api';
 import { MockAuthApiService } from './core/auth/mock-auth-api.service';
 import { HttpAuthApiService } from './core/auth/http-auth-api.service';
 import { workspaceApiProvider } from './core/workspace/workspace-api.provider';
+import { client } from './core/api/client.gen';
+
+client.setConfig({
+    baseUrl: environment.apiBaseUrl.replace(/\/api\/?$/, '') || '/',
+    auth: () => typeof localStorage === 'undefined' ? undefined : localStorage.getItem('itsm_access_token') ?? undefined,
+});
 
 export const appConfig: ApplicationConfig = {
     providers: [

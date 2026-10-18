@@ -30,6 +30,7 @@ import {
 export abstract class WorkspaceApi {
     abstract getOverview(): Observable<OverviewData>;
     abstract getTickets(): Observable<Ticket[]>;
+    abstract getTicket(ticketId: string): Observable<Ticket>;
     abstract getAssets(): Observable<AssetRecord[]>;
     abstract getAssetClasses(): Observable<AssetClassOption[]>;
     abstract getEscalations(): Observable<Escalation[]>;
@@ -53,6 +54,7 @@ export abstract class WorkspaceApi {
     abstract getEscalationPolicies(): Observable<EscalationPolicy[]>;
     abstract saveEscalationPolicies(policies: EscalationPolicy[]): Observable<EscalationPolicy[]>;
     abstract getEscalationHistory(): Observable<EscalationHistoryEntry[]>;
+    abstract getPortalSettings(): Observable<Pick<AdminSettings, 'criticalities' | 'portalSlaFields'>>;
     abstract getAdminSettings(): Observable<AdminSettings>;
     abstract saveAdminSettings(settings: AdminSettings): Observable<AdminSettings>;
     abstract getReports(from?: string, to?: string): Observable<ReportSummary[]>;
@@ -68,4 +70,5 @@ export abstract class WorkspaceApi {
     abstract getUsers(): Observable<UserRecord[]>;
     abstract getSystemRoles(): Observable<SystemRoleOption[]>;
     abstract createUser(request: CreateUserRequest): Observable<UserRecord>;
+    abstract hasReportAccess(roleCode: string): Observable<boolean>;
 }

@@ -35,10 +35,8 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
               }
             </label>
           }
-          <label>Склад <input name="warehouse" [(ngModel)]="draft.warehouse" [required]="!!draft.id" /></label>
-          <label>Ответственный<input name="owner" [(ngModel)]="draft.owner" /></label>
-          <label>Место<input name="location" [(ngModel)]="draft.location" /></label>
-          <p class="form-note">Без идентификатора актив создаётся на этапе «Закуплен». Идентификатор уникален; при его указании склад обязателен.</p>
+          <label>ID склада <input type="number" min="1" name="warehouse" [(ngModel)]="draft.warehouse" [required]="!!draft.id" /></label>
+          <p class="form-note">Без идентификатора актив создаётся на этапе «Закуплен». При присвоении инвентарного номера API требует числовой ID склада.</p>
           <div class="form-actions"><button class="primary" type="submit" [disabled]="!draft.name.trim() || (!!draft.id && !draft.warehouse.trim())">Создать</button><button class="quiet" type="button" (click)="showCreate = false">Отмена</button></div>
         </form>
       }
@@ -73,10 +71,10 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
                 <label>Идентификатор<input name="assetId" [(ngModel)]="edit.id" [disabled]="!!selected.id" [placeholder]="selected.id ? '' : 'Присвоить инвентарный номер'" /></label>
                 <label>Наименование<input name="assetName" [(ngModel)]="edit.name" required /></label>
                 <label>Этап жизненного цикла<input [value]="selected.lifecycle" disabled /></label>
-                <label>Ответственный<input name="owner" [(ngModel)]="edit.owner" /></label>
-                <label>Место<input name="location" [(ngModel)]="edit.location" /></label>
-                <label>Подразделение<input name="department" [(ngModel)]="edit.department" /></label>
-                @if (!selected.id) { <label>Склад для присвоения ID<input name="warehouse" [(ngModel)]="edit.warehouse" [required]="!!edit.id" /></label> }
+                <label>Ответственный<input name="owner" [(ngModel)]="edit.owner" disabled /></label>
+                <label>Место<input name="location" [(ngModel)]="edit.location" disabled /></label>
+                <label>Подразделение<input name="department" [(ngModel)]="edit.department" disabled /></label>
+                @if (!selected.id) { <label>ID склада<input type="number" min="1" name="warehouse" [(ngModel)]="edit.warehouse" [required]="!!edit.id" /></label> }
                 @for (attribute of selectedAttributes; track attribute.code) {
                   <label>{{ attribute.name }}@if (attribute.required) { <span>*</span> }
                     @switch (attribute.dataType) {
@@ -120,8 +118,8 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
               @if (isEngineer && selected.lifecycle !== 'Списан') {
                 <form class="movement-form" (ngSubmit)="moveAsset()">
                   <label>Вид движения<select name="kind" [(ngModel)]="movement.kind"><option>Передача сотруднику</option><option>Перемещение</option><option>Выдача со склада</option><option>Возврат на склад</option></select></label>
-                  <label>Откуда<input name="from" [(ngModel)]="movement.from" required /></label>
-                  <label>Куда / кому<input name="to" [(ngModel)]="movement.to" required /></label>
+                  <label>ID источника<input type="number" min="1" name="from" [(ngModel)]="movement.from" required /></label>
+                  <label>ID назначения / пользователя<input type="number" min="1" name="to" [(ngModel)]="movement.to" required /></label>
                   <button class="primary" type="submit" [disabled]="!movement.from.trim() || !movement.to.trim()">Оформить</button>
                 </form>
               }
