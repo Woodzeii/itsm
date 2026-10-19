@@ -1,5 +1,6 @@
 ﻿export const environment = {
     apiBaseUrl: '/api',
-    useMockWorkspaceApi: false,
+    useMockWorkspaceApi: true,
     useMockAuth: false,
+    useMockAdminApi: true,
 };

@@ -1,4 +1,4 @@
-import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChangeDetection } from '@angular/core';
+﻿import { ApplicationConfig, provideBrowserGlobalErrorListeners, provideZoneChangeDetection } from '@angular/core';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideRouter } from '@angular/router';
@@ -9,6 +9,7 @@ import { AuthApi } from './core/auth/auth-api';
 import { MockAuthApiService } from './core/auth/mock-auth-api.service';
 import { HttpAuthApiService } from './core/auth/http-auth-api.service';
 import { workspaceApiProvider } from './core/workspace/workspace-api.provider';
+import { adminApiProvider } from './core/admin/admin-api.provider';
 
 export const appConfig: ApplicationConfig = {
     providers: [
@@ -18,6 +19,7 @@ export const appConfig: ApplicationConfig = {
         provideHttpClient(withInterceptors([jwtInterceptor])),
         { provide: AuthApi, useClass: environment.useMockAuth ? MockAuthApiService : HttpAuthApiService },
         workspaceApiProvider,
+        adminApiProvider,
         provideAnimationsAsync(),
     ],
 };
