@@ -8,6 +8,9 @@ public class TwoFactorSetupResponse
 
     public string OtpAuthUri { get; set; } = string.Empty;
 
+    /// <summary>PNG без префикса data URI; для отображения: data:image/png;base64,{QrCodeImageBase64}</summary>
+    public string QrCodeImageBase64 { get; set; } = string.Empty;
+
     public string Issuer { get; set; } = "ITSM NC";
 }
 

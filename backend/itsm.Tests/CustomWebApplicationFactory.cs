@@ -81,6 +81,9 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
             using var scope = sp.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<ItsmDbContext>();
             db.Database.Migrate();
+
+            var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
+            seeder.SeedAsync().GetAwaiter().GetResult();
         });
     }
 }

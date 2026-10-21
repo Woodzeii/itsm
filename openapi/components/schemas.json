@@ -233,6 +233,24 @@
           }
         }
       },
+      "TwoFactorSetupResponse": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string"
+          },
+          "otpAuthUri": {
+            "type": "string"
+          },
+          "qrCodeImageBase64": {
+            "type": "string",
+            "description": "PNG в Base64 без префикса data URI"
+          },
+          "issuer": {
+            "type": "string"
+          }
+        }
+      },
       "CreateTicketRequest": {
         "type": "object",
         "description": "Для встроенного типа «Тикет на ремонт» заявку создает инженер ТП; assetId обязателен, актив должен находиться на этапе «На складе» или «В эксплуатации». Создание такого тикета автоматически переводит актив в этап «В ремонте».",

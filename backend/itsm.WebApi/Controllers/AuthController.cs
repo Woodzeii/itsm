@@ -242,11 +242,13 @@ public class AuthController : ControllerBase
         await _db.SaveChangesAsync();
 
         var uri = _totp.BuildOtpAuthUri(Issuer, user.Username, secret);
+        var qrBase64 = _totp.GenerateQrCodePngBase64(uri);
 
         return Ok(new TwoFactorSetupResponse
         {
             Secret = secret,
             OtpAuthUri = uri,
+            QrCodeImageBase64 = qrBase64,
             Issuer = Issuer
         });
     }

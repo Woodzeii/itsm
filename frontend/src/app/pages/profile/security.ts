@@ -65,7 +65,7 @@ import {
 
             <div class="qr-wrap">
               <img
-                [src]="qrUrl(setupData.otpAuthUri)"
+                [src]="qrImageSrc(setupData)"
                 alt="QR-код для настройки 2FA"
                 class="qr-image" />
             </div>
@@ -332,7 +332,10 @@ export class SecurityComponent implements OnInit {
         this.clearMessages();
     }
 
-    qrUrl(otpAuthUri: string): string {
-        return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(otpAuthUri)}`;
+    qrImageSrc(setup: TwoFactorSetupResponse): string {
+        if (setup.qrCodeImageBase64) {
+            return `data:image/png;base64,${setup.qrCodeImageBase64}`;
+        }
+        return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(setup.otpAuthUri)}`;
     }
 }
