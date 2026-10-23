@@ -1,7 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportSummary, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
 import { AdminService } from '../../core/admin/admin.service';
@@ -100,7 +100,9 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
       @if (section === 'users') {
         <section class="panel"><header><h2>Управление пользователями</h2><p>Просмотр, редактирование и управление учётными записями пользователей</p></header>
           <div class="users-toolbar"><button class="quiet" type="button" routerLink="/admin/users/new">+ Добавить пользователя</button></div>
-          @if (usersList.length) {
+          @if (usersLoading) {
+            <p class="empty" style="padding:16px;">Загрузка пользователей…</p>
+          } @else if (usersList.length) {
             <table class="users-table">
               <thead>
                 <tr><th>ФИО</th><th>Email</th><th>Username</th><th>Департамент</th><th>Руководитель</th><th>Статус</th><th>Роли</th><th></th></tr>
@@ -219,6 +221,7 @@ export class AdminWorkspaceComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
     private readonly admin = inject(AdminService);
     private readonly route = inject(ActivatedRoute);
+    private readonly router = inject(Router);
 
     section: AdminSection = 'settings';
     settings: AdminSettings | null = null;
@@ -229,6 +232,7 @@ export class AdminWorkspaceComponent implements OnInit {
     escalationHistory: EscalationHistoryEntry[] = [];
     reports: ReportSummary[] = [];
     usersList: UserSummary[] = [];
+    usersLoading = false;
     availableRoles: RoleSummary[] = [];
     editingUserId: number | null = null;
     editingUser: Partial<UpdateAdminUserRequest> | null = null;
@@ -251,6 +255,12 @@ export class AdminWorkspaceComponent implements OnInit {
 
     ngOnInit(): void {
         this.section = this.route.snapshot.data['section'] as AdminSection;
+        if (this.section === 'users') {
+            const createdUser = this.router.getCurrentNavigation()?.extras.state?.['userCreated'];
+            if (typeof createdUser === 'string') {
+                this.notice = `Пользователь ${createdUser} успешно создан.`;
+            }
+        }
         this.workspace.getAdminSettings().subscribe({ next: settings => this.settings = settings, error: err => this.error = err.message });
         if (this.section === 'settings') this.workspace.getTicketTypes().subscribe({ next: types => this.ticketTypes = types, error: err => this.error = err.message });
         if (this.section === 'forms') this.workspace.getForms().subscribe({ next: forms => { this.forms = forms; this.formId = forms[0]?.ticketTypeId ?? ''; }, error: err => this.error = err.message });
@@ -260,7 +270,17 @@ export class AdminWorkspaceComponent implements OnInit {
         }
         if (this.section === 'reports') this.loadReports();
         if (this.section === 'users') {
-            this.admin.getUsers().subscribe({ next: users => this.usersList = users, error: err => this.error = err.message });
+            this.usersLoading = true;
+            this.admin.getUsers().subscribe({
+                next: users => {
+                    this.usersList = users;
+                    this.usersLoading = false;
+                },
+                error: err => {
+                    this.error = err.message;
+                    this.usersLoading = false;
+                },
+            });
             this.admin.getRoles().subscribe({ next: roles => this.availableRoles = roles.filter(role => role.code !== 'tenant_admin' && role.code !== 'admin'), error: err => this.error = err.message });
         }
     }

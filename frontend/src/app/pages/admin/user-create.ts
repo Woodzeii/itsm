@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { AdminService } from '../../core/admin/admin.service';
 import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/admin/admin.models';
 
@@ -107,6 +108,7 @@ import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/adm
 })
 export class UserCreateComponent implements OnInit {
     private readonly admin = inject(AdminService);
+    private readonly router = inject(Router);
 
     managers: UserSummary[] = [];
     roles: RoleSummary[] = [];
@@ -146,10 +148,12 @@ export class UserCreateComponent implements OnInit {
 
         this.admin.createUser(request).subscribe({
             next: user => {
-                this.managers = [user, ...this.managers];
-                this.notice = `Пользователь ${user.fullName} создан.`;
-                this.form = this.emptyForm();
                 this.saving = false;
+                void this.router.navigate(['/admin/users'], {
+                    state: { userCreated: user.fullName },
+                }).catch(err => {
+                    this.error = err.message || 'Пользователь создан, но не удалось открыть список пользователей.';
+                });
             },
             error: err => {
                 this.error = err.message || 'Не удалось создать пользователя.';
