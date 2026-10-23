@@ -181,5 +181,48 @@ public class AuthTests
         token.Claims.Should().Contain(c => c.Type == "Email" && c.Value == "admin@itsm.local");
         token.Claims.Should().Contain(c => c.Type == "iss" && c.Value == "itsm-api");
         token.Claims.Should().Contain(c => c.Type == "aud" && c.Value == "itsm-client");
+        
+        // Проверяем наличие Role claims для ASP.NET [Authorize(Roles = "")] атрибутов
+        token.Claims.Should().Contain(c => c.Type == "http://schemas.microsoft.com/ws/2008/06/identity/claims/role");
+        
+        // Проверяем наличие JSON-массива ролей в custom claim "roles" для фронтенда
+        var rolesClaim = token.Claims.FirstOrDefault(c => c.Type == "roles");
+        rolesClaim.Should().NotBeNull("Custom claim 'roles' должен содержать JSON-массив ролей");
+        rolesClaim!.Value.Should().StartWith("[").And.EndWith("]");
     }
+
+    // ============ AUTH-QA.7 ============
+    [Fact]
+    public async Task Verify2Fa_ReturnsJwtWithRolesAsJsonArray()
+    {
+        var client = _factory.CreateClient();
+
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login",
+            new LoginRequest { Username = "admin", Password = "admin123" });
+        var login = await loginResponse.Content.ReadFromJsonAsync<LoginResponse>();
+        login.Should().NotBeNull();
+
+        var verifyResponse = await client.PostAsJsonAsync("/api/auth/verify-2fa",
+            new VerifyTwoFactorRequest
+            {
+                UserId = login!.UserId,
+                Code = CustomWebApplicationFactory.ValidCode
+            });
+        var verify = await verifyResponse.Content.ReadFromJsonAsync<VerifyTwoFactorResponse>();
+        verify.Should().NotBeNull();
+
+        var handler = new JwtSecurityTokenHandler();
+        var token = handler.ReadJwtToken(verify!.AccessToken);
+
+        // Парсим JSON-массив ролей из custom claim
+        var rolesClaim = token.Claims.FirstOrDefault(c => c.Type == "roles");
+        rolesClaim.Should().NotBeNull();
+
+        var rolesJson = rolesClaim!.Value;
+        var roles = System.Text.Json.JsonSerializer.Deserialize<List<string>>(rolesJson);
+        
+        roles.Should().NotBeEmpty();
+        roles.Should().Contain("admin");
+    }
+}
 }
