@@ -3,7 +3,9 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportSummary, TicketFormDefinition, TicketType, SystemRoleOption, UserRecord, CreateUserRequest } from '../../core/workspace/workspace.models';
+import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportSummary, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
+import { AdminService } from '../../core/admin/admin.service';
+import { RoleSummary, UpdateAdminUserRequest, UserSummary } from '../../core/admin/admin.models';
 
 type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 
@@ -97,7 +99,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 
       @if (section === 'users') {
         <section class="panel"><header><h2>Управление пользователями</h2><p>Просмотр, редактирование и управление учётными записями пользователей</p></header>
-          <div class="users-toolbar"><button class="quiet" type="button" routerLink="/admin/users">+ Добавить пользователя</button></div>
+          <div class="users-toolbar"><button class="quiet" type="button" routerLink="/admin/users/new">+ Добавить пользователя</button></div>
           @if (usersList.length) {
             <table class="users-table">
               <thead>
@@ -215,6 +217,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 })
 export class AdminWorkspaceComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
+    private readonly admin = inject(AdminService);
     private readonly route = inject(ActivatedRoute);
 
     section: AdminSection = 'settings';
@@ -225,10 +228,10 @@ export class AdminWorkspaceComponent implements OnInit {
     policies: EscalationPolicy[] = [];
     escalationHistory: EscalationHistoryEntry[] = [];
     reports: ReportSummary[] = [];
-    usersList: UserRecord[] = [];
-    availableRoles: SystemRoleOption[] = [];
+    usersList: UserSummary[] = [];
+    availableRoles: RoleSummary[] = [];
     editingUserId: number | null = null;
-    editingUser: Partial<CreateUserRequest> | null = null;
+    editingUser: Partial<UpdateAdminUserRequest> | null = null;
     error = '';
     notice = '';
     newCriticality = '';
@@ -257,8 +260,8 @@ export class AdminWorkspaceComponent implements OnInit {
         }
         if (this.section === 'reports') this.loadReports();
         if (this.section === 'users') {
-            this.workspace.getUsers().subscribe({ next: users => this.usersList = users, error: err => this.error = err.message });
-            this.workspace.getSystemRoles().subscribe({ next: roles => this.availableRoles = roles.filter(role => role.id !== 1 && role.id !== 2), error: err => this.error = err.message });
+            this.admin.getUsers().subscribe({ next: users => this.usersList = users, error: err => this.error = err.message });
+            this.admin.getRoles().subscribe({ next: roles => this.availableRoles = roles.filter(role => role.code !== 'tenant_admin' && role.code !== 'admin'), error: err => this.error = err.message });
         }
     }
 
@@ -348,7 +351,7 @@ export class AdminWorkspaceComponent implements OnInit {
         { id: `${id}-priority`, name: 'Критичность', type: 'dictionary', required: true, visibleToRequester: true, options: this.settings?.criticalities, immutable: true },
     ]; }
 
-    editUser(user: UserRecord): void {
+    editUser(user: UserSummary): void {
         this.editingUserId = user.id;
         this.editingUser = { ...user, roleIds: [...user.roleIds] };
     }
@@ -372,7 +375,17 @@ export class AdminWorkspaceComponent implements OnInit {
             this.error = 'Назначьте пользователю хотя бы одну роль.';
             return;
         }
-        this.workspace.updateUser(userId, this.editingUser).subscribe({
+        const request: UpdateAdminUserRequest = {
+            username: this.editingUser.username ?? '',
+            email: this.editingUser.email ?? '',
+            fullName: this.editingUser.fullName ?? '',
+            department: this.editingUser.department ?? null,
+            managerId: this.editingUser.managerId ?? null,
+            tenantId: this.editingUser.tenantId ?? null,
+            isActive: this.editingUser.isActive ?? true,
+            roleIds: this.editingUser.roleIds,
+        };
+        this.admin.updateUser(userId, request).subscribe({
             next: updated => {
                 this.usersList = this.usersList.map(u => u.id === userId ? updated : u);
                 this.editingUserId = null;

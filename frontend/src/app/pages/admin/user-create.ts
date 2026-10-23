@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CreateUserRequest, SystemRoleOption, UserRecord } from '../../core/workspace/workspace.models';
-import { WorkspaceService } from '../../core/workspace/workspace.service';
+import { AdminService } from '../../core/admin/admin.service';
+import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/admin/admin.models';
 
 @Component({
     selector: 'app-user-create',
@@ -17,13 +17,13 @@ import { WorkspaceService } from '../../core/workspace/workspace.service';
       @if (error) { <p class="feedback error" role="alert">{{ error }}</p> }
       @if (notice) { <p class="feedback success" role="status">{{ notice }}</p> }
 
-      <form class="user-form" (ngSubmit)="createUser()">
+      <form class="user-form" autocomplete="off" (ngSubmit)="createUser()">
         <section class="panel">
           <header><span class="step">01</span><div><h2>Основные данные</h2><p>Контактные и организационные сведения</p></div></header>
           <div class="field-grid">
             <label class="wide">ФИО<input name="fullName" [(ngModel)]="form.fullName" autocomplete="name" required /></label>
-            <label>Email (логин)<input name="email" type="email" [(ngModel)]="form.email" autocomplete="email" required /></label>
-            <label>Username<input name="username" [(ngModel)]="form.username" autocomplete="username" required /></label>
+            <label>Email (логин)<input name="newUserEmail" type="email" [(ngModel)]="form.email" autocomplete="off" required /></label>
+            <label>Username<input name="newUserLogin" [(ngModel)]="form.username" autocomplete="off" required /></label>
             <label>Департамент<input name="department" [(ngModel)]="form.department" required /></label>
             <label>Руководитель
               <select name="managerId" [(ngModel)]="form.managerId">
@@ -106,22 +106,22 @@ import { WorkspaceService } from '../../core/workspace/workspace.service';
     `],
 })
 export class UserCreateComponent implements OnInit {
-    private readonly workspace = inject(WorkspaceService);
+    private readonly admin = inject(AdminService);
 
-    managers: UserRecord[] = [];
-    roles: SystemRoleOption[] = [];
+    managers: UserSummary[] = [];
+    roles: RoleSummary[] = [];
     saving = false;
     error = '';
     notice = '';
     form = this.emptyForm();
 
     ngOnInit(): void {
-        this.workspace.getUsers().subscribe({
+        this.admin.getUsers().subscribe({
             next: users => this.managers = users.filter(user => user.isActive),
             error: err => this.error = err.message || 'Не удалось загрузить список пользователей.',
         });
-        this.workspace.getSystemRoles().subscribe({
-            next: roles => this.roles = roles.filter(role => role.id !== 1 && role.id !== 2),
+        this.admin.getRoles().subscribe({
+            next: roles => this.roles = roles.filter(role => role.code !== 'tenant_admin' && role.code !== 'admin'),
             error: err => this.error = err.message || 'Не удалось загрузить справочник ролей.',
         });
     }
@@ -139,12 +139,12 @@ export class UserCreateComponent implements OnInit {
         this.error = '';
         this.notice = '';
 
-        const request: CreateUserRequest = {
+        const request: CreateAdminUserRequest = {
             ...this.form,
             managerId: this.form.managerId,
         };
 
-        this.workspace.createUser(request).subscribe({
+        this.admin.createUser(request).subscribe({
             next: user => {
                 this.managers = [user, ...this.managers];
                 this.notice = `Пользователь ${user.fullName} создан.`;
@@ -158,7 +158,7 @@ export class UserCreateComponent implements OnInit {
         });
     }
 
-    private emptyForm(): CreateUserRequest {
+    private emptyForm(): CreateAdminUserRequest {
         return { fullName: '', email: '', username: '', department: '', managerId: null, initialPassword: '', isActive: true, roleIds: [] };
     }
 }

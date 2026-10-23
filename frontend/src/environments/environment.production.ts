@@ -2,5 +2,5 @@
     apiBaseUrl: '/api',
     useMockWorkspaceApi: true,
     useMockAuth: false,
-    useMockAdminApi: true,
+    useMockAdminApi: false,
 };

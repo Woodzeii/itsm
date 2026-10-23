@@ -48,16 +48,21 @@ public class CreateUserRequest
     public int? ManagerId { get; set; }
     public int? TenantId { get; set; }
     public bool IsManager { get; set; }
+    public bool IsActive { get; set; } = true;
     public List<int> RoleIds { get; set; } = new();
 }
 
 public class UpdateUserRequest
 {
+    public string Username { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
     public string? FullName { get; set; }
     public string? Department { get; set; }
     public int? ManagerId { get; set; }
     public int? TenantId { get; set; }
+    public bool? IsActive { get; set; }
+    public bool? IsManager { get; set; }
+    public List<int>? RoleIds { get; set; }
 }
 
 public class SetUserActiveRequest

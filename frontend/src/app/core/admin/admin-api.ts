@@ -1,12 +1,17 @@
 import { Observable } from 'rxjs';
-import { AuditLogEntry, RoleSummary, UserSummary } from './admin.models';
+import {
+    AuditLogEntry,
+    CreateAdminUserRequest,
+    RoleSummary,
+    UpdateAdminUserRequest,
+    UserSummary,
+} from './admin.models';
 
-/**
- * ⚠️ НЕ РЕАЛИЗОВАНО В BACKEND.
- * Хардкод-данные в AdminController (backend) и MockAdminApiService (frontend).
- */
+/** API for administrative audit and user management. */
 export abstract class AdminApi {
     abstract getAuditLog(): Observable<AuditLogEntry[]>;
     abstract getUsers(): Observable<UserSummary[]>;
     abstract getRoles(): Observable<RoleSummary[]>;
+    abstract createUser(request: CreateAdminUserRequest): Observable<UserSummary>;
+    abstract updateUser(id: number, request: UpdateAdminUserRequest): Observable<UserSummary>;
 }

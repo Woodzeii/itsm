@@ -56,6 +56,49 @@ public class UserAdminServiceTests
     }
 
     [Fact]
+    public async Task Create_UsesRequestedActiveState()
+    {
+        var (svc, db) = Create();
+        var actor = AddUser(db, "actor", admin: true);
+
+        var dto = await svc.CreateAsync(new CreateUserRequest
+        {
+            Username = "inactive.user",
+            Email = "inactive@x.local",
+            Password = "Passw0rdX",
+            IsActive = false
+        }, actor.Id, null);
+
+        dto.IsActive.Should().BeFalse();
+        (await db.Users.SingleAsync(user => user.Id == dto.Id)).IsActive.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Update_ChangesProfileRolesAndActiveState()
+    {
+        var (svc, db) = Create();
+        var actor = AddUser(db, "actor", admin: true);
+        var target = AddUser(db, "target");
+
+        var updated = await svc.UpdateAsync(target.Id, new UpdateUserRequest
+        {
+            Username = "updated.target",
+            Email = "updated@x.local",
+            FullName = "Updated Target",
+            Department = "IT",
+            RoleIds = new List<int> { AgentRoleId },
+            IsActive = false
+        }, actor.Id, null);
+
+        updated.Username.Should().Be("updated.target");
+        updated.Email.Should().Be("updated@x.local");
+        updated.FullName.Should().Be("Updated Target");
+        updated.Department.Should().Be("IT");
+        updated.RoleIds.Should().Equal(AgentRoleId);
+        updated.IsActive.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Create_DuplicateUsername_Conflicts()
     {
         var (svc, db) = Create();

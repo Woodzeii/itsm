@@ -35,6 +35,13 @@ public class UpdateUserRequestValidator : AbstractValidator<UpdateUserRequest>
 {
     public UpdateUserRequestValidator()
     {
+        RuleFor(x => x.Username)
+            .NotEmpty().WithMessage("Логин обязателен")
+            .MinimumLength(3).WithMessage("Логин должен быть не короче 3 символов")
+            .MaximumLength(64)
+            .Matches("^[a-zA-Z0-9._-]+$")
+            .WithMessage("Логин может содержать только буквы, цифры, точку, дефис и подчёркивание");
+
         RuleFor(x => x.Email)
             .NotEmpty().WithMessage("Email обязателен")
             .EmailAddress().WithMessage("Некорректный формат email")
@@ -42,6 +49,8 @@ public class UpdateUserRequestValidator : AbstractValidator<UpdateUserRequest>
 
         RuleFor(x => x.FullName).MaximumLength(255);
         RuleFor(x => x.Department).MaximumLength(255);
+        RuleFor(x => x.RoleIds).NotEmpty().When(x => x.RoleIds is not null)
+            .WithMessage("Пользователю должна быть назначена хотя бы одна роль");
     }
 }
 
