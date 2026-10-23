@@ -68,5 +68,6 @@ public class SetUserActiveRequest
 public class SetUserRolesRequest
 {
     public List<int> RoleIds { get; set; } = new();
+    public List<string> RoleCodes { get; set; } = new();
     public bool IsManager { get; set; }
 }

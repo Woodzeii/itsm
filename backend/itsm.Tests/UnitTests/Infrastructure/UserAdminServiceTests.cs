@@ -98,7 +98,7 @@ public class UserAdminServiceTests
         (await db.Users.SingleAsync(u => u.Id == other.Id)).IsActive.Should().BeFalse();
 
         var self = () => svc.DeleteAsync(actor.Id, actor.Id, null);
-        (await self.Should().ThrowAsync<UserAdminException>()).Which.Kind.Should().Be(UserAdminErrorKind.Validation);
+        (await self.Should().ThrowAsync<UserAdminException>()).Which.Kind.Should().Be(UserAdminErrorKind.Conflict);
     }
 
     [Fact]
@@ -128,7 +128,14 @@ public class UserAdminServiceTests
         dto.IsManager.Should().BeTrue();
 
         var self = () => svc.SetRolesAsync(actor.Id, new SetUserRolesRequest(), actor.Id, null);
-        (await self.Should().ThrowAsync<UserAdminException>()).Which.Kind.Should().Be(UserAdminErrorKind.Validation);
+        (await self.Should().ThrowAsync<UserAdminException>()).Which.Kind.Should().Be(UserAdminErrorKind.Conflict);
+
+        var byCode = await svc.SetRolesAsync(target.Id,
+            new SetUserRolesRequest { RoleCodes = { "agent" }, IsManager = true }, actor.Id, null);
+        byCode.RoleCodes.Should().Equal("agent");
+
+        var selfDeactivate = () => svc.SetActiveAsync(actor.Id, false, actor.Id, null);
+        (await selfDeactivate.Should().ThrowAsync<UserAdminException>()).Which.Kind.Should().Be(UserAdminErrorKind.Conflict);
 
         var bad = () => svc.SetRolesAsync(target.Id, new SetUserRolesRequest { RoleIds = { 9999 } }, actor.Id, null);
         (await bad.Should().ThrowAsync<UserAdminException>()).Which.Kind.Should().Be(UserAdminErrorKind.Validation);

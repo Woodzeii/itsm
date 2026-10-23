@@ -164,6 +164,16 @@ public class UserAdminService : IUserAdminService
     {
         var user = await LoadAsync(id, ct);
         var newRoleIds = request.RoleIds.Distinct().ToList();
+        var roleCodes = (request.RoleCodes ?? new()).Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).Distinct().ToList();
+        if (newRoleIds.Count == 0 && roleCodes.Count > 0)
+        {
+            var found = await _db.SystemRoles
+                .Where(r => r.Code != null && roleCodes.Contains(r.Code))
+                .Select(r => r.Id).ToListAsync(ct);
+            if (found.Count != roleCodes.Count)
+                throw new UserAdminException(UserAdminErrorKind.Validation, "Указан несуществующий код роли");
+            newRoleIds = found;
+        }
         await EnsureRolesExistAsync(newRoleIds, ct);
 
         var adminRoleId = await _db.SystemRoles
@@ -174,7 +184,7 @@ public class UserAdminService : IUserAdminService
         if (wasAdmin && !willBeAdmin)
         {
             if (user.Id == actorId)
-                throw new UserAdminException(UserAdminErrorKind.Validation, "Нельзя снять с себя роль администратора");
+                throw new UserAdminException(UserAdminErrorKind.Conflict, "Нельзя снять с себя роль администратора");
             if (user.IsActive && await IsLastActiveAdminAsync(user.Id, ct))
                 throw new UserAdminException(UserAdminErrorKind.Conflict, "Нельзя снять роль у последнего администратора");
         }
@@ -237,7 +247,7 @@ public class UserAdminService : IUserAdminService
     private async Task EnsureCanDeactivateAsync(User user, int actorId, CancellationToken ct)
     {
         if (user.Id == actorId)
-            throw new UserAdminException(UserAdminErrorKind.Validation, "Нельзя деактивировать или удалить собственную учётную запись");
+            throw new UserAdminException(UserAdminErrorKind.Conflict, "Нельзя деактивировать или удалить собственную учётную запись");
         if (user.IsActive && await IsLastActiveAdminAsync(user.Id, ct))
             throw new UserAdminException(UserAdminErrorKind.Conflict, "Нельзя деактивировать или удалить последнего администратора");
     }
