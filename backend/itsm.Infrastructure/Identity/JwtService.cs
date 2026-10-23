@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using itsm.Application.Common.Interfaces;
 using itsm.Application.Common.Models;
 using Microsoft.Extensions.Options;
@@ -10,6 +11,9 @@ namespace itsm.Infrastructure.Identity;
 
 /// <summary>
 /// Генерация JWT-токенов. Параметры подписи берутся из JwtSettings.
+/// Все роли упаковываются в Claims:
+/// - Как массив в custom claim "roles" (для валидации на фронтенде)
+/// - Как отдельные claims с типом Role (для [Authorize(Roles = "")] атрибутов)
 /// </summary>
 public class JwtService : IJwtService
 {
@@ -22,6 +26,8 @@ public class JwtService : IJwtService
 
     public string GenerateToken(int userId, string login, string email, IEnumerable<string> roles)
     {
+        var rolesList = roles.ToList();
+
         var claims = new List<Claim>
         {
             new("Id", userId.ToString()),
@@ -34,10 +40,15 @@ public class JwtService : IJwtService
         };
 
         // Роли — чтобы [Authorize(Roles = "...")] работал
-        foreach (var role in roles)
+        foreach (var role in rolesList)
         {
             claims.Add(new Claim(ClaimTypes.Role, role));
         }
+
+        // Упаковываем все роли как JSON-массив в custom claim "roles"
+        // Фронтенд может парсить это и валидировать доступные роли на этапе сессии
+        var rolesJson = JsonSerializer.Serialize(rolesList);
+        claims.Add(new Claim("roles", rolesJson));
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Key));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
