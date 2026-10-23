@@ -3,9 +3,9 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportSummary, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
+import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportSummary, TicketFormDefinition, TicketType, SystemRoleOption, UserRecord, CreateUserRequest } from '../../core/workspace/workspace.models';
 
-type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
+type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 
 @Component({
     selector: 'app-admin-workspace',
@@ -14,7 +14,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
     template: `
     <section class="page">
       <header class="heading"><div><p class="eyebrow">Администрирование</p><h1>{{ pageTitle }}</h1></div></header>
-      <nav class="admin-nav"><a routerLink="/admin/settings" routerLinkActive="active">Настройки</a><a routerLink="/admin/forms" routerLinkActive="active">Конструктор форм</a><a routerLink="/admin/escalation-policies" routerLinkActive="active">Эскалация</a><a routerLink="/admin/reports" routerLinkActive="active">Отчёты</a><a routerLink="/dictionaries">Справочники</a><a routerLink="/asset-classes">Классы активов</a></nav>
+      <nav class="admin-nav"><a routerLink="/admin/settings" routerLinkActive="active">Настройки</a><a routerLink="/admin/forms" routerLinkActive="active">Конструктор форм</a><a routerLink="/admin/escalation-policies" routerLinkActive="active">Эскалация</a><a routerLink="/admin/reports" routerLinkActive="active">Отчёты</a><a routerLink="/admin/users" routerLinkActive="active">Пользователи</a><a routerLink="/dictionaries">Справочники</a><a routerLink="/asset-classes">Классы активов</a></nav>
       @if (error) { <p class="feedback error">{{ error }}</p> }
       @if (notice) { <p class="feedback success">{{ notice }}</p> }
 
@@ -94,6 +94,48 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
           <div class="report-list">@for (report of reports; track report.id) { <article><span class="report-icon" aria-hidden="true">▤</span><div><strong>{{ report.title }}</strong><p>{{ report.description }}</p></div><b>{{ report.value }}</b></article> }</div>
         </section>
       }
+
+      @if (section === 'users') {
+        <section class="panel"><header><h2>Управление пользователями</h2><p>Просмотр, редактирование и управление учётными записями пользователей</p></header>
+          <div class="users-toolbar"><button class="quiet" type="button" routerLink="/admin/users">+ Добавить пользователя</button></div>
+          @if (usersList.length) {
+            <table class="users-table">
+              <thead>
+                <tr><th>ФИО</th><th>Email</th><th>Username</th><th>Департамент</th><th>Руководитель</th><th>Статус</th><th>Роли</th><th></th></tr>
+              </thead>
+              <tbody>
+                @for (user of usersList; track user.id; let index = $index) {
+                  @if (editingUserId === user.id) {
+                    <tr class="edit-row">
+                      <td><input name="fullName" [(ngModel)]="editingUser!.fullName" /></td>
+                      <td><input name="email" type="email" [(ngModel)]="editingUser!.email" /></td>
+                      <td><input name="username" [(ngModel)]="editingUser!.username" /></td>
+                      <td><input name="department" [(ngModel)]="editingUser!.department" /></td>
+                      <td><select name="managerId" [(ngModel)]="editingUser!.managerId"><option [ngValue]="null">Не назначен</option>@for (manager of usersList.filter(u => u.id !== user.id && u.isActive); track manager.id) { <option [ngValue]="manager.id">{{ manager.fullName }}</option> }</select></td>
+                      <td><label class="check"><input type="checkbox" [(ngModel)]="editingUser!.isActive" /><span>Активен</span></label></td>
+                      <td class="roles-cell"><div class="roles-list">@for (role of availableRoles; track role.id) { <label class="role-check"><input type="checkbox" [checked]="editingUser!.roleIds.includes(role.id)" (change)="toggleEditingUserRole(role.id, $event)" /><span>{{ role.name }}</span></label> }</div></td>
+                      <td class="actions"><button type="button" (click)="saveUser(user.id)">✓</button><button type="button" (click)="cancelEdit()">✕</button></td>
+                    </tr>
+                  } @else {
+                    <tr>
+                      <td>{{ user.fullName }}</td>
+                      <td>{{ user.email }}</td>
+                      <td>{{ user.username }}</td>
+                      <td>{{ user.department }}</td>
+                      <td>{{ findUserName(user.managerId) || '—' }}</td>
+                      <td><span class="status" [class.active]="user.isActive" [class.inactive]="!user.isActive">{{ user.isActive ? 'Активен' : 'Неактивен' }}</span></td>
+                      <td>{{ user.roleIds.map(id => findRoleName(id)).filter(n => n).join(', ') || '—' }}</td>
+                      <td class="actions"><button type="button" (click)="editUser(user)">✎</button></td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          } @else {
+            <p class="empty" style="padding:16px;">Пользователей не найдено</p>
+          }
+        </section>
+      }
     </section>
   `,
     styles: [`
@@ -149,8 +191,26 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
       .report-icon { width:30px; height:30px; display:grid; place-items:center; border-radius:5px; background:#edf4ff; color:#3270cb; }
       .report-list article div { min-width:0; flex:1; } .report-list article strong { font-size:10px; } .report-list article p { margin:4px 0 0; color:#84909d; font-size:9px; } .report-list article b { color:#4a5665; font-size:10px; white-space:nowrap; }
       .empty { padding:10px 16px; color:#8993a1; font-size:10px; }
-      @media(max-width:950px) { .policy-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .type-top { grid-template-columns:1fr 1fr; } .sla-grid { grid-template-columns:1fr; } }
-      @media(max-width:650px) { .page { padding:20px 13px 30px; } .field-grid,.list-editor,.field-main,.field-options,.account-grid,.add-field { grid-template-columns:1fr; } .status-row { grid-template-columns:1fr auto; } .status-row .check { grid-column:1; } .policy-row { grid-template-columns:1fr; } .period { align-items:stretch; flex-direction:column; } .period label { min-width:0; } }
+      .users-toolbar { padding:12px 16px; border-bottom:1px solid #edf0f4; } .users-toolbar button { min-height:32px; }
+      .users-table { width:100%; border-collapse:collapse; font-size:9px; }
+      .users-table thead { background:#f7f9fb; }
+      .users-table th { padding:10px 8px; text-align:left; color:#546173; font-weight:600; border-bottom:1px solid #dfe4ea; }
+      .users-table td { padding:10px 8px; border-bottom:1px solid #eef1f4; color:#414c5a; }
+      .users-table .edit-row input, .users-table .edit-row select { width:100%; min-height:28px; padding:4px 6px; border:1px solid #dfe4ea; border-radius:3px; }
+      .users-table .edit-row td { padding:8px 4px; }
+      .users-table .status { display:inline-block; padding:3px 6px; border-radius:3px; font-size:8px; font-weight:600; }
+      .users-table .status.active { background:#e6f7f0; color:#176f52; }
+      .users-table .status.inactive { background:#ffe9e9; color:#a93232; }
+      .users-table .roles-cell { max-width:180px; }
+      .roles-list { display:grid; gap:4px; }
+      .role-check { display:flex; align-items:center; gap:4px; min-height:24px; }
+      .role-check input { margin:0; }
+      .role-check span { font-size:8px; color:#546173; }
+      .users-table .actions { text-align:center; }
+      .users-table button { width:24px; height:24px; margin:0 2px; padding:0; border:0; border-radius:3px; background:#f0f2f5; color:#546173; cursor:pointer; font-size:9px; }
+      .users-table button:hover { background:#e2e7ed; }
+      @media(max-width:950px) { .policy-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .type-top { grid-template-columns:1fr 1fr; } .sla-grid { grid-template-columns:1fr; } .users-table { font-size:8px; } .users-table th, .users-table td { padding:6px 4px; } }
+      @media(max-width:650px) { .page { padding:20px 13px 30px; } .field-grid,.list-editor,.field-main,.field-options,.account-grid,.add-field { grid-template-columns:1fr; } .status-row { grid-template-columns:1fr auto; } .status-row .check { grid-column:1; } .policy-row { grid-template-columns:1fr; } .period { align-items:stretch; flex-direction:column; } .period label { min-width:0; } .users-table { font-size:7px; } }
     `],
 })
 export class AdminWorkspaceComponent implements OnInit {
@@ -165,6 +225,10 @@ export class AdminWorkspaceComponent implements OnInit {
     policies: EscalationPolicy[] = [];
     escalationHistory: EscalationHistoryEntry[] = [];
     reports: ReportSummary[] = [];
+    usersList: UserRecord[] = [];
+    availableRoles: SystemRoleOption[] = [];
+    editingUserId: number | null = null;
+    editingUser: Partial<CreateUserRequest> | null = null;
     error = '';
     notice = '';
     newCriticality = '';
@@ -179,7 +243,7 @@ export class AdminWorkspaceComponent implements OnInit {
     newHoliday = '';
     readonly weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-    get pageTitle(): string { return { settings: 'Настройки Service Desk', forms: 'Конструктор форм', escalations: 'Процесс эскалации', reports: 'Отчёты' }[this.section]; }
+    get pageTitle(): string { return { settings: 'Настройки Service Desk', forms: 'Конструктор форм', escalations: 'Процесс эскалации', reports: 'Отчёты', users: 'Управление пользователями' }[this.section]; }
     get activeForm(): TicketFormDefinition | undefined { return this.forms.find(form => form.ticketTypeId === this.formId); }
 
     ngOnInit(): void {
@@ -192,6 +256,10 @@ export class AdminWorkspaceComponent implements OnInit {
             this.workspace.getEscalationHistory().subscribe({ next: history => this.escalationHistory = history, error: err => this.error = err.message });
         }
         if (this.section === 'reports') this.loadReports();
+        if (this.section === 'users') {
+            this.workspace.getUsers().subscribe({ next: users => this.usersList = users, error: err => this.error = err.message });
+            this.workspace.getSystemRoles().subscribe({ next: roles => this.availableRoles = roles.filter(role => role.id !== 1 && role.id !== 2), error: err => this.error = err.message });
+        }
     }
 
     saveSettings(): void {
@@ -279,4 +347,51 @@ export class AdminWorkspaceComponent implements OnInit {
         { id: `${id}-description`, name: 'Описание', type: 'textarea', required: true, visibleToRequester: true, immutable: true },
         { id: `${id}-priority`, name: 'Критичность', type: 'dictionary', required: true, visibleToRequester: true, options: this.settings?.criticalities, immutable: true },
     ]; }
+
+    editUser(user: UserRecord): void {
+        this.editingUserId = user.id;
+        this.editingUser = { ...user, roleIds: [...user.roleIds] };
+    }
+
+    cancelEdit(): void {
+        this.editingUserId = null;
+        this.editingUser = null;
+        this.error = '';
+    }
+
+    toggleEditingUserRole(roleId: number, event: Event): void {
+        if (!this.editingUser) return;
+        const checked = (event.target as HTMLInputElement).checked;
+        this.editingUser.roleIds = checked
+            ? [...new Set([...(this.editingUser.roleIds || []), roleId])]
+            : (this.editingUser.roleIds || []).filter(id => id !== roleId);
+    }
+
+    saveUser(userId: number): void {
+        if (!this.editingUser || !this.editingUser.roleIds || this.editingUser.roleIds.length === 0) {
+            this.error = 'Назначьте пользователю хотя бы одну роль.';
+            return;
+        }
+        this.workspace.updateUser(userId, this.editingUser).subscribe({
+            next: updated => {
+                this.usersList = this.usersList.map(u => u.id === userId ? updated : u);
+                this.editingUserId = null;
+                this.editingUser = null;
+                this.notice = 'Пользователь обновлён.';
+                this.error = '';
+            },
+            error: err => {
+                this.error = err.message || 'Не удалось обновить пользователя.';
+            },
+        });
+    }
+
+    findUserName(userId: number | null): string | undefined {
+        if (!userId) return undefined;
+        return this.usersList.find(u => u.id === userId)?.fullName;
+    }
+
+    findRoleName(roleId: number): string | undefined {
+        return this.availableRoles.find(r => r.id === roleId)?.name;
+    }
 }

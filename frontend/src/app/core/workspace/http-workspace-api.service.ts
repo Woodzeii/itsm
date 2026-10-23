@@ -109,6 +109,7 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     getUsers() { return this.http.get<UserRecord[]>(`${this.baseUrl}/users`); }
     getSystemRoles() { return this.http.get<SystemRoleOption[]>(`${this.baseUrl}/system-roles`); }
     createUser(request: CreateUserRequest) { return this.http.post<UserRecord>(`${this.baseUrl}/users`, request); }
+    updateUser(userId: number, changes: Partial<CreateUserRequest>) { return this.http.patch<UserRecord>(`${this.baseUrl}/users/${userId}`, changes); }
 }
 
 function parseOptions(value: string | null): string[] {

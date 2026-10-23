@@ -121,7 +121,7 @@ export class UserCreateComponent implements OnInit {
             error: err => this.error = err.message || 'Не удалось загрузить список пользователей.',
         });
         this.workspace.getSystemRoles().subscribe({
-            next: roles => this.roles = roles,
+            next: roles => this.roles = roles.filter(role => role.id !== 1 && role.id !== 2),
             error: err => this.error = err.message || 'Не удалось загрузить справочник ролей.',
         });
     }
