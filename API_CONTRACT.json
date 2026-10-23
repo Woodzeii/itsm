@@ -96,6 +96,31 @@
             }
           }
         },
+        "/api/auth/skip-2fa-setup": {
+          "post": {
+            "tags": [
+              "Auth"
+            ],
+            "security": [],
+            "requestBody": {
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/SkipTwoFactorSetupRequest"
+                  }
+                }
+              }
+            },
+            "responses": {
+              "200": {
+                "description": "JWT issued for a portal user who skipped optional 2FA setup"
+              },
+              "403": {
+                "description": "2FA setup cannot be skipped for this user"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK"
@@ -3067,6 +3092,39 @@
           }
         }
       },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "requiresTwoFactor": {
+            "type": "boolean"
+          },
+          "requiresTwoFactorSetup": {
+            "type": "boolean"
+          },
+          "canSkipTwoFactorSetup": {
+            "type": "boolean"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "challengeId": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          },
+          "otpAuthUri": {
+            "type": "string"
+          },
+          "qrCodeImageBase64": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
       "UpdateAssetClassAttributeRequest": {
         "type": "object",
         "properties": {
@@ -3124,12 +3182,34 @@
       "VerifyTwoFactorRequest": {
         "type": "object",
         "properties": {
-          "userId": {
-            "type": "integer",
-            "format": "int32"
+          "challengeId": {
+            "type": "string"
           },
           "code": {
             "type": "string"
+          }
+        }
+      },
+      "SkipTwoFactorSetupRequest": {
+        "type": "object",
+        "properties": {
+          "challengeId": {
+            "type": "string"
+          }
+        }
+      },
+      "VerifyTwoFactorResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "tokenType": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },

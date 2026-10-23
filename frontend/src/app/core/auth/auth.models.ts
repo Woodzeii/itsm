@@ -5,13 +5,23 @@ export interface LoginRequest {
 
 export interface LoginResponse {
     requiresTwoFactor: boolean;
+    requiresTwoFactorSetup: boolean;
+    canSkipTwoFactorSetup: boolean;
     userId: number;
+    challengeId: string;
+    secret: string;
+    otpAuthUri: string;
+    qrCodeImageBase64: string;
     message: string;
 }
 
 export interface VerifyTwoFactorRequest {
-    userId: number;
+    challengeId: string;
     code: string;
+}
+
+export interface SkipTwoFactorSetupRequest {
+    challengeId: string;
 }
 
 export interface VerifyTwoFactorResponse {

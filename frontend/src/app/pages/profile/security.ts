@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
+import { AuthService } from '../../core/auth/auth.service';
 import { TwoFactorService } from '../../core/auth/two-factor.service';
 import {
     TwoFactorSetupResponse,
@@ -107,26 +108,32 @@ import {
               При следующем входе потребуется 6-значный код из приложения-аутентификатора.
             </p>
 
-            @if (!showDisableForm) {
-              <button class="danger" (click)="showDisableForm = true" [disabled]="busy">
-                Отключить 2FA
-              </button>
+            @if (!auth.isPortalUser()) {
+              <p class="muted">
+                2FA обязательна для этой учётной записи и не может быть отключена.
+              </p>
             } @else {
-              <div class="disable-form">
-                <p class="warn">Для отключения подтвердите пароль:</p>
-                <input
-                  type="password"
-                  placeholder="Пароль"
-                  [(ngModel)]="disablePassword"
-                  (keyup.enter)="disableTwoFactor()"
-                  class="code-input" />
-                <button class="danger" (click)="disableTwoFactor()" [disabled]="busy || !disablePassword">
-                  {{ busy ? 'Отключение...' : 'Подтвердить' }}
+              @if (!showDisableForm) {
+                <button class="danger" (click)="showDisableForm = true" [disabled]="busy">
+                  Отключить 2FA
                 </button>
-                <button class="secondary" (click)="cancelDisable()" [disabled]="busy">
-                  Отмена
-                </button>
-              </div>
+              } @else {
+                <div class="disable-form">
+                  <p class="warn">Для отключения подтвердите пароль:</p>
+                  <input
+                    type="password"
+                    placeholder="Пароль"
+                    [(ngModel)]="disablePassword"
+                    (keyup.enter)="disableTwoFactor()"
+                    class="code-input" />
+                  <button class="danger" (click)="disableTwoFactor()" [disabled]="busy || !disablePassword">
+                    {{ busy ? 'Отключение...' : 'Подтвердить' }}
+                  </button>
+                  <button class="secondary" (click)="cancelDisable()" [disabled]="busy">
+                    Отмена
+                  </button>
+                </div>
+              }
             }
           </div>
         }
@@ -224,6 +231,7 @@ import {
 })
 export class SecurityComponent implements OnInit {
     private readonly api = inject(TwoFactorService);
+    protected readonly auth = inject(AuthService);
     private readonly router = inject(Router);
     private readonly cdr = inject(ChangeDetectorRef);
 

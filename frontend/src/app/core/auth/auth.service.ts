@@ -4,12 +4,14 @@ import { AuthApi } from './auth-api';
 import {
     LoginRequest,
     LoginResponse,
+    SkipTwoFactorSetupRequest,
     VerifyTwoFactorRequest,
     VerifyTwoFactorResponse,
 } from './auth.models';
 const TOKEN_KEY = 'itsm_access_token';
 const AUTH_KEY = 'itsm_is_authenticated';
 const ROLE_KEY = 'itsm_user_role';
+const ROLES_KEY = 'itsm_user_roles';
 const LOGIN_KEY = 'itsm_login';
 
 export type UserRole = 'admin' | 'agent' | 'manager' | 'portal_user' | 'tenant_admin';
@@ -25,10 +27,17 @@ export class AuthService {
         return this.api.login(body);
     }
 
-    verifyTwoFactor(userId: number, code: string): Observable<VerifyTwoFactorResponse> {
-        const body: VerifyTwoFactorRequest = { userId, code };
+    verifyTwoFactor(challengeId: string, code: string): Observable<VerifyTwoFactorResponse> {
+        const body: VerifyTwoFactorRequest = { challengeId, code };
         return this.api
             .verifyTwoFactor(body)
+            .pipe(tap(res => this.saveToken(res.accessToken)));
+    }
+
+    skipTwoFactorSetup(challengeId: string): Observable<VerifyTwoFactorResponse> {
+        const body: SkipTwoFactorSetupRequest = { challengeId };
+        return this.api
+            .skipTwoFactorSetup(body)
             .pipe(tap(res => this.saveToken(res.accessToken)));
     }
 
@@ -43,7 +52,14 @@ export class AuthService {
 
         const roleValue = payload['role']
             ?? payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
+        const rolesValue = payload['roles'];
         const loginValue = payload['Login'] ?? payload['login'];
+
+        if (typeof rolesValue === 'string') {
+            localStorage.setItem(ROLES_KEY, rolesValue);
+        } else {
+            localStorage.removeItem(ROLES_KEY);
+        }
 
         if (typeof roleValue === 'string') {
             localStorage.setItem(ROLE_KEY, roleValue);
@@ -97,7 +113,15 @@ export class AuthService {
     }
 
     isPortalUser(): boolean {
-        return this.getRole() === 'portal_user';
+        const rolesJson = localStorage.getItem(ROLES_KEY);
+        if (!rolesJson) return this.getRole() === 'portal_user';
+
+        try {
+            const roles: unknown = JSON.parse(rolesJson);
+            return Array.isArray(roles) && roles.length === 1 && roles[0] === 'portal_user';
+        } catch {
+            return this.getRole() === 'portal_user';
+        }
     }
 
     isTenantAdmin(): boolean {
@@ -108,6 +132,7 @@ export class AuthService {
         localStorage.removeItem(TOKEN_KEY);
         localStorage.removeItem(AUTH_KEY);
         localStorage.removeItem(ROLE_KEY);
+        localStorage.removeItem(ROLES_KEY);
         localStorage.removeItem(LOGIN_KEY);
     }
 }

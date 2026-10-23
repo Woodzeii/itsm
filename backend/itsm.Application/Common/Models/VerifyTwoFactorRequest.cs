@@ -2,8 +2,13 @@ namespace itsm.Application.Common.Models;
 
 public class VerifyTwoFactorRequest
 {
-    public int UserId { get; set; }
+    public string ChallengeId { get; set; } = string.Empty;
     public string Code { get; set; } = string.Empty;
+}
+
+public class SkipTwoFactorSetupRequest
+{
+    public string ChallengeId { get; set; } = string.Empty;
 }
 
 public class VerifyTwoFactorResponse

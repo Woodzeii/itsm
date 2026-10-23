@@ -23,9 +23,12 @@
         <button onclick="login()">Login</button>
         <div id="loginResult"></div>
 
-        <h2 style="margin-top:16px">2. Verify 2FA</h2>
-        <input id="userId" placeholder="userId"> <input id="code" placeholder="2FA код">
+        <h2 style="margin-top:16px">2. Set up / verify 2FA</h2>
+        <img id="qrCode" alt="2FA QR code" style="display:none;width:220px;height:220px">
+        <div id="secret"></div>
+        <input id="challengeId" placeholder="Challenge ID"> <input id="code" placeholder="Код приложения">
         <button onclick="verify()">Verify</button>
+        <button id="skipSetupButton" onclick="skipSetup()" style="display:none">Skip setup (portal users)</button>
         <div id="verifyResult"></div>
     </div>
 
@@ -64,9 +67,19 @@
             const data = await res.json();
             const el = document.getElementById('loginResult');
             if (res.ok) {
-                el.textContent = '✓ userId=' + data.userId + '. Возьми код из логов backend.';
+                el.textContent = '✓ ' + data.message;
                 el.className = 'success';
-                document.getElementById('userId').value = data.userId;
+                document.getElementById('challengeId').value = data.challengeId;
+                const qrCode = document.getElementById('qrCode');
+                qrCode.src = data.qrCodeImageBase64
+                    ? 'data:image/png;base64,' + data.qrCodeImageBase64
+                    : '';
+                qrCode.style.display = data.qrCodeImageBase64 ? 'block' : 'none';
+                document.getElementById('secret').textContent = data.secret
+                    ? 'Manual setup secret: ' + data.secret
+                    : '';
+                document.getElementById('skipSetupButton').style.display =
+                    data.canSkipTwoFactorSetup ? 'inline-block' : 'none';
             } else {
                 el.textContent = '✗ ' + res.status + ': ' + JSON.stringify(data);
                 el.className = 'error';
@@ -74,18 +87,37 @@
         }
 
         async function verify() {
-            const userId = parseInt(document.getElementById('userId').value);
+            const challengeId = document.getElementById('challengeId').value;
             const code = document.getElementById('code').value;
             const res = await fetch(API + '/api/auth/verify-2fa', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, code })
+                body: JSON.stringify({ challengeId, code })
             });
             const data = await res.json();
             const el = document.getElementById('verifyResult');
             if (res.ok) {
                 setToken(data.accessToken);
                 el.textContent = '✓ JWT получен (' + data.accessToken.length + ' символов)';
+                el.className = 'success';
+            } else {
+                el.textContent = '✗ ' + res.status + ': ' + JSON.stringify(data);
+                el.className = 'error';
+            }
+        }
+
+        async function skipSetup() {
+            const challengeId = document.getElementById('challengeId').value;
+            const res = await fetch(API + '/api/auth/skip-2fa-setup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ challengeId })
+            });
+            const data = await res.json();
+            const el = document.getElementById('verifyResult');
+            if (res.ok) {
+                setToken(data.accessToken);
+                el.textContent = '✓ Login complete without 2FA setup';
                 el.className = 'success';
             } else {
                 el.textContent = '✗ ' + res.status + ': ' + JSON.stringify(data);

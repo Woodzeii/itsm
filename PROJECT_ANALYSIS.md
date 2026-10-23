@@ -6,7 +6,7 @@
 
 Стек соответствует ТЗ (НФТ-03): **Angular**, **ASP.NET Core 9**, **PostgreSQL**, Docker Compose.
 
-**Наиболее зрелые вертикали backend:** аутентификация (регистрация, подтверждение email, вход по BCrypt, email-код 2FA и TOTP), справочники, классы активов и атрибуты, **ядро Service Desk** (очередь заявок, создание/изменение, переходы статусов, назначение, ручная эскалация, переписка и вложения, тикеты на ремонт с привязкой к жизненному циклу актива, правила эскалации, руководитель службы поддержки, история заявок по активу).
+**Наиболее зрелые вертикали backend:** аутентификация (регистрация, подтверждение email, вход по BCrypt, обязательный TOTP для сотрудников и optional enrollment для пользователей портала), справочники, классы активов и атрибуты, **ядро Service Desk** (очередь заявок, создание/изменение, переходы статусов, назначение, ручная эскалация, переписка и вложения, тикеты на ремонт с привязкой к жизненному циклу актива, правила эскалации, руководитель службы поддержки, история заявок по активу).
 
 **Frontend:** развёрнут каркас UI под все разделы ТЗ (очередь, активы, портал, админка, отчёты, тенанты и т.д.), маршруты защищены `authGuard` и role-guards. В **локальной dev-сборке** данные рабочих разделов по умолчанию идут из **`MockWorkspaceApiService`** (демо-данные); **`HttpWorkspaceApiService`** подключён только в **production**-сборке Angular и **не совпадает по контракту** с реализованными контроллерами (другие пути и HTTP-методы). Флаг `useMockWorkspaceApi` в `environment` сейчас **нигде не используется**.
 
@@ -153,8 +153,9 @@ Guards: `authGuard`, `internalAccessGuard`, `portalAccessGuard`, `adminAccessGua
 | Метод | Назначение |
 |---|---|
 | `POST register`, `confirm-email` | Регистрация и подтверждение email (письмо через `LoggingEmailService` → лог) |
-| `POST login` | BCrypt по пользователям БД; TOTP или email-код 2FA |
-| `POST verify-2fa` | JWT с ролями |
+| `POST login` | BCrypt по пользователям БД; QR/TOTP enrollment при отсутствии 2FA, существующим пользователям — TOTP challenge |
+| `POST verify-2fa` | Подтверждает TOTP, включает 2FA при первом входе и возвращает JWT с ролями |
+| `POST skip-2fa-setup` | Пропуск enrollment только для пользователей с единственной ролью `portal_user` |
 | `POST/GET 2fa/setup`, `verify-setup`, `status`, `disable` | TOTP для текущего пользователя |
 
 Mock LDAP **снят**; login не использует внешний AD.
@@ -220,7 +221,7 @@ dotnet test
 |---|---:|---|---|
 | `IntegrationTests/TicketServiceIntegrationTests.cs` | 16 | Создание/очередь/статусы/назначение/ремонт↔актив, сообщения и вложения, видимость portal vs staff, ручная эскалация, правила эскалации, история заявок по активу, руководитель SD | **16/16** |
 | `RegistrationTests.cs` | 12 | `POST /api/auth/register`: валидация, дубликаты, email, слабый пароль, запись в БД, `RecordingEmailService` | **12/12** |
-| `AuthTests.cs` | 5 | Login + verify-2fa (JWT, claims), неверный пароль/код, «просроченный» код (mock `ITwoFactorService`) | **1/5** |
+| `AuthTests.cs` | 8 | QR enrollment and activation, TOTP challenge, portal-only skip, JWT claims, invalid credentials/code/challenge | Не выполнены локально: Docker недоступен |
 | `UnitTests/Infrastructure/PhysicalTicketAttachmentStorageTests.cs` | 2 | Файловое хранилище вложений, защита от path traversal | **2/2** |
 | `UnitTests/Infrastructure/ItsmDbContextTests.cs` | 1 | Схема модели: таблицы, ключи, `jsonb` | **1/1** |
 | `UnitTest1.cs` | 1 | Пустой placeholder | **1/1** |
@@ -236,18 +237,9 @@ dotnet test
 - Ручная эскалация: повышение критичности, `Notification`, учёт правила `OnManual`; фильтры истории заявок по активу.
 - CRUD-логика руководителя SD через сервис (без HTTP-контроллера в тесте).
 
-#### Не пройденные тесты (4) — `AuthTests`
+#### Локальная проверка `AuthTests`
 
-| Тест | Ожидание | Факт | Вероятная причина |
-|---|---|---|---|
-| `Login_Then_Verify2Fa_ReturnsJwt` | Login 200 | **401** | В `CustomWebApplicationFactory` после `Migrate()` **нет пользователя `admin`/`admin123`**. `DatabaseSeeder` в Testing не вызывается; тесты рассчитывают на seeder dev, которого в контейнере нет. |
-| `Verify2Fa_ReturnsJwtWithRequiredClaims` | JWT с claims | **ArgumentNullException** (пустой token) | Следствие неуспешного login/verify выше. |
-| `Verify2Fa_WithWrongCode_Returns401_AndNoJwt` | Verify **401** | **400** | Login не создаёт пользователя → `UserId` некорректен → валидация `verify-2fa` (`UserId`/`Code`) отдаёт 400 до mock 2FA. |
-| `Verify2Fa_WithExpiredCode_Returns401` | Verify **401** | **400** | То же. |
-
-**Пройден:** `Login_WithWrongPassword_Returns401_AndNoSession` — не требует существующего пользователя с верным паролем.
-
-**Рекомендация по починке:** в `ConfigureWebHost` фабрики после миграции вызвать `IDatabaseSeeder` или создать пользователя `admin` с BCrypt-хешем `admin123` и ролью `admin`; либо регистрировать пользователя в `@Before` каждого auth-теста. Дополнительно имеет смысл замокать `ITotpService`, если тесты должны идти только через email-код.
+Запуск интеграционных auth-тестов требует Docker/Testcontainers. В этой среде Docker недоступен, поэтому тесты не прошли и их результат не подтверждён локально.
 
 #### Пробелы тестового покрытия (относительно кода и ТЗ)
 

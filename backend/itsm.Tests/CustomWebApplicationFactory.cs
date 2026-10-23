@@ -24,7 +24,7 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
         .WithPassword("test")
         .Build();
 
-    public Mock<ITwoFactorService> TwoFactorMock { get; } = new();
+    public Mock<ITotpService> TotpMock { get; } = new();
     public RecordingEmailService EmailService { get; } = new();
 
     public async Task InitializeAsync()
@@ -51,28 +51,24 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>, IAsyn
                 options.UseNpgsql(_dbContainer.GetConnectionString())
                     .UseSnakeCaseNamingConvention());
 
-            TwoFactorMock
-                .Setup(x => x.GenerateCode(It.IsAny<int>(), It.IsAny<string>(), It.IsAny<string>()))
-                .Returns(ValidCode);
+            TotpMock
+                .Setup(x => x.GenerateSecret())
+                .Returns("JBSWY3DPEHPK3PXP");
+            TotpMock
+                .Setup(x => x.VerifyCode(It.IsAny<string>(), ValidCode))
+                .Returns(true);
+            TotpMock
+                .Setup(x => x.VerifyCode(It.IsAny<string>(), It.Is<string>(code => code != ValidCode)))
+                .Returns(false);
+            TotpMock
+                .Setup(x => x.BuildOtpAuthUri(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+                .Returns("otpauth://totp/ITSM%20NC:test?secret=JBSWY3DPEHPK3PXP&issuer=ITSM%20NC&digits=6&period=30");
+            TotpMock
+                .Setup(x => x.GenerateQrCodePngBase64(It.IsAny<string>(), It.IsAny<int>()))
+                .Returns("mock-qr-code");
 
-            TwoFactorMock
-                .Setup(x => x.ValidateCode(It.IsAny<int>(), ValidCode))
-                .Returns((int userId, string _) => new TwoFactorUserData
-                {
-                    UserId = userId,
-                    Login = "admin",
-                    Email = "admin@itsm.local"
-                });
-
-            TwoFactorMock
-                .Setup(x => x.ValidateCode(It.IsAny<int>(), It.Is<string>(c => c != ValidCode)))
-                .Returns((TwoFactorUserData?)null);
-
-            TwoFactorMock
-                .Setup(x => x.InvalidateCode(It.IsAny<int>()));
-
-            services.RemoveAll<ITwoFactorService>();
-            services.AddSingleton(TwoFactorMock.Object);
+            services.RemoveAll<ITotpService>();
+            services.AddSingleton(TotpMock.Object);
 
             services.RemoveAll<IEmailService>();
             services.AddSingleton<IEmailService>(EmailService);

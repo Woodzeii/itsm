@@ -159,6 +159,40 @@
           }
         }
       },
+      "LoginResponse": {
+        "type": "object",
+        "properties": {
+          "requiresTwoFactor": {
+            "type": "boolean"
+          },
+          "requiresTwoFactorSetup": {
+            "type": "boolean"
+          },
+          "canSkipTwoFactorSetup": {
+            "type": "boolean"
+          },
+          "userId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "challengeId": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string"
+          },
+          "otpAuthUri": {
+            "type": "string"
+          },
+          "qrCodeImageBase64": {
+            "type": "string",
+            "description": "PNG в Base64 без префикса data URI"
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      },
       "UpdateAssetClassAttributeRequest": {
         "type": "object",
         "properties": {
@@ -216,12 +250,34 @@
       "VerifyTwoFactorRequest": {
         "type": "object",
         "properties": {
-          "userId": {
-            "type": "integer",
-            "format": "int32"
+          "challengeId": {
+            "type": "string"
           },
           "code": {
             "type": "string"
+          }
+        }
+      },
+      "SkipTwoFactorSetupRequest": {
+        "type": "object",
+        "properties": {
+          "challengeId": {
+            "type": "string"
+          }
+        }
+      },
+      "VerifyTwoFactorResponse": {
+        "type": "object",
+        "properties": {
+          "accessToken": {
+            "type": "string"
+          },
+          "tokenType": {
+            "type": "string"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "format": "int32"
           }
         }
       },
