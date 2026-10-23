@@ -68,4 +68,5 @@ export abstract class WorkspaceApi {
     abstract getUsers(): Observable<UserRecord[]>;
     abstract getSystemRoles(): Observable<SystemRoleOption[]>;
     abstract createUser(request: CreateUserRequest): Observable<UserRecord>;
+    abstract updateUser(userId: number, changes: Partial<CreateUserRequest>): Observable<UserRecord>;
 }

@@ -63,4 +63,5 @@ export class WorkspaceService {
     getUsers() { return this.api.getUsers(); }
     getSystemRoles() { return this.api.getSystemRoles(); }
     createUser(request: CreateUserRequest) { return this.api.createUser(request); }
+    updateUser(userId: number, changes: Partial<CreateUserRequest>) { return this.api.updateUser(userId, changes); }
 }
