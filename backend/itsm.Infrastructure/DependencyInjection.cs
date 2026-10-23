@@ -36,6 +36,7 @@ public static class DependencyInjection
         services.AddScoped<IEmailService, LoggingEmailService>();
         services.AddScoped<IUserService, UserService>();
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
+        services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<IDictionaryService, DictionaryService>();
         services.AddScoped<IAssetClassService, AssetClassService>();
         services.AddScoped<ITicketService, TicketService>();
