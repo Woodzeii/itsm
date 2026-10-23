@@ -37,18 +37,44 @@ import { environment } from '../../../environments/environment';
         }
 
         @if (step === 2) {
-          <p>Шаг 2: 6-значный код из логов backend</p>
+          @if (requiresSetup) {
+            <p>Отсканируйте QR-код в приложении-аутентификаторе, затем введите полученный код.</p>
+            @if (qrCodeImageBase64) {
+              <img
+                class="qr-code"
+                [src]="'data:image/png;base64,' + qrCodeImageBase64"
+                alt="QR-код для настройки 2FA" />
+            } @else if (environment.useMockAuth) {
+              <p>В тестовом режиме настройка QR-кода имитируется.</p>
+            }
+            @if (secret) {
+              <details>
+                <summary>Не получается отсканировать? Показать секрет</summary>
+                <code>{{ secret }}</code>
+              </details>
+            }
+          } @else {
+            <p>Введите 6-значный код из приложения-аутентификатора.</p>
+          }
 
           <input
             type="text"
             name="code"
             [(ngModel)]="code"
+            inputmode="numeric"
+            autocomplete="one-time-code"
             maxlength="6"
             placeholder="000000" />
 
           <button type="button" (click)="doVerify()" [disabled]="busy">
-            {{ busy ? '...' : 'Подтвердить' }}
+            {{ busy ? '...' : (requiresSetup ? 'Подтвердить и включить 2FA' : 'Подтвердить') }}
           </button>
+
+          @if (canSkipSetup) {
+            <button type="button" class="secondary" (click)="skipSetup()" [disabled]="busy">
+              {{ busy ? '...' : 'Пропустить настройку' }}
+            </button>
+          }
         }
 
         @if (error) {
@@ -92,6 +118,10 @@ import { environment } from '../../../environments/environment';
         font-size: 1rem;
       }
       input:focus { border-color: #3f51b5; outline: none; }
+      .qr-code { width: 220px; height: 220px; align-self: center; }
+      details { font-size: 0.85rem; color: #555; }
+      details summary { cursor: pointer; }
+      details code { display: block; word-break: break-all; }
       button {
         padding: 12px;
         border: none;
@@ -102,6 +132,7 @@ import { environment } from '../../../environments/environment';
         cursor: pointer;
       }
       button:disabled { opacity: 0.6; cursor: wait; }
+      button.secondary { background: #e5e7eb; color: #111827; }
       .err { color: #c00; text-align: center; font-size: 0.9rem; }
       .ok { color: #080; text-align: center; font-size: 0.9rem; }
     `,
@@ -117,7 +148,11 @@ export class LoginComponent {
     username = '';
     password = '';
     code = '';
-    userId = 0;
+    challengeId = '';
+    requiresSetup = false;
+    canSkipSetup = false;
+    secret = '';
+    qrCodeImageBase64 = '';
     busy = false;
     error = '';
     info = '';
@@ -139,10 +174,16 @@ export class LoginComponent {
 
         this.auth.login(u, p).subscribe({
             next: (res) => {
-                this.userId = res.userId;
+                this.challengeId = res.challengeId;
+                this.requiresSetup = res.requiresTwoFactorSetup;
+                this.canSkipSetup = res.canSkipTwoFactorSetup;
+                this.secret = res.secret;
+                this.qrCodeImageBase64 = res.qrCodeImageBase64;
                 this.step = 2;
                 this.busy = false;
-                this.info = environment.useMockAuth ? 'Введите шестизначный тестовый код.' : 'Код отправлен. Смотрите логи backend.';
+                this.info = res.message || (environment.useMockAuth
+                    ? 'Введите шестизначный тестовый код.'
+                    : 'Введите код из приложения-аутентификатора.');
                 this.cdr.detectChanges();
             },
             error: (err) => {
@@ -161,8 +202,8 @@ export class LoginComponent {
         if (this.busy) return;
 
         const c = this.code.trim();
-        if (!c) {
-            this.error = 'Введите код';
+        if (!/^\d{6}$/.test(c)) {
+            this.error = 'Введите 6-значный код';
             return;
         }
 
@@ -170,12 +211,11 @@ export class LoginComponent {
         this.error = '';
         this.info = '';
 
-        this.auth.verifyTwoFactor(this.userId, c).subscribe({
-            next: (res) => {
+        this.auth.verifyTwoFactor(this.challengeId, c).subscribe({
+            next: () => {
                 this.busy = false;
                 this.cdr.detectChanges();
-                const destination = this.auth.isTenantAdmin() ? '/admin/tenants' : this.auth.isPortalUser() ? '/portal' : '/dashboard';
-                this.router.navigateByUrl(destination);
+                this.navigateAfterLogin();
             },
             error: (err) => {
                 this.error = err.status === 401
@@ -185,5 +225,29 @@ export class LoginComponent {
                 this.cdr.detectChanges();
             },
         });
+    }
+
+    skipSetup(): void {
+        if (this.busy || !this.canSkipSetup) return;
+
+        this.busy = true;
+        this.error = '';
+        this.info = '';
+        this.auth.skipTwoFactorSetup(this.challengeId).subscribe({
+            next: () => {
+                this.busy = false;
+                this.navigateAfterLogin();
+            },
+            error: (err) => {
+                this.error = err.message || 'Не удалось пропустить настройку 2FA';
+                this.busy = false;
+                this.cdr.detectChanges();
+            },
+        });
+    }
+
+    private navigateAfterLogin(): void {
+        const destination = this.auth.isTenantAdmin() ? '/admin/tenants' : this.auth.isPortalUser() ? '/portal' : '/dashboard';
+        this.router.navigateByUrl(destination);
     }
 }

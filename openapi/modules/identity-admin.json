@@ -18,7 +18,14 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "2FA challenge and, if required, setup QR code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../components/schemas.json#/components/schemas/LoginResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -40,7 +47,46 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "JWT issued after successful authenticator code verification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../components/schemas.json#/components/schemas/VerifyTwoFactorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/skip-2fa-setup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkipTwoFactorSetupRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JWT issued for a portal user who skipped optional 2FA setup",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../components/schemas.json#/components/schemas/VerifyTwoFactorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "2FA setup cannot be skipped for this user"
           }
         }
       }
@@ -52,7 +98,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "../components/schemas.json#/components/schemas/TwoFactorSetupResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -566,8 +619,14 @@
       "LoginRequest": {
         "$ref": "../components/schemas.json#/components/schemas/LoginRequest"
       },
+      "LoginResponse": {
+        "$ref": "../components/schemas.json#/components/schemas/LoginResponse"
+      },
       "PasswordPolicy": {
         "$ref": "../components/schemas.json#/components/schemas/PasswordPolicy"
+      },
+      "SkipTwoFactorSetupRequest": {
+        "$ref": "../components/schemas.json#/components/schemas/SkipTwoFactorSetupRequest"
       },
       "RoleSummary": {
         "$ref": "../components/schemas.json#/components/schemas/RoleSummary"
@@ -589,6 +648,9 @@
       },
       "VerifyTwoFactorRequest": {
         "$ref": "../components/schemas.json#/components/schemas/VerifyTwoFactorRequest"
+      },
+      "VerifyTwoFactorResponse": {
+        "$ref": "../components/schemas.json#/components/schemas/VerifyTwoFactorResponse"
       },
       "VerifyTwoFactorSetupRequest": {
         "$ref": "../components/schemas.json#/components/schemas/VerifyTwoFactorSetupRequest"

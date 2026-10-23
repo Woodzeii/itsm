@@ -7,7 +7,9 @@ using itsm.Infrastructure.Security;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
+using System.Security.Cryptography;
 using System.Security.Claims;
 
 namespace itsm.WebApi.Controllers;
@@ -17,35 +19,36 @@ namespace itsm.WebApi.Controllers;
 public class AuthController : ControllerBase
 {
     private const string Issuer = "ITSM NC";
+    private static readonly TimeSpan LoginChallengeLifetime = TimeSpan.FromMinutes(5);
 
-    private readonly ITwoFactorService _twoFactor;
     private readonly ITotpService _totp;
     private readonly IJwtService _jwt;
     private readonly IUserService _userService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IEmailService _email;
     private readonly ItsmDbContext _db;
+    private readonly IMemoryCache _cache;
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<AuthController> _logger;
 
     public AuthController(
-        ITwoFactorService twoFactor,
         ITotpService totp,
         IJwtService jwt,
         IUserService userService,
         IPasswordHasher passwordHasher,
         IEmailService email,
         ItsmDbContext db,
+        IMemoryCache cache,
         IOptions<JwtSettings> jwtSettings,
         ILogger<AuthController> logger)
     {
-        _twoFactor = twoFactor;
         _totp = totp;
         _jwt = jwt;
         _userService = userService;
         _passwordHasher = passwordHasher;
         _email = email;
         _db = db;
+        _cache = cache;
         _jwtSettings = jwtSettings.Value;
         _logger = logger;
     }
@@ -137,7 +140,10 @@ public class AuthController : ControllerBase
             return Unauthorized(new { message = "Неверный логин или пароль" });
         }
 
-        // TOTP-flow: если у пользователя включена 2FA — требуем код из приложения
+        var roles = await _userService.GetRolesAsync(user.Id, ct);
+        var isPortalOnlyUser = roles.Count == 1 && roles[0] == "portal_user";
+
+        // Existing TOTP enrollment: require the authenticator code at every login.
         if (user.IsTwoFactorEnabled && !string.IsNullOrEmpty(user.TwoFaSecret))
         {
             _logger.LogInformation("Логин для {Login} требует TOTP-код", user.Username);
@@ -146,20 +152,37 @@ public class AuthController : ControllerBase
             {
                 RequiresTwoFactor = true,
                 UserId = user.Id,
+                ChallengeId = CreateLoginChallenge(user.Id, isSetup: false),
                 Message = "Введите 6-значный код из приложения-аутентификатора"
             });
         }
 
-        // Fallback: email-код (для первого входа, пока TOTP не настроен)
-        var code = _twoFactor.GenerateCode(user.Id, user.Username, user.Email);
+        // Keep an unconfirmed secret stable so a repeated login does not invalidate the
+        // QR code already shown to the user.
+        if (string.IsNullOrEmpty(user.TwoFaSecret))
+            user.TwoFaSecret = _totp.GenerateSecret();
 
-        _logger.LogWarning("DEV ONLY: 2FA код для {Username}: {Code}", request.Username, code);
+        if (user.IsTwoFactorEnabled)
+        {
+            user.IsTwoFactorEnabled = false;
+            user.TwoFactorEnabledAt = null;
+        }
+        await _db.SaveChangesAsync(ct);
 
+        var otpAuthUri = _totp.BuildOtpAuthUri(Issuer, user.Username, user.TwoFaSecret);
         return Ok(new LoginResponse
         {
             RequiresTwoFactor = true,
+            RequiresTwoFactorSetup = true,
+            CanSkipTwoFactorSetup = isPortalOnlyUser,
             UserId = user.Id,
-            Message = "Введите 6-значный код из письма/логов"
+            ChallengeId = CreateLoginChallenge(user.Id, isSetup: true),
+            Secret = user.TwoFaSecret,
+            OtpAuthUri = otpAuthUri,
+            QrCodeImageBase64 = _totp.GenerateQrCodePngBase64(otpAuthUri),
+            Message = isPortalOnlyUser
+                ? "Настройте 2FA или пропустите этот шаг."
+                : "Для продолжения настройте 2FA и подтвердите код из приложения."
         });
     }
 
@@ -167,59 +190,68 @@ public class AuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("verify-2fa")]
-    public async Task<IActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorRequest request)
+    public async Task<IActionResult> VerifyTwoFactor(
+        [FromBody] VerifyTwoFactorRequest request,
+        CancellationToken ct)
     {
-        if (request.UserId <= 0 || string.IsNullOrWhiteSpace(request.Code))
-            return BadRequest(new { message = "UserId и Code обязательны" });
+        if (string.IsNullOrWhiteSpace(request.ChallengeId) || string.IsNullOrWhiteSpace(request.Code))
+            return BadRequest(new { message = "ChallengeId и Code обязательны" });
 
-        var dbUser = await _db.Users
-            .FirstOrDefaultAsync(u => u.Id == request.UserId, HttpContext.RequestAborted);
+        if (!TryGetLoginChallenge(request.ChallengeId, out var challenge))
+            return Unauthorized(new { message = "Сессия входа истекла. Начните вход заново." });
 
-        // 1) TOTP-ветка: только если пользователь найден и у него явно включена 2FA.
-        if (dbUser is not null
-            && dbUser.IsTwoFactorEnabled
-            && !string.IsNullOrEmpty(dbUser.TwoFaSecret))
+        var dbUser = await _db.Users.FirstOrDefaultAsync(u => u.Id == challenge.UserId, ct);
+        if (dbUser is null || !dbUser.IsActive || string.IsNullOrEmpty(dbUser.TwoFaSecret))
+            return Unauthorized(new { message = "Сессия входа недействительна. Начните вход заново." });
+
+        if (!challenge.IsSetup && !dbUser.IsTwoFactorEnabled)
+            return Unauthorized(new { message = "Сессия входа недействительна. Начните вход заново." });
+
+        if (!_totp.VerifyCode(dbUser.TwoFaSecret, request.Code))
         {
-            if (!_totp.VerifyCode(dbUser.TwoFaSecret, request.Code))
-            {
-                _logger.LogWarning("2FA (TOTP): неверный код для userId={UserId}", request.UserId);
-                return Unauthorized(new { message = "Неверный или истёкший код" });
-            }
-
-            var rolesTotp = await _userService.GetRolesAsync(dbUser.Id, HttpContext.RequestAborted);
-            var tokenTotp = _jwt.GenerateToken(dbUser.Id, dbUser.Username, dbUser.Email, rolesTotp);
-
-            _logger.LogInformation("JWT выпущен для {Login} через TOTP (userId={UserId})",
-                dbUser.Username, dbUser.Id);
-
-            return Ok(new VerifyTwoFactorResponse
-            {
-                AccessToken = tokenTotp,
-                TokenType = "Bearer",
-                ExpiresIn = _jwtSettings.ExpiresMinutes * 60
-            });
-        }
-
-        // 2) Fallback: email-код через кэш.
-        var userData = _twoFactor.ValidateCode(request.UserId, request.Code);
-        if (userData is null)
-        {
-            _logger.LogWarning("2FA (email): неверный или истёкший код для userId={UserId}", request.UserId);
+            _logger.LogWarning("2FA (TOTP): неверный код для userId={UserId}", dbUser.Id);
             return Unauthorized(new { message = "Неверный или истёкший код" });
         }
 
-        var roles = await _userService.GetRolesAsync(userData.UserId, HttpContext.RequestAborted);
-        var token = _jwt.GenerateToken(userData.UserId, userData.Login, userData.Email, roles);
-
-        _logger.LogInformation("JWT выпущен для {Login} через email-код (userId={UserId})",
-            userData.Login, userData.UserId);
-
-        return Ok(new VerifyTwoFactorResponse
+        if (challenge.IsSetup && !dbUser.IsTwoFactorEnabled)
         {
-            AccessToken = token,
-            TokenType = "Bearer",
-            ExpiresIn = _jwtSettings.ExpiresMinutes * 60
-        });
+            dbUser.IsTwoFactorEnabled = true;
+            dbUser.TwoFactorEnabledAt = DateTimeOffset.UtcNow;
+            await _db.SaveChangesAsync(ct);
+            _logger.LogInformation("2FA (TOTP) включена для пользователя {Login}", dbUser.Username);
+        }
+
+        _cache.Remove(GetLoginChallengeKey(request.ChallengeId));
+        return Ok(CreateTokenResponse(
+            dbUser,
+            await _userService.GetRolesAsync(dbUser.Id, ct)));
+    }
+
+    [AllowAnonymous]
+    [HttpPost("skip-2fa-setup")]
+    public async Task<IActionResult> SkipTwoFactorSetup(
+        [FromBody] SkipTwoFactorSetupRequest request,
+        CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.ChallengeId))
+            return BadRequest(new { message = "ChallengeId обязателен" });
+
+        if (!TryGetLoginChallenge(request.ChallengeId, out var challenge) || !challenge.IsSetup)
+            return Unauthorized(new { message = "Сессия входа истекла. Начните вход заново." });
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == challenge.UserId, ct);
+        if (user is null || !user.IsActive)
+            return Unauthorized(new { message = "Сессия входа недействительна. Начните вход заново." });
+
+        var roles = await _userService.GetRolesAsync(user.Id, ct);
+        if (roles.Count != 1 || roles[0] != "portal_user")
+            return Forbid();
+
+        user.TwoFaSecret = null;
+        await _db.SaveChangesAsync(ct);
+        _cache.Remove(GetLoginChallengeKey(request.ChallengeId));
+
+        return Ok(CreateTokenResponse(user, roles));
     }
 
     // ================= 2FA: SETUP =================
@@ -242,11 +274,13 @@ public class AuthController : ControllerBase
         await _db.SaveChangesAsync();
 
         var uri = _totp.BuildOtpAuthUri(Issuer, user.Username, secret);
+        var qrBase64 = _totp.GenerateQrCodePngBase64(uri);
 
         return Ok(new TwoFactorSetupResponse
         {
             Secret = secret,
             OtpAuthUri = uri,
+            QrCodeImageBase64 = qrBase64,
             Issuer = Issuer
         });
     }
@@ -312,6 +346,13 @@ public class AuthController : ControllerBase
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
         if (user is null) return NotFound();
 
+        var roles = await _userService.GetRolesAsync(user.Id);
+        if (roles.Count != 1 || roles[0] != "portal_user")
+            return StatusCode(StatusCodes.Status403Forbidden, new
+            {
+                message = "2FA обязательно для этой учётной записи и не может быть отключена."
+            });
+
         // Проверяем пароль через BCrypt
         if (string.IsNullOrEmpty(user.PasswordHash)
             || !_passwordHasher.Verify(request.Password, user.PasswordHash))
@@ -339,4 +380,43 @@ public class AuthController : ControllerBase
 
         return int.TryParse(claim, out var id) ? id : null;
     }
+
+    private string CreateLoginChallenge(int userId, bool isSetup)
+    {
+        var challengeId = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
+
+        _cache.Set(
+            GetLoginChallengeKey(challengeId),
+            new LoginChallenge(userId, isSetup),
+            new MemoryCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = LoginChallengeLifetime
+            });
+
+        return challengeId;
+    }
+
+    private bool TryGetLoginChallenge(string challengeId, out LoginChallenge challenge)
+        => _cache.TryGetValue(GetLoginChallengeKey(challengeId), out challenge!);
+
+    private static string GetLoginChallengeKey(string challengeId) => $"auth:login:2fa:{challengeId}";
+
+    private VerifyTwoFactorResponse CreateTokenResponse(
+        itsm.Domain.Entities.User user,
+        List<string> roles)
+    {
+        var token = _jwt.GenerateToken(user.Id, user.Username, user.Email, roles);
+        _logger.LogInformation("JWT выпущен для {Login} (userId={UserId})", user.Username, user.Id);
+        return new VerifyTwoFactorResponse
+        {
+            AccessToken = token,
+            TokenType = "Bearer",
+            ExpiresIn = _jwtSettings.ExpiresMinutes * 60
+        };
+    }
+
+    private sealed record LoginChallenge(int UserId, bool IsSetup);
 }

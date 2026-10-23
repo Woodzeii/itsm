@@ -65,6 +65,9 @@
     "/api/auth/verify-2fa": {
       "$ref": "./modules/identity-admin.json#/paths/~1api~1auth~1verify-2fa"
     },
+    "/api/auth/skip-2fa-setup": {
+      "$ref": "./modules/identity-admin.json#/paths/~1api~1auth~1skip-2fa-setup"
+    },
     "/api/auth/2fa/setup": {
       "$ref": "./modules/identity-admin.json#/paths/~1api~1auth~12fa~1setup"
     },
@@ -279,6 +282,12 @@
       "LoginRequest": {
         "$ref": "./components/schemas.json#/components/schemas/LoginRequest"
       },
+      "LoginResponse": {
+        "$ref": "./components/schemas.json#/components/schemas/LoginResponse"
+      },
+      "SkipTwoFactorSetupRequest": {
+        "$ref": "./components/schemas.json#/components/schemas/SkipTwoFactorSetupRequest"
+      },
       "UpdateAssetClassAttributeRequest": {
         "$ref": "./components/schemas.json#/components/schemas/UpdateAssetClassAttributeRequest"
       },
@@ -293,6 +302,9 @@
       },
       "VerifyTwoFactorRequest": {
         "$ref": "./components/schemas.json#/components/schemas/VerifyTwoFactorRequest"
+      },
+      "VerifyTwoFactorResponse": {
+        "$ref": "./components/schemas.json#/components/schemas/VerifyTwoFactorResponse"
       },
       "VerifyTwoFactorSetupRequest": {
         "$ref": "./components/schemas.json#/components/schemas/VerifyTwoFactorSetupRequest"
