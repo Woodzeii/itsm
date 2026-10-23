@@ -203,7 +203,7 @@ export function hasPermission(
 ): boolean {
   return roles.some(role => {
     const permissions = RolePermissions[role as keyof typeof RolePermissions];
-    return permissions?.includes(permission) ?? false;
+    return permissions?.some(allowedPermission => allowedPermission === permission) ?? false;
   });
 }
 
