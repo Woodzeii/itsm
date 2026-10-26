@@ -9,6 +9,9 @@ export const authGuard: CanActivateFn = (route, state) => {
     const router = inject(Router);
 
     if (auth.isAuthenticated()) {
+        if (auth.requiresRoleSelection() && state.url !== '/select-role') {
+            return router.createUrlTree(['/select-role']);
+        }
         return true;
     }
 

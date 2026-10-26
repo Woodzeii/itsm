@@ -87,6 +87,11 @@ import { AuthService } from '../../core/auth/auth.service';
             </div>
             <span class="chevron" aria-hidden="true">⌄</span>
           </div>
+          @if (hasMultipleRoles) {
+            <button class="icon-button" type="button" (click)="switchRole()" aria-label="Сменить роль" title="Сменить роль">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 7h11l-3-3m3 3-3 3M17 17H6l3 3m-3-3 3-3" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          }
           <button class="icon-button" type="button" (click)="logout()" aria-label="Выйти" title="Выйти">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v16h-6M3 12h11m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
@@ -316,6 +321,7 @@ export class AppLayoutComponent implements OnInit {
   userInitial = 'П';
   userTitle = 'Пользователь';
   userRole = 'Пользователь';
+  hasMultipleRoles = false;
 
   constructor(
     private readonly authService: AuthService,
@@ -326,6 +332,7 @@ export class AppLayoutComponent implements OnInit {
     this.isAdmin = this.authService.isAdmin();
     this.isAdminOrAgent = this.authService.canRead();
     this.isTenantAdmin = this.authService.isTenantAdmin();
+    this.hasMultipleRoles = this.authService.hasMultipleRoles();
     const roleLabels = {
       admin: 'Администратор',
       agent: 'Инженер поддержки',
@@ -337,6 +344,11 @@ export class AppLayoutComponent implements OnInit {
     this.userRole = roleLabels[this.authService.getRole()];
     this.userTitle = login || this.userRole;
     this.userInitial = (login || this.userRole).charAt(0).toLocaleUpperCase();
+  }
+
+  switchRole(): void {
+    this.authService.reopenRoleSelection();
+    this.router.navigateByUrl('/select-role');
   }
 
   logout(): void {

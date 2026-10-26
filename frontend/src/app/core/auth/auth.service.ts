@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Observable, tap } from 'rxjs';
 import { AuthApi } from './auth-api';
 import {
@@ -12,6 +12,7 @@ const TOKEN_KEY = 'itsm_access_token';
 const AUTH_KEY = 'itsm_is_authenticated';
 const ROLE_KEY = 'itsm_user_role';
 const ROLES_KEY = 'itsm_user_roles';
+const ROLE_PENDING_KEY = 'itsm_role_selection_pending';
 const LOGIN_KEY = 'itsm_login';
 
 export type UserRole = 'admin' | 'agent' | 'manager' | 'portal_user' | 'tenant_admin';
@@ -19,6 +20,8 @@ export type UserRole = 'admin' | 'agent' | 'manager' | 'portal_user' | 'tenant_a
 @Injectable({ providedIn: 'root' })
 export class AuthService {
     private readonly api = inject(AuthApi);
+    readonly availableRoles = signal<UserRole[]>(this.readRoles());
+    readonly activeRole = signal<UserRole>(this.readActiveRole());
 
     // ================= API =================
 
@@ -52,20 +55,17 @@ export class AuthService {
 
         const roleValue = payload['role']
             ?? payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
-        const rolesValue = payload['roles'];
+        const rolesValue = payload['roles'] ?? roleValue;
         const loginValue = payload['Login'] ?? payload['login'];
+        const roles = this.normalizeRoles(rolesValue);
+        const activeRole = this.normalizeRoles(roleValue)[0] ?? roles[0] ?? 'portal_user';
 
-        if (typeof rolesValue === 'string') {
-            localStorage.setItem(ROLES_KEY, rolesValue);
-        } else {
-            localStorage.removeItem(ROLES_KEY);
+        if (roles.length) {
+            localStorage.setItem(ROLES_KEY, JSON.stringify(roles));
+            this.availableRoles.set(roles);
         }
-
-        if (typeof roleValue === 'string') {
-            localStorage.setItem(ROLE_KEY, roleValue);
-        } else if (Array.isArray(roleValue) && roleValue.length > 0) {
-            localStorage.setItem(ROLE_KEY, String(roleValue[0]));
-        }
+        this.setActiveRole(activeRole);
+        sessionStorage.setItem(ROLE_PENDING_KEY, roles.length > 1 ? 'true' : 'false');
 
         if (typeof loginValue === 'string') {
             localStorage.setItem(LOGIN_KEY, loginValue);
@@ -100,7 +100,37 @@ export class AuthService {
     }
 
     getRole(): UserRole {
-        return (localStorage.getItem(ROLE_KEY) as UserRole) ?? 'portal_user';
+        return this.activeRole();
+    }
+
+    getRoles(): UserRole[] {
+        return this.availableRoles();
+    }
+
+    hasMultipleRoles(): boolean {
+        return this.availableRoles().length > 1;
+    }
+
+    requiresRoleSelection(): boolean {
+        return this.isAuthenticated() && this.hasMultipleRoles()
+            && sessionStorage.getItem(ROLE_PENDING_KEY) === 'true';
+    }
+
+    setActiveRole(role: UserRole): boolean {
+        if (!this.availableRoles().includes(role)) return false;
+        localStorage.setItem(ROLE_KEY, role);
+        this.activeRole.set(role);
+        return true;
+    }
+
+    completeRoleSelection(role: UserRole): boolean {
+        if (!this.setActiveRole(role)) return false;
+        sessionStorage.setItem(ROLE_PENDING_KEY, 'false');
+        return true;
+    }
+
+    reopenRoleSelection(): void {
+        sessionStorage.setItem(ROLE_PENDING_KEY, 'true');
     }
 
     isAdmin(): boolean {
@@ -134,5 +164,27 @@ export class AuthService {
         localStorage.removeItem(ROLE_KEY);
         localStorage.removeItem(ROLES_KEY);
         localStorage.removeItem(LOGIN_KEY);
+        sessionStorage.removeItem(ROLE_PENDING_KEY);
+        this.availableRoles.set([]);
+        this.activeRole.set('portal_user');
+    }
+
+    private readActiveRole(): UserRole {
+        return (localStorage.getItem(ROLE_KEY) as UserRole) ?? 'portal_user';
+    }
+
+    private readRoles(): UserRole[] {
+        try {
+            const roles = JSON.parse(localStorage.getItem(ROLES_KEY) ?? '[]') as unknown;
+            return this.normalizeRoles(roles);
+        } catch {
+            return this.normalizeRoles(localStorage.getItem(ROLE_KEY));
+        }
+    }
+
+    private normalizeRoles(value: unknown): UserRole[] {
+        const rawRoles = Array.isArray(value) ? value : typeof value === 'string' ? [value] : [];
+        const knownRoles: UserRole[] = ['admin', 'agent', 'manager', 'portal_user', 'tenant_admin'];
+        return [...new Set(rawRoles.filter((role): role is UserRole => knownRoles.includes(role as UserRole)))];
     }
 }

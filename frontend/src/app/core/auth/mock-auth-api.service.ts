@@ -62,16 +62,22 @@ export class MockAuthApiService extends AuthApi {
     }
 }
 
-function roleFor(username: string): string {
+function rolesFor(username: string): string[] {
     const normalizedLogin = username.toLocaleLowerCase();
-    return ['admin', 'agent', 'manager', 'tenant_admin'].includes(normalizedLogin)
-        ? normalizedLogin
-        : 'portal_user';
+    if (normalizedLogin === 'admin') return ['admin', 'agent'];
+    if (normalizedLogin === 'agent') return ['agent'];
+    if (normalizedLogin === 'manager') return ['manager'];
+    if (normalizedLogin === 'tenant_admin') return ['tenant_admin'];
+    return ['portal_user'];
+}
+
+function roleFor(username: string): string {
+    return rolesFor(username)[0];
 }
 
 function createTokenResponse(userId: number, username: string): VerifyTwoFactorResponse {
-    const role = roleFor(username);
-    const claims = encodeBase64Url(JSON.stringify({ sub: String(userId), Login: username, role }));
+    const roles = rolesFor(username);
+    const claims = encodeBase64Url(JSON.stringify({ sub: String(userId), Login: username, role: roles[0], roles }));
     return { accessToken: `mock.${claims}.development`, tokenType: 'Bearer', expiresIn: 3600 };
 }
 

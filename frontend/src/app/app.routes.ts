@@ -6,6 +6,7 @@ import { adminAccessGuard, adminOnlyAccessGuard, internalAccessGuard, portalAcce
 export const routes: Routes = [
     { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
     { path: 'login', loadComponent: () => import('./pages/login/login').then(module => module.LoginComponent) },
+    { path: 'select-role', loadComponent: () => import('./pages/role-selection/role-selection').then(module => module.RoleSelectionComponent), canActivate: [authGuard] },
     {
         path: '',
         component: AppLayoutComponent,

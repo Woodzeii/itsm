@@ -5,10 +5,10 @@ import { AuthService } from '../../core/auth/auth.service';
 import { environment } from '../../../environments/environment';
 
 @Component({
-    selector: 'app-login',
-    standalone: true,
-    imports: [FormsModule],
-    template: `
+  selector: 'app-login',
+  standalone: true,
+  imports: [FormsModule],
+  template: `
     <section class="page">
       <div class="card">
         <h1>Авторизация</h1>
@@ -87,8 +87,8 @@ import { environment } from '../../../environments/environment';
       </div>
     </section>
   `,
-    styles: [
-        `
+  styles: [
+    `
       .page {
         min-height: 100vh;
         display: flex;
@@ -136,118 +136,120 @@ import { environment } from '../../../environments/environment';
       .err { color: #c00; text-align: center; font-size: 0.9rem; }
       .ok { color: #080; text-align: center; font-size: 0.9rem; }
     `,
-    ],
+  ],
 })
 export class LoginComponent {
-    private readonly auth = inject(AuthService);
-    private readonly router = inject(Router);
-    private readonly cdr = inject(ChangeDetectorRef);
-    readonly environment = environment;
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
+  private readonly cdr = inject(ChangeDetectorRef);
+  readonly environment = environment;
 
-    step: 1 | 2 = 1;
-    username = '';
-    password = '';
-    code = '';
-    challengeId = '';
-    requiresSetup = false;
-    canSkipSetup = false;
-    secret = '';
-    qrCodeImageBase64 = '';
-    busy = false;
-    error = '';
-    info = '';
+  step: 1 | 2 = 1;
+  username = '';
+  password = '';
+  code = '';
+  challengeId = '';
+  requiresSetup = false;
+  canSkipSetup = false;
+  secret = '';
+  qrCodeImageBase64 = '';
+  busy = false;
+  error = '';
+  info = '';
 
-    doLogin(): void {
-        if (this.busy) return;
+  doLogin(): void {
+    if (this.busy) return;
 
-        const u = this.username.trim();
-        const p = this.password.trim();
+    const u = this.username.trim();
+    const p = this.password.trim();
 
-        if (!u || !p) {
-            this.error = 'Введите логин и пароль';
-            return;
-        }
-
-        this.busy = true;
-        this.error = '';
-        this.info = '';
-
-        this.auth.login(u, p).subscribe({
-            next: (res) => {
-                this.challengeId = res.challengeId;
-                this.requiresSetup = res.requiresTwoFactorSetup;
-                this.canSkipSetup = res.canSkipTwoFactorSetup;
-                this.secret = res.secret;
-                this.qrCodeImageBase64 = res.qrCodeImageBase64;
-                this.step = 2;
-                this.busy = false;
-                this.info = res.message || (environment.useMockAuth
-                    ? 'Введите шестизначный тестовый код.'
-                    : 'Введите код из приложения-аутентификатора.');
-                this.cdr.detectChanges();
-            },
-            error: (err) => {
-                this.error = err.status === 401
-                    ? 'Неверный логин или пароль'
-                  : err.status === 423 || err.status === 429
-                    ? 'Учетная запись временно заблокирована. Повторите попытку позже.'
-                    : err.message || 'Ошибка: ' + err.status;
-                this.busy = false;
-                this.cdr.detectChanges();
-            },
-        });
+    if (!u || !p) {
+      this.error = 'Введите логин и пароль';
+      return;
     }
 
-    doVerify(): void {
-        if (this.busy) return;
+    this.busy = true;
+    this.error = '';
+    this.info = '';
 
-        const c = this.code.trim();
-        if (!/^\d{6}$/.test(c)) {
-            this.error = 'Введите 6-значный код';
-            return;
-        }
+    this.auth.login(u, p).subscribe({
+      next: (res) => {
+        this.challengeId = res.challengeId;
+        this.requiresSetup = res.requiresTwoFactorSetup;
+        this.canSkipSetup = res.canSkipTwoFactorSetup;
+        this.secret = res.secret;
+        this.qrCodeImageBase64 = res.qrCodeImageBase64;
+        this.step = 2;
+        this.busy = false;
+        this.info = res.message || (environment.useMockAuth
+          ? 'Введите шестизначный тестовый код.'
+          : 'Введите код из приложения-аутентификатора.');
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.error = err.status === 401
+          ? 'Неверный логин или пароль'
+          : err.status === 423 || err.status === 429
+            ? 'Учетная запись временно заблокирована. Повторите попытку позже.'
+            : err.message || 'Ошибка: ' + err.status;
+        this.busy = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
 
-        this.busy = true;
-        this.error = '';
-        this.info = '';
+  doVerify(): void {
+    if (this.busy) return;
 
-        this.auth.verifyTwoFactor(this.challengeId, c).subscribe({
-            next: () => {
-                this.busy = false;
-                this.cdr.detectChanges();
-                this.navigateAfterLogin();
-            },
-            error: (err) => {
-                this.error = err.status === 401
-                    ? 'Неверный или истёкший код'
-                  : err.message || 'Ошибка: ' + err.status;
-                this.busy = false;
-                this.cdr.detectChanges();
-            },
-        });
+    const c = this.code.trim();
+    if (!/^\d{6}$/.test(c)) {
+      this.error = 'Введите 6-значный код';
+      return;
     }
 
-    skipSetup(): void {
-        if (this.busy || !this.canSkipSetup) return;
+    this.busy = true;
+    this.error = '';
+    this.info = '';
 
-        this.busy = true;
-        this.error = '';
-        this.info = '';
-        this.auth.skipTwoFactorSetup(this.challengeId).subscribe({
-            next: () => {
-                this.busy = false;
-                this.navigateAfterLogin();
-            },
-            error: (err) => {
-                this.error = err.message || 'Не удалось пропустить настройку 2FA';
-                this.busy = false;
-                this.cdr.detectChanges();
-            },
-        });
-    }
+    this.auth.verifyTwoFactor(this.challengeId, c).subscribe({
+      next: () => {
+        this.busy = false;
+        this.cdr.detectChanges();
+        this.navigateAfterLogin();
+      },
+      error: (err) => {
+        this.error = err.status === 401
+          ? 'Неверный или истёкший код'
+          : err.message || 'Ошибка: ' + err.status;
+        this.busy = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
 
-    private navigateAfterLogin(): void {
-        const destination = this.auth.isTenantAdmin() ? '/admin/tenants' : this.auth.isPortalUser() ? '/portal' : '/dashboard';
-        this.router.navigateByUrl(destination);
-    }
+  skipSetup(): void {
+    if (this.busy || !this.canSkipSetup) return;
+
+    this.busy = true;
+    this.error = '';
+    this.info = '';
+    this.auth.skipTwoFactorSetup(this.challengeId).subscribe({
+      next: () => {
+        this.busy = false;
+        this.navigateAfterLogin();
+      },
+      error: (err) => {
+        this.error = err.message || 'Не удалось пропустить настройку 2FA';
+        this.busy = false;
+        this.cdr.detectChanges();
+      },
+    });
+  }
+
+  private navigateAfterLogin(): void {
+    const destination = this.auth.requiresRoleSelection()
+      ? '/select-role'
+      : this.auth.isTenantAdmin() ? '/admin/tenants' : this.auth.isPortalUser() ? '/portal' : '/dashboard';
+    this.router.navigateByUrl(destination);
+  }
 }
