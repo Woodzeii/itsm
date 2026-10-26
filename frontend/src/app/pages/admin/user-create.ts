@@ -38,7 +38,17 @@ import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/adm
         <section class="panel">
           <header><span class="step">02</span><div><h2>Авторизация и безопасность</h2><p>Первичный пароль и доступ к системе</p></div></header>
           <div class="security-grid">
-            <label>Первичный пароль<input name="initialPassword" type="password" [(ngModel)]="form.initialPassword" autocomplete="new-password" minlength="12" required /><small>Не менее 12 символов, с заглавной буквой и спецсимволом.</small></label>
+            <label>Первичный пароль
+              <input name="initialPassword" type="password" [(ngModel)]="form.initialPassword" autocomplete="new-password" required />
+              <small>Не менее 12 символов, с заглавной буквой и спецсимволом.</small>
+              @if (getPasswordErrors().length > 0) {
+                <div class="password-errors">
+                  @for (error of getPasswordErrors(); track error) {
+                    <p class="error-item">✘ {{ error }}</p>
+                  }
+                </div>
+              }
+            </label>
             <label class="active-toggle"><input name="isActive" type="checkbox" [(ngModel)]="form.isActive" /><span><strong>Учётная запись активна</strong><small>Отключите, чтобы создать пользователя заблокированным.</small></span></label>
           </div>
         </section>
@@ -57,7 +67,7 @@ import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/adm
           @if (roles.length && form.roleIds.length === 0) { <p class="role-hint">Выберите хотя бы одну роль.</p> }
         </section>
 
-        <footer class="form-actions"><span>Пароль не отображается в списке пользователей.</span><button class="primary" type="submit" [disabled]="saving || roles.length === 0">{{ saving ? 'Создание…' : 'Создать пользователя' }}</button></footer>
+        <footer class="form-actions"><span>Пароль не отображается в списке пользователей.</span><button class="primary" type="submit" [disabled]="saving || roles.length === 0 || getPasswordErrors().length > 0 || form.initialPassword === ''">{{ saving ? 'Создание…' : 'Создать пользователя' }}</button></footer>
       </form>
     </section>
   `,
@@ -80,6 +90,10 @@ import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/adm
       .wide { grid-column:1/-1; }
       .security-grid { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:18px; padding:16px; }
       .security-grid small { color:#8993a1; font-size:9px; line-height:1.5; }
+      .password-errors { margin-top:8px; padding:8px; border-radius:4px; background:#fff0ef; }
+      .error-item { margin:4px 0; color:#a93232; font-size:9px; line-height:1.4; }
+      .error-item:first-child { margin-top:0; }
+      .error-item:last-child { margin-bottom:0; }
       .active-toggle { display:flex; align-items:flex-start; gap:10px; padding:12px; border:1px solid #e6eaf0; border-radius:5px; }
       .active-toggle input, .role-option input { accent-color:#2872c8; }
       .active-toggle input { margin:2px 0 0; }
@@ -136,6 +150,11 @@ export class UserCreateComponent implements OnInit {
     }
 
     createUser(): void {
+        const passwordErrors = this.getPasswordErrors();
+        if (passwordErrors.length > 0) {
+            this.error = 'Пароль не соответствует требованиям: ' + passwordErrors.join(', ');
+            return;
+        }
         if (this.saving || !this.form.roleIds.length) return;
         this.saving = true;
         this.error = '';
@@ -160,6 +179,25 @@ export class UserCreateComponent implements OnInit {
                 this.saving = false;
             },
         });
+    }
+
+    getPasswordErrors(): string[] {
+        const pwd = this.form.initialPassword;
+        const errors: string[] = [];
+
+        if (!pwd) return errors;
+
+        if (pwd.length < 12) {
+            errors.push('минимум 12 символов');
+        }
+        if (!/[A-Z]/.test(pwd)) {
+            errors.push('требуется заглавная буква');
+        }
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)) {
+            errors.push('требуется спецсимвол');
+        }
+
+        return errors;
     }
 
     private emptyForm(): CreateAdminUserRequest {
