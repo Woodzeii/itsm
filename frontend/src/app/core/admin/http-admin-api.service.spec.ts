@@ -57,6 +57,33 @@ describe('HttpAdminApiService user methods', () => {
         expect(result).toEqual([user]);
     });
 
+    it('maps the full backend user DTO without dropping users', () => {
+        const responseUser = {
+            ...user,
+            isManager: false,
+            isTwoFactorEnabled: true,
+            status: 'Verified',
+            failedLoginAttempts: 0,
+            lockedUntil: null,
+            createdAt: '2026-10-23T21:28:33.051702+00:00',
+            roleCodes: ['agent'],
+        };
+        let result: UserSummary[] | undefined;
+        api.getUsers().subscribe(users => result = users);
+
+        http.expectOne(request => request.url.endsWith('/users')).flush({
+            items: [responseUser, { ...responseUser, id: 16, managerId: null, tenantId: null }],
+            total: 2,
+            page: 1,
+            pageSize: 200,
+        });
+
+        expect(result).toEqual([
+            user,
+            { ...user, id: 16, managerId: null, tenantId: null },
+        ]);
+    });
+
     it('normalizes PascalCase user data and rejects malformed entries', () => {
         let result: UserSummary[] | undefined;
         api.getUsers().subscribe(users => result = users);

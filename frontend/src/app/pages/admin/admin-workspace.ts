@@ -1,7 +1,8 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { finalize } from 'rxjs';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportSummary, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
 import { AdminService } from '../../core/admin/admin.service';
@@ -222,6 +223,7 @@ export class AdminWorkspaceComponent implements OnInit {
     private readonly admin = inject(AdminService);
     private readonly route = inject(ActivatedRoute);
     private readonly router = inject(Router);
+    private readonly changeDetector = inject(ChangeDetectorRef);
 
     section: AdminSection = 'settings';
     settings: AdminSettings | null = null;
@@ -271,14 +273,18 @@ export class AdminWorkspaceComponent implements OnInit {
         if (this.section === 'reports') this.loadReports();
         if (this.section === 'users') {
             this.usersLoading = true;
-            this.admin.getUsers().subscribe({
+            this.error = '';
+            this.admin.getUsers().pipe(finalize(() => {
+                this.usersLoading = false;
+                this.changeDetector.markForCheck();
+            })).subscribe({
                 next: users => {
                     this.usersList = users;
-                    this.usersLoading = false;
+                    this.changeDetector.markForCheck();
                 },
                 error: err => {
                     this.error = err.message;
-                    this.usersLoading = false;
+                    this.changeDetector.markForCheck();
                 },
             });
             this.admin.getRoles().subscribe({ next: roles => this.availableRoles = roles.filter(role => role.code !== 'tenant_admin' && role.code !== 'admin'), error: err => this.error = err.message });
