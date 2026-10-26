@@ -22,6 +22,7 @@ public class UserAdminException : Exception
 public interface IUserAdminService
 {
     Task<PagedResult<UserAdminDto>> GetListAsync(UserListQuery query, CancellationToken ct = default);
+    Task<List<RoleSummaryDto>> GetRolesAsync(CancellationToken ct = default);
     Task<UserAdminDto?> GetByIdAsync(int id, CancellationToken ct = default);
     Task<UserAdminDto> CreateAsync(CreateUserRequest request, int actorId, string? ip, CancellationToken ct = default);
     Task<UserAdminDto> UpdateAsync(int id, UpdateUserRequest request, int actorId, string? ip, CancellationToken ct = default);

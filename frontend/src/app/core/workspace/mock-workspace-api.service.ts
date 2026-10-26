@@ -508,6 +508,30 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         return of({ ...user, roleIds: [...user.roleIds] });
     }
 
+    updateUser(userId: number, changes: Partial<CreateUserRequest>): Observable<UserRecord> {
+        const user = this.users.find(u => u.id === userId);
+        if (!user) return this.fail('Пользователь не найден.');
+
+        const email = changes.email?.trim().toLocaleLowerCase();
+        const username = changes.username?.trim();
+        const policy = this.settings.passwordPolicy;
+
+        if (email && email !== user.email && this.users.some(u => u.id !== userId && u.email.toLocaleLowerCase() === email)) return this.fail('Пользователь с таким email уже существует.');
+        if (username && username !== user.username && this.users.some(u => u.id !== userId && u.username.toLocaleLowerCase() === username.toLocaleLowerCase())) return this.fail('Пользователь с таким username уже существует.');
+        if (changes.managerId && !this.users.some(u => u.id === changes.managerId && u.isActive)) return this.fail('Выберите действующего руководителя из списка.');
+        if (changes.roleIds && !changes.roleIds.length) return this.fail('Назначьте пользователю хотя бы одну роль.');
+
+        if (changes.fullName !== undefined) user.fullName = changes.fullName.trim();
+        if (email) user.email = email;
+        if (username) user.username = username;
+        if (changes.department !== undefined) user.department = changes.department.trim();
+        if (changes.managerId !== undefined) user.managerId = changes.managerId;
+        if (changes.isActive !== undefined) user.isActive = changes.isActive;
+        if (changes.roleIds !== undefined) user.roleIds = [...changes.roleIds];
+
+        return of({ ...user, roleIds: [...user.roleIds] });
+    }
+
     setTenantActive(tenantId: string, active: boolean): Observable<TenantRecord> {
         const tenant = this.tenants.find(item => item.id === tenantId);
         if (!tenant) return this.fail('Тенант не найден.');

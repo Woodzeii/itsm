@@ -2,13 +2,15 @@ import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
 import { delay } from 'rxjs/operators';
 import { AdminApi } from './admin-api';
-import { AuditLogEntry, RoleSummary, UserSummary } from './admin.models';
+import {
+    AuditLogEntry,
+    CreateAdminUserRequest,
+    RoleSummary,
+    UpdateAdminUserRequest,
+    UserSummary,
+} from './admin.models';
 
-/**
- * ⚠️ НЕ РЕАЛИЗОВАНО В BACKEND.
- * Хардкод-данные для фронта. Совпадают с AdminController на backend.
- * Когда backend будет готов — переключить на HttpAdminApiService.
- */
+/** Development mock implementation of the administrative API. */
 @Injectable()
 export class MockAdminApiService extends AdminApi {
     getAuditLog(): Observable<AuditLogEntry[]> {
@@ -55,11 +57,11 @@ export class MockAdminApiService extends AdminApi {
 
     getUsers(): Observable<UserSummary[]> {
         return of<UserSummary[]>([
-            { id: 1, username: 'admin', email: 'admin@itsm.local', fullName: 'Администратор Системы', department: 'IT', managerId: null, roleIds: [1], isActive: true },
-            { id: 2, username: 'i.ivanov', email: 'i.ivanov@itsm.local', fullName: 'Иван Иванов', department: 'IT', managerId: 1, roleIds: [4], isActive: true },
-            { id: 3, username: 'p.petrov', email: 'p.petrov@itsm.local', fullName: 'Пётр Петров', department: 'IT', managerId: 2, roleIds: [3], isActive: true },
-            { id: 4, username: 's.sidorov', email: 's.sidorov@itsm.local', fullName: 'Сидор Сидоров', department: 'Бухгалтерия', managerId: null, roleIds: [5], isActive: true },
-            { id: 5, username: 'a.anna', email: 'a.anna@itsm.local', fullName: 'Анна Аннова', department: 'Бухгалтерия', managerId: null, roleIds: [5], isActive: false },
+            { id: 1, username: 'admin', email: 'admin@itsm.local', fullName: 'Администратор Системы', department: 'IT', managerId: null, tenantId: null, roleIds: [1], isActive: true },
+            { id: 2, username: 'i.ivanov', email: 'i.ivanov@itsm.local', fullName: 'Иван Иванов', department: 'IT', managerId: 1, tenantId: null, roleIds: [4], isActive: true },
+            { id: 3, username: 'p.petrov', email: 'p.petrov@itsm.local', fullName: 'Пётр Петров', department: 'IT', managerId: 2, tenantId: null, roleIds: [3], isActive: true },
+            { id: 4, username: 's.sidorov', email: 's.sidorov@itsm.local', fullName: 'Сидор Сидоров', department: 'Бухгалтерия', managerId: null, tenantId: null, roleIds: [5], isActive: true },
+            { id: 5, username: 'a.anna', email: 'a.anna@itsm.local', fullName: 'Анна Аннова', department: 'Бухгалтерия', managerId: null, tenantId: null, roleIds: [5], isActive: false },
         ]).pipe(delay(150));
     }
 
@@ -71,5 +73,23 @@ export class MockAdminApiService extends AdminApi {
             { id: 4, code: 'manager', name: 'Руководитель' },
             { id: 5, code: 'portal_user', name: 'Пользователь портала' },
         ]).pipe(delay(150));
+    }
+
+    createUser(request: CreateAdminUserRequest): Observable<UserSummary> {
+        return of<UserSummary>({
+            id: Date.now(),
+            username: request.username,
+            email: request.email,
+            fullName: request.fullName,
+            department: request.department,
+            managerId: request.managerId,
+            tenantId: null,
+            roleIds: [...request.roleIds],
+            isActive: request.isActive,
+        }).pipe(delay(150));
+    }
+
+    updateUser(id: number, request: UpdateAdminUserRequest): Observable<UserSummary> {
+        return of<UserSummary>({ id, ...request }).pipe(delay(150));
     }
 }

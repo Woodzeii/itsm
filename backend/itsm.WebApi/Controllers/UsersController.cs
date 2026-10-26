@@ -29,6 +29,10 @@ public class UsersController : ControllerBase
         return Ok(await _service.GetListAsync(query, ct));
     }
 
+    [HttpGet("roles")]
+    public async Task<IActionResult> GetRoles(CancellationToken ct)
+        => Ok(await _service.GetRolesAsync(ct));
+
     [HttpGet("{id:int}")]
     public async Task<IActionResult> GetById(int id, CancellationToken ct)
     {
