@@ -112,25 +112,25 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
                 @for (user of usersList; track user.id; let index = $index) {
                   @if (editingUserId === user.id) {
                     <tr class="edit-row">
-                      <td><input name="fullName" [(ngModel)]="editingUser!.fullName" /></td>
-                      <td><input name="email" type="email" [(ngModel)]="editingUser!.email" /></td>
-                      <td><input name="username" [(ngModel)]="editingUser!.username" /></td>
-                      <td><input name="department" [(ngModel)]="editingUser!.department" /></td>
-                      <td><select name="managerId" [(ngModel)]="editingUser!.managerId"><option [ngValue]="null">Не назначен</option>@for (manager of usersList.filter(u => u.id !== user.id && u.isActive); track manager.id) { <option [ngValue]="manager.id">{{ manager.fullName }}</option> }</select></td>
-                      <td><label class="check"><input type="checkbox" [(ngModel)]="editingUser!.isActive" /><span>Активен</span></label></td>
-                      <td class="roles-cell"><div class="roles-list">@for (role of availableRoles; track role.id) { <label class="role-check"><input type="checkbox" [checked]="(editingUser?.roleIds || []).includes(role.id)" (change)="toggleEditingUserRole(role.id, $event)" /><span>{{ role.name }}</span></label> }</div></td>
-                      <td class="actions"><button type="button" (click)="saveUser(user.id)">✓</button><button type="button" (click)="cancelEdit()">✕</button></td>
+                      <td data-label="ФИО"><input name="fullName" [(ngModel)]="editingUser!.fullName" /></td>
+                      <td data-label="Email"><input name="email" type="email" [(ngModel)]="editingUser!.email" /></td>
+                      <td data-label="Username"><input name="username" [(ngModel)]="editingUser!.username" /></td>
+                      <td data-label="Департамент"><input name="department" [(ngModel)]="editingUser!.department" /></td>
+                      <td data-label="Руководитель"><select name="managerId" [(ngModel)]="editingUser!.managerId"><option [ngValue]="null">Не назначен</option>@for (manager of usersList.filter(u => u.id !== user.id && u.isActive); track manager.id) { <option [ngValue]="manager.id">{{ manager.fullName }}</option> }</select></td>
+                      <td data-label="Статус"><label class="check"><input type="checkbox" [(ngModel)]="editingUser!.isActive" /><span>Активен</span></label></td>
+                      <td class="roles-cell" data-label="Роли"><div class="roles-list">@for (role of availableRoles; track role.id) { <label class="role-check"><input type="checkbox" [checked]="(editingUser?.roleIds || []).includes(role.id)" (change)="toggleEditingUserRole(role.id, $event)" /><span>{{ role.name }}</span></label> }</div></td>
+                      <td class="actions" data-label="Действия"><button type="button" aria-label="Сохранить пользователя" (click)="saveUser(user.id)">✓</button><button type="button" aria-label="Отменить редактирование" (click)="cancelEdit()">✕</button></td>
                     </tr>
                   } @else {
                     <tr>
-                      <td>{{ user.fullName }}</td>
-                      <td>{{ user.email }}</td>
-                      <td>{{ user.username }}</td>
-                      <td>{{ user.department }}</td>
-                      <td>{{ findUserName(user.managerId) || '—' }}</td>
-                      <td><span class="status" [class.active]="user.isActive" [class.inactive]="!user.isActive">{{ user.isActive ? 'Активен' : 'Неактивен' }}</span></td>
-                      <td>{{ user.roleIds.map(id => findRoleName(id)).filter(n => n).join(', ') || '—' }}</td>
-                      <td class="actions"><button type="button" (click)="editUser(user)">✎</button></td>
+                      <td data-label="ФИО">{{ user.fullName }}</td>
+                      <td data-label="Email">{{ user.email }}</td>
+                      <td data-label="Username">{{ user.username }}</td>
+                      <td data-label="Департамент">{{ user.department }}</td>
+                      <td data-label="Руководитель">{{ findUserName(user.managerId) || '—' }}</td>
+                      <td data-label="Статус"><span class="status" [class.active]="user.isActive" [class.inactive]="!user.isActive">{{ user.isActive ? 'Активен' : 'Неактивен' }}</span></td>
+                      <td data-label="Роли">{{ user.roleIds.map(id => findRoleName(id)).filter(n => n).join(', ') || '—' }}</td>
+                      <td class="actions" data-label="Действия"><button type="button" [attr.aria-label]="'Редактировать пользователя ' + user.fullName" (click)="editUser(user)">✎</button></td>
                     </tr>
                   }
                 }
@@ -215,7 +215,6 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
       .users-table button { width:24px; height:24px; margin:0 2px; padding:0; border:0; border-radius:3px; background:#f0f2f5; color:#546173; cursor:pointer; font-size:9px; }
       .users-table button:hover { background:#e2e7ed; }
       @media(max-width:950px) { .policy-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .type-top { grid-template-columns:1fr 1fr; } .sla-grid { grid-template-columns:1fr; } .users-table { font-size:8px; } .users-table th, .users-table td { padding:6px 4px; } }
-      @media(max-width:650px) { .page { padding:20px 13px 30px; } .field-grid,.list-editor,.field-main,.field-options,.account-grid,.add-field { grid-template-columns:1fr; } .status-row { grid-template-columns:1fr auto; } .status-row .check { grid-column:1; } .policy-row { grid-template-columns:1fr; } .period { align-items:stretch; flex-direction:column; } .period label { min-width:0; } .users-table { font-size:7px; } }
     `],
 })
 export class AdminWorkspaceComponent implements OnInit {

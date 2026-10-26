@@ -33,3 +33,166 @@ select,
 textarea {
     font: inherit;
 }
+
+@media (max-width: 650px) {
+    app-admin-workspace .page {
+        padding: 20px 13px 30px;
+    }
+
+    app-admin-workspace .field-grid,
+    app-admin-workspace .list-editor,
+    app-admin-workspace .field-main,
+    app-admin-workspace .field-options,
+    app-admin-workspace .account-grid,
+    app-admin-workspace .add-field {
+        grid-template-columns: 1fr;
+    }
+
+    app-admin-workspace .status-row {
+        grid-template-columns: 1fr auto;
+    }
+
+    app-admin-workspace .status-row .check {
+        grid-column: 1;
+    }
+
+    app-admin-workspace .policy-row {
+        grid-template-columns: 1fr;
+    }
+
+    app-admin-workspace .period {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    app-admin-workspace .period label {
+        min-width: 0;
+    }
+
+    app-admin-workspace .users-toolbar {
+        padding: 10px 12px;
+    }
+
+    app-admin-workspace .users-toolbar button {
+        width: 100%;
+        min-height: 42px;
+    }
+
+    app-admin-workspace .users-table {
+        display: block;
+        font-size: 13px;
+    }
+
+    app-admin-workspace .users-table thead {
+        display: none;
+    }
+
+    app-admin-workspace .users-table tbody {
+        display: grid;
+        gap: 12px;
+        padding: 12px;
+    }
+
+    app-admin-workspace .users-table tbody tr {
+        display: grid;
+        gap: 0;
+        padding: 4px 12px;
+        border: 1px solid #e2e7ed;
+        border-radius: 7px;
+        background: #fff;
+        box-shadow: 0 1px 3px #2027340d;
+    }
+
+    app-admin-workspace .users-table tbody td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-width: 0;
+        padding: 9px 0;
+        border-bottom: 1px solid #eef1f4;
+        font-size: 13px;
+        text-align: right;
+        overflow-wrap: anywhere;
+    }
+
+    app-admin-workspace .users-table tbody td:last-child {
+        border-bottom: 0;
+    }
+
+    app-admin-workspace .users-table tbody td::before {
+        content: attr(data-label);
+        flex: 0 0 38%;
+        color: #687587;
+        font-size: 11px;
+        font-weight: 600;
+        text-align: left;
+    }
+
+    app-admin-workspace .users-table .edit-row input,
+    app-admin-workspace .users-table .edit-row select {
+        flex: 1;
+        width: 0;
+        min-width: 0;
+        min-height: 42px;
+        padding: 8px;
+        font-size: 16px;
+    }
+
+    app-admin-workspace .users-table .edit-row td {
+        padding: 8px 0;
+    }
+
+    app-admin-workspace .users-table .edit-row .check {
+        justify-content: flex-end;
+        flex: 1;
+        min-height: 36px;
+        margin: 0;
+    }
+
+    app-admin-workspace .users-table .edit-row .check input {
+        flex: 0 0 auto;
+        width: 20px;
+        height: 20px;
+        min-height: 0;
+    }
+
+    app-admin-workspace .users-table .roles-cell {
+        max-width: none;
+    }
+
+    app-admin-workspace .roles-list {
+        flex: 1;
+        justify-items: end;
+    }
+
+    app-admin-workspace .role-check {
+        min-height: 36px;
+        gap: 8px;
+    }
+
+    app-admin-workspace .role-check input {
+        width: 20px;
+        height: 20px;
+    }
+
+    app-admin-workspace .role-check span {
+        font-size: 12px;
+    }
+
+    app-admin-workspace .users-table .actions {
+        justify-content: flex-end;
+        gap: 8px;
+    }
+
+    app-admin-workspace .users-table .actions::before {
+        margin-right: auto;
+    }
+
+    app-admin-workspace .users-table button {
+        width: 42px;
+        height: 42px;
+        margin: 0;
+        font-size: 16px;
+    }
+}

@@ -53,6 +53,32 @@ describe('AdminWorkspaceComponent user list', () => {
         expect(pageText).toContain(user.fullName);
         expect(pageText).toContain(user.email);
         expect(pageText).not.toContain('Пользователей не найдено');
+        expect(
+            Array.from(
+                fixture.nativeElement.querySelectorAll('.users-table tbody tr td') as NodeListOf<Element>,
+                cell => cell.getAttribute('data-label'),
+            ),
+        ).toEqual(['ФИО', 'Email', 'Username', 'Департамент', 'Руководитель', 'Статус', 'Роли', 'Действия']);
+    });
+
+    it('keeps field labels visible when editing a user on narrow screens', async () => {
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        const editButton = fixture.nativeElement.querySelector(
+            'button[aria-label="Редактировать пользователя Тестовый Пользователь"]',
+        ) as HTMLButtonElement;
+        editButton.click();
+        fixture.detectChanges();
+
+        const editCells = fixture.nativeElement.querySelectorAll('.edit-row td') as NodeListOf<Element>;
+        expect(Array.from(editCells, cell => cell.getAttribute('data-label'))).toEqual([
+            'ФИО', 'Email', 'Username', 'Департамент', 'Руководитель', 'Статус', 'Роли', 'Действия',
+        ]);
+        expect(fixture.nativeElement.querySelector('.edit-row input[name="fullName"]')).not.toBeNull();
+        expect(fixture.nativeElement.querySelector('.edit-row select[name="managerId"]')).not.toBeNull();
     });
 
     it('replaces the loading message when the user request completes', () => {
