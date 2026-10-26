@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<IDictionaryService, DictionaryService>();
+        services.AddScoped<ITenantService, TenantService>();
         services.AddScoped<IAssetClassService, AssetClassService>();
         services.AddScoped<ITicketService, TicketService>();
         services.AddScoped<ITicketAttachmentStorage, PhysicalTicketAttachmentStorage>();

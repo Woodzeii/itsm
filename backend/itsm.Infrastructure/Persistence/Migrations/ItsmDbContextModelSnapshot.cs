@@ -1579,6 +1579,18 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("BlockReason")
+                        .HasColumnType("text")
+                        .HasColumnName("block_reason");
+
+                    b.Property<DateTimeOffset?>("BlockedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("blocked_at");
+
+                    b.Property<DateTimeOffset?>("BlockedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("blocked_until");
+
                     b.Property<string>("Code")
                         .IsRequired()
                         .HasColumnType("text")
@@ -1590,11 +1602,47 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<int>("CurrentAssetCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_asset_count");
+
+                    b.Property<long>("CurrentStorageBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("current_storage_bytes");
+
+                    b.Property<int>("CurrentTicketCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_ticket_count");
+
+                    b.Property<int>("CurrentUserCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_user_count");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
                         .HasColumnName("is_active");
+
+                    b.Property<bool>("IsBlocked")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_blocked");
+
+                    b.Property<int>("MaxAssets")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_assets");
+
+                    b.Property<long>("MaxStorageBytes")
+                        .HasColumnType("bigint")
+                        .HasColumnName("max_storage_bytes");
+
+                    b.Property<int>("MaxTickets")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_tickets");
+
+                    b.Property<int>("MaxUsers")
+                        .HasColumnType("integer")
+                        .HasColumnName("max_users");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -1616,7 +1664,16 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Id = 1,
                             Code = "default",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            CurrentAssetCount = 0,
+                            CurrentStorageBytes = 0L,
+                            CurrentTicketCount = 0,
+                            CurrentUserCount = 0,
                             IsActive = true,
+                            IsBlocked = false,
+                            MaxAssets = 1000,
+                            MaxStorageBytes = 10737418240L,
+                            MaxTickets = 10000,
+                            MaxUsers = 100,
                             Name = "Default Tenant"
                         });
                 });

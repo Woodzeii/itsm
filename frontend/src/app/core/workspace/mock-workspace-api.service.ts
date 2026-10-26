@@ -15,6 +15,9 @@ import {
     AssetLifecycle,
     CreateAssetRequest,
     CreateTenantRequest,
+    UpdateTenantRequest,
+    BlockTenantRequest,
+    UnblockTenantRequest,
     CreateTicketRequest,
     EscalationHistoryEntry,
     EscalationPolicy,
@@ -78,8 +81,18 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     private readonly escalationHistory: EscalationHistoryEntry[] = [];
     private readonly auth = inject(AuthService);
     private tenants: TenantRecord[] = [
-        { id: 'tenant-nocode', name: 'Nocode', firstAdminLogin: 'admin.nocode', active: true },
-        { id: 'tenant-demo', name: 'Демонстрационный тенант', firstAdminLogin: 'admin.demo', active: true },
+        { 
+            id: 1, code: 'nocode', name: 'Nocode', isActive: true, createdAt: '2026-01-15T10:00:00Z',
+            maxUsers: 50, maxAssets: 500, maxTickets: 5000, maxStorageBytes: 5_368_709_120,
+            isBlocked: false, currentUserCount: 12, currentAssetCount: 120, currentTicketCount: 1250, currentStorageBytes: 1_073_741_824,
+            usersPercentage: 24, assetsPercentage: 24, ticketsPercentage: 25, storagePercentage: 20
+        },
+        { 
+            id: 2, code: 'demo', name: 'Демонстрационный тенант', isActive: true, createdAt: '2026-02-01T14:30:00Z',
+            maxUsers: 100, maxAssets: 1000, maxTickets: 10000, maxStorageBytes: 10_737_418_240,
+            isBlocked: false, currentUserCount: 25, currentAssetCount: 300, currentTicketCount: 2500, currentStorageBytes: 2_147_483_648,
+            usersPercentage: 25, assetsPercentage: 30, ticketsPercentage: 25, storagePercentage: 20
+        },
     ];
 
     private readonly users: UserRecord[] = [
@@ -465,12 +478,102 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         return of(this.tenants.map(tenant => ({ ...tenant })));
     }
 
+    getTenant(tenantId: number): Observable<TenantRecord> {
+        if (this.settings.tenantMode !== 'saas') return this.fail('Управление тенантами доступно только в SaaS-поставке.');
+        const tenant = this.tenants.find(t => t.id === tenantId);
+        if (!tenant) return this.fail('Тенант не найден.');
+        return of({ ...tenant });
+    }
+
     createTenant(request: CreateTenantRequest): Observable<TenantRecord> {
         if (this.settings.tenantMode !== 'saas') return this.fail('Управление тенантами доступно только в SaaS-поставке.');
-        const tenant: TenantRecord = { id: this.id('tenant'), name: request.name.trim(), firstAdminLogin: request.firstAdminLogin.trim(), active: true };
-        if (!tenant.name || !tenant.firstAdminLogin) return this.fail('Название тенанта и логин администратора обязательны.');
+        const name = request.name.trim();
+        if (!name || !request.firstAdminLogin) return this.fail('Название тенанта и логин администратора обязательны.');
+        
+        const tenant: TenantRecord = {
+            id: Math.max(0, ...this.tenants.map(t => typeof t.id === 'number' ? t.id : 0)) + 1,
+            code: name.toLowerCase().replace(/\s+/g, '-'),
+            name,
+            isActive: true,
+            createdAt: new Date().toISOString(),
+            maxUsers: request.maxUsers ?? 100,
+            maxAssets: request.maxAssets ?? 1000,
+            maxTickets: request.maxTickets ?? 10000,
+            maxStorageBytes: request.maxStorageBytes ?? 10_737_418_240,
+            isBlocked: false,
+            currentUserCount: 0,
+            currentAssetCount: 0,
+            currentTicketCount: 0,
+            currentStorageBytes: 0,
+            usersPercentage: 0,
+            assetsPercentage: 0,
+            ticketsPercentage: 0,
+            storagePercentage: 0,
+        };
         this.tenants.unshift(tenant);
-        return of(tenant);
+        return of({ ...tenant });
+    }
+
+    updateTenant(tenantId: number, request: UpdateTenantRequest): Observable<TenantRecord> {
+        if (this.settings.tenantMode !== 'saas') return this.fail('Управление тенантами доступно только в SaaS-поставке.');
+        const tenant = this.tenants.find(t => t.id === tenantId);
+        if (!tenant) return this.fail('Тенант не найден.');
+        
+        if (request.name) tenant.name = request.name;
+        if (request.maxUsers) tenant.maxUsers = request.maxUsers;
+        if (request.maxAssets) tenant.maxAssets = request.maxAssets;
+        if (request.maxTickets) tenant.maxTickets = request.maxTickets;
+        if (request.maxStorageBytes) tenant.maxStorageBytes = request.maxStorageBytes;
+        
+        // Пересчитываем проценты
+        tenant.usersPercentage = tenant.maxUsers > 0 ? (tenant.currentUserCount / tenant.maxUsers) * 100 : 0;
+        tenant.assetsPercentage = tenant.maxAssets > 0 ? (tenant.currentAssetCount / tenant.maxAssets) * 100 : 0;
+        tenant.ticketsPercentage = tenant.maxTickets > 0 ? (tenant.currentTicketCount / tenant.maxTickets) * 100 : 0;
+        tenant.storagePercentage = tenant.maxStorageBytes > 0 ? (tenant.currentStorageBytes / tenant.maxStorageBytes) * 100 : 0;
+        
+        return of({ ...tenant });
+    }
+
+    setTenantActive(tenantId: number, isActive: boolean): Observable<TenantRecord> {
+        if (this.settings.tenantMode !== 'saas') return this.fail('Управление тенантами доступно только в SaaS-поставке.');
+        const tenant = this.tenants.find(t => t.id === tenantId);
+        if (!tenant) return this.fail('Тенант не найден.');
+        tenant.isActive = isActive;
+        return of({ ...tenant });
+    }
+
+    blockTenant(tenantId: number, request: BlockTenantRequest): Observable<TenantRecord> {
+        if (this.settings.tenantMode !== 'saas') return this.fail('Управление тенантами доступно только в SaaS-поставке.');
+        const tenant = this.tenants.find(t => t.id === tenantId);
+        if (!tenant) return this.fail('Тенант не найден.');
+        
+        tenant.isBlocked = true;
+        tenant.blockReason = request.reason;
+        tenant.blockedAt = new Date().toISOString();
+        tenant.blockedUntil = request.blockedUntil;
+        
+        return of({ ...tenant });
+    }
+
+    unblockTenant(tenantId: number): Observable<TenantRecord> {
+        if (this.settings.tenantMode !== 'saas') return this.fail('Управление тенантами доступно только в SaaS-поставке.');
+        const tenant = this.tenants.find(t => t.id === tenantId);
+        if (!tenant) return this.fail('Тенант не найден.');
+        
+        tenant.isBlocked = false;
+        tenant.blockReason = undefined;
+        tenant.blockedAt = undefined;
+        tenant.blockedUntil = undefined;
+        
+        return of({ ...tenant });
+    }
+
+    deleteTenant(tenantId: number): Observable<void> {
+        if (this.settings.tenantMode !== 'saas') return this.fail('Управление тенантами доступно только в SaaS-поставке.');
+        const index = this.tenants.findIndex(t => t.id === tenantId);
+        if (index === -1) return this.fail('Тенант не найден.');
+        this.tenants.splice(index, 1);
+        return of(void 0);
     }
 
     getUsers(): Observable<UserRecord[]> {
@@ -530,20 +633,6 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         if (changes.roleIds !== undefined) user.roleIds = [...changes.roleIds];
 
         return of({ ...user, roleIds: [...user.roleIds] });
-    }
-
-    setTenantActive(tenantId: string, active: boolean): Observable<TenantRecord> {
-        const tenant = this.tenants.find(item => item.id === tenantId);
-        if (!tenant) return this.fail('Тенант не найден.');
-        tenant.active = active;
-        return of({ ...tenant });
-    }
-
-    deleteTenant(tenantId: string): Observable<void> {
-        const tenant = this.tenants.find(item => item.id === tenantId);
-        if (!tenant) return this.fail('Тенант не найден.');
-        this.tenants.splice(this.tenants.indexOf(tenant), 1);
-        return of(void 0);
     }
 
     private nextTicketId(prefix: string): string {
