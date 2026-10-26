@@ -137,7 +137,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         portalSlaFields: ['Время реакции', 'Время решения'],
         portalAccounts: ['portal.user'],
         engineers: ['Иван Петров', 'Сергей Волков'],
-        tenantMode: 'on-premise',
+        tenantMode: 'saas',
         passwordPolicy: { minLength: 12, requireUppercase: true, requireSpecial: true, expiryDays: 90, maxFailedAttempts: 5, lockoutMinutes: 15 },
         reportAccessRoles: ['admin', 'manager'],
     };
