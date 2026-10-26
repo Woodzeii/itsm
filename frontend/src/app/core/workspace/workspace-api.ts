@@ -36,8 +36,8 @@ export abstract class WorkspaceApi {
     abstract createTicket(request: CreateTicketRequest): Observable<Ticket>;
     abstract getTicketTypes(): Observable<TicketType[]>;
     abstract saveTicketTypes(ticketTypes: TicketType[]): Observable<TicketType[]>;
-    abstract changeTicketStatus(ticketId: string, status: string): Observable<Ticket>;
-    abstract assignTicket(ticketId: string, assignee: string): Observable<Ticket>;
+    abstract changeTicketStatus(ticketId: string, statusId: number): Observable<Ticket>;
+    abstract assignTicket(ticketId: string, assigneeId: number): Observable<Ticket>;
     abstract changeTicketPriority(ticketId: string, priority: string): Observable<Ticket>;
     abstract addTicketComment(ticketId: string, comment: Omit<TicketComment, 'id' | 'createdAt'>): Observable<TicketComment>;
     abstract escalateTicket(ticketId: string, initiator: string): Observable<EscalationHistoryEntry>;
@@ -68,4 +68,5 @@ export abstract class WorkspaceApi {
     abstract getUsers(): Observable<UserRecord[]>;
     abstract getSystemRoles(): Observable<SystemRoleOption[]>;
     abstract createUser(request: CreateUserRequest): Observable<UserRecord>;
+    abstract setUserActive(userId: number, isActive: boolean): Observable<UserRecord>;
 }

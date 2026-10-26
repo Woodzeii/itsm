@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { forkJoin, map, of, switchMap } from 'rxjs';
+import { forkJoin, map, of, switchMap, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { WorkspaceApi } from './workspace-api';
 import { environment } from '../../../environments/environment';
@@ -65,27 +65,39 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     }
     getEscalations() { return this.http.get<Escalation[]>(`${this.baseUrl}/escalations`); }
     createTicket(request: CreateTicketRequest) { return this.http.post<Ticket>(`${this.baseUrl}/tickets`, request); }
-    getTicketTypes() { return this.http.get<TicketType[]>(`${this.baseUrl}/ticket-types`); }
-    saveTicketTypes(ticketTypes: TicketType[]) { return this.http.put<TicketType[]>(`${this.baseUrl}/ticket-types`, ticketTypes); }
-    changeTicketStatus(ticketId: string, status: string) { return this.http.patch<Ticket>(`${this.baseUrl}/tickets/${ticketId}/status`, { status }); }
-    assignTicket(ticketId: string, assignee: string) { return this.http.patch<Ticket>(`${this.baseUrl}/tickets/${ticketId}/assignee`, { assignee }); }
-    changeTicketPriority(ticketId: string, priority: string) { return this.http.patch<Ticket>(`${this.baseUrl}/tickets/${ticketId}/priority`, { priority }); }
-    addTicketComment(ticketId: string, comment: Omit<TicketComment, 'id' | 'createdAt'>) { return this.http.post<TicketComment>(`${this.baseUrl}/tickets/${ticketId}/comments`, comment); }
+    getTicketTypes() { return this.unsupported<TicketType[]>('ticket types'); }
+    saveTicketTypes(_ticketTypes: TicketType[]) { return this.unsupported<TicketType[]>('ticket types'); }
+    changeTicketStatus(ticketId: string, statusId: number) {
+        return this.http.put<Ticket>(`${this.baseUrl}/tickets/${ticketId}/status`, { statusId });
+    }
+    assignTicket(ticketId: string, assigneeId: number) {
+        return this.http.post<Ticket>(`${this.baseUrl}/tickets/${ticketId}/assign`, { assigneeId });
+    }
+    changeTicketPriority(ticketId: string, priority: string) {
+        return this.http.put<Ticket>(`${this.baseUrl}/tickets/${ticketId}`, { priority });
+    }
+    addTicketComment(ticketId: string, comment: Omit<TicketComment, 'id' | 'createdAt'>) {
+        return this.http.post<TicketComment>(`${this.baseUrl}/tickets/${ticketId}/messages`, {
+            messageBody: comment.message,
+            isInternal: comment.internal,
+            attachments: comment.attachments,
+        });
+    }
     escalateTicket(ticketId: string, initiator: string) { return this.http.post<EscalationHistoryEntry>(`${this.baseUrl}/tickets/${ticketId}/escalations`, { initiator }); }
     getAssetDetails(assetId: string) { return this.http.get<AssetDetails>(`${this.baseUrl}/assets/${assetId}`); }
     createAsset(request: CreateAssetRequest) { return this.http.post<AssetDetails>(`${this.baseUrl}/assets`, request); }
-    updateAsset(assetId: string, changes: Partial<CreateAssetRequest>) { return this.http.patch<AssetDetails>(`${this.baseUrl}/assets/${assetId}`, changes); }
+    updateAsset(assetId: string, changes: Partial<CreateAssetRequest>) { return this.http.put<AssetDetails>(`${this.baseUrl}/assets/${assetId}`, changes); }
     deleteAsset(assetId: string) { return this.http.delete<void>(`${this.baseUrl}/assets/${assetId}`); }
     moveAsset(assetId: string, request: AssetMovementRequest) { return this.http.post<AssetDetails>(`${this.baseUrl}/assets/${assetId}/movements`, request); }
     createRepairTicket(assetId: string, title: string) { return this.http.post<Ticket>(`${this.baseUrl}/tickets/repairs`, { assetId, title }); }
     closeRepairTicket(ticketId: string, request: RepairCloseRequest) { return this.http.post<Ticket>(`${this.baseUrl}/tickets/${ticketId}/repair-close`, request); }
-    getForms() { return this.http.get<TicketFormDefinition[]>(`${this.baseUrl}/ticket-forms`); }
-    saveForm(form: TicketFormDefinition) { return this.http.put<TicketFormDefinition>(`${this.baseUrl}/ticket-forms/${form.ticketTypeId}`, form); }
-    getEscalationPolicies() { return this.http.get<EscalationPolicy[]>(`${this.baseUrl}/escalation-policies`); }
-    saveEscalationPolicies(policies: EscalationPolicy[]) { return this.http.put<EscalationPolicy[]>(`${this.baseUrl}/escalation-policies`, policies); }
+    getForms() { return this.unsupported<TicketFormDefinition[]>('ticket forms'); }
+    saveForm(_form: TicketFormDefinition) { return this.unsupported<TicketFormDefinition>('ticket forms'); }
+    getEscalationPolicies() { return this.unsupported<EscalationPolicy[]>('escalation policies'); }
+    saveEscalationPolicies(_policies: EscalationPolicy[]) { return this.unsupported<EscalationPolicy[]>('escalation policies'); }
     getEscalationHistory() { return this.http.get<EscalationHistoryEntry[]>(`${this.baseUrl}/escalations/history`); }
-    getAdminSettings() { return this.http.get<AdminSettings>(`${this.baseUrl}/settings`); }
-    saveAdminSettings(settings: AdminSettings) { return this.http.put<AdminSettings>(`${this.baseUrl}/settings`, settings); }
+    getAdminSettings() { return this.unsupported<AdminSettings>('admin settings'); }
+    saveAdminSettings(_settings: AdminSettings) { return this.unsupported<AdminSettings>('admin settings'); }
     getReports(from?: string, to?: string) { return this.http.get<ReportSummary[]>(`${this.baseUrl}/reports`, { params: { ...(from ? { from } : {}), ...(to ? { to } : {}) } }); }
     getPortalTickets() { return this.http.get<Ticket[]>(`${this.baseUrl}/portal/tickets`); }
     createPortalTicket(request: PortalTicketRequest) {
@@ -96,19 +108,30 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     }
     addPortalComment(ticketId: string, message: string, attachments: File[]) {
         const formData = new FormData();
-        formData.append('message', message);
+        formData.append('payload', JSON.stringify({ messageBody: message, isInternal: false, attachments: attachments.map(file => file.name) }));
         for (const file of attachments) formData.append('attachments', file);
-        return this.http.post<TicketComment>(`${this.baseUrl}/portal/tickets/${ticketId}/comments`, formData);
+        return this.http.post<TicketComment>(`${this.baseUrl}/tickets/${ticketId}/messages`, formData);
     }
     reviewPortalTicket(ticketId: string, accepted: boolean) { return this.http.post<Ticket>(`${this.baseUrl}/portal/tickets/${ticketId}/review`, { accepted }); }
     createPortalAccount(request: CreatePortalAccountRequest) { return this.http.post<string>(`${this.baseUrl}/portal/accounts`, request); }
     getTenants() { return this.http.get<TenantRecord[]>(`${this.baseUrl}/tenants`); }
     createTenant(request: CreateTenantRequest) { return this.http.post<TenantRecord>(`${this.baseUrl}/tenants`, request); }
-    setTenantActive(tenantId: string, active: boolean) { return this.http.patch<TenantRecord>(`${this.baseUrl}/tenants/${tenantId}/status`, { active }); }
+    setTenantActive(_tenantId: string, _active: boolean) {
+        return throwError(() => new Error('Backend tenant status endpoint is not implemented.'));
+    }
     deleteTenant(tenantId: string) { return this.http.delete<void>(`${this.baseUrl}/tenants/${tenantId}`); }
-    getUsers() { return this.http.get<UserRecord[]>(`${this.baseUrl}/users`); }
-    getSystemRoles() { return this.http.get<SystemRoleOption[]>(`${this.baseUrl}/system-roles`); }
+    getUsers() {
+        return this.http.get<{ items: UserRecord[] }>(`${this.baseUrl}/users`).pipe(map(result => result.items));
+    }
+    getSystemRoles() { return this.http.get<SystemRoleOption[]>(`${this.baseUrl}/admin/roles`); }
     createUser(request: CreateUserRequest) { return this.http.post<UserRecord>(`${this.baseUrl}/users`, request); }
+    setUserActive(userId: number, isActive: boolean) {
+        return this.http.put<UserRecord>(`${this.baseUrl}/users/${userId}/active`, { isActive });
+    }
+
+    private unsupported<T>(feature: string) {
+        return throwError(() => new Error(`Backend endpoint for ${feature} is not implemented.`));
+    }
 }
 
 function parseOptions(value: string | null): string[] {

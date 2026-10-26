@@ -37,8 +37,8 @@ import { WorkspaceService } from '../../core/workspace/workspace.service';
         <section class="panel">
           <header><span class="step">02</span><div><h2>Авторизация и безопасность</h2><p>Первичный пароль и доступ к системе</p></div></header>
           <div class="security-grid">
-            <label>Первичный пароль<input name="initialPassword" type="password" [(ngModel)]="form.initialPassword" autocomplete="new-password" minlength="12" required /><small>Не менее 12 символов, с заглавной буквой и спецсимволом.</small></label>
-            <label class="active-toggle"><input name="isActive" type="checkbox" [(ngModel)]="form.isActive" /><span><strong>Учётная запись активна</strong><small>Отключите, чтобы создать пользователя заблокированным.</small></span></label>
+            <label>Первичный пароль<input name="password" type="password" [(ngModel)]="form.password" autocomplete="new-password" minlength="12" required /><small>Не менее 12 символов, с заглавной буквой и спецсимволом.</small></label>
+            <label class="active-toggle"><input name="isActive" type="checkbox" [(ngModel)]="isActive" /><span><strong>Учётная запись активна</strong><small>Отключите, чтобы создать пользователя заблокированным.</small></span></label>
           </div>
         </section>
 
@@ -114,6 +114,7 @@ export class UserCreateComponent implements OnInit {
     error = '';
     notice = '';
     form = this.emptyForm();
+    isActive = true;
 
     ngOnInit(): void {
         this.workspace.getUsers().subscribe({
@@ -149,6 +150,7 @@ export class UserCreateComponent implements OnInit {
                 this.managers = [user, ...this.managers];
                 this.notice = `Пользователь ${user.fullName} создан.`;
                 this.form = this.emptyForm();
+                this.isActive = true;
                 this.saving = false;
             },
             error: err => {
@@ -159,6 +161,6 @@ export class UserCreateComponent implements OnInit {
     }
 
     private emptyForm(): CreateUserRequest {
-        return { fullName: '', email: '', username: '', department: '', managerId: null, initialPassword: '', isActive: true, roleIds: [] };
+        return { fullName: '', email: '', username: '', password: '', department: '', managerId: null, tenantId: null, isManager: false, roleIds: [] };
     }
 }
