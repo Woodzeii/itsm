@@ -104,14 +104,50 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
           @if (usersLoading) {
             <p class="empty" style="padding:16px;">Загрузка пользователей…</p>
           } @else if (usersList.length) {
+            <button
+              class="mobile-filters-toggle"
+              type="button"
+              aria-controls="users-filters"
+              [attr.aria-expanded]="usersFiltersExpanded"
+              (click)="usersFiltersExpanded = !usersFiltersExpanded">
+              Filters
+            </button>
+            <div id="users-filters" class="users-filters" [class.filters-expanded]="usersFiltersExpanded" aria-label="Фильтры пользователей">
+              <label class="users-search">Поиск
+                <input type="search" name="usersSearch" [(ngModel)]="usersSearch" placeholder="ФИО, email, username..." />
+              </label>
+              <label>Департамент
+                <select name="usersDepartment" [(ngModel)]="usersDepartmentFilter">
+                  <option value="">Все департаменты</option>
+                  @for (department of userDepartments; track department) { <option [value]="department">{{ department }}</option> }
+                </select>
+              </label>
+              <label>Роль
+                <select name="usersRole" [(ngModel)]="usersRoleFilter">
+                  <option value="">Все роли</option>
+                  @for (role of availableRoles; track role.id) { <option [value]="role.id">{{ role.name }}</option> }
+                </select>
+              </label>
+              <label>Статус
+                <select name="usersStatus" [(ngModel)]="usersStatusFilter">
+                  <option value="">Все статусы</option>
+                  <option value="active">Активные</option>
+                  <option value="inactive">Неактивные</option>
+                </select>
+              </label>
+              @if (hasUserFilters) { <button class="clear-user-filters" type="button" (click)="clearUserFilters()">Сбросить</button> }
+              <span class="users-count" aria-live="polite">Показано {{ filteredUsers.length }} из {{ usersList.length }}</span>
+            </div>
+          }
+          @if (!usersLoading && filteredUsers.length) {
             <table class="users-table">
               <thead>
                 <tr><th>ФИО</th><th>Email</th><th>Username</th><th>Департамент</th><th>Руководитель</th><th>Статус</th><th>Роли</th><th></th></tr>
               </thead>
               <tbody>
-                @for (user of usersList; track user.id; let index = $index) {
+                @for (user of filteredUsers; track user.id) {
                   @if (editingUserId === user.id) {
-                    <tr class="edit-row">
+                    <tr class="edit-row mobile-expanded">
                       <td data-label="ФИО"><input name="fullName" [(ngModel)]="editingUser!.fullName" /></td>
                       <td data-label="Email"><input name="email" type="email" [(ngModel)]="editingUser!.email" /></td>
                       <td data-label="Username"><input name="username" [(ngModel)]="editingUser!.username" /></td>
@@ -122,8 +158,18 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
                       <td class="actions" data-label="Действия"><button type="button" aria-label="Сохранить пользователя" (click)="saveUser(user.id)">✓</button><button type="button" aria-label="Отменить редактирование" (click)="cancelEdit()">✕</button></td>
                     </tr>
                   } @else {
-                    <tr>
-                      <td data-label="ФИО">{{ user.fullName }}</td>
+                    <tr [class.mobile-expanded]="expandedUserId === user.id">
+                      <td data-label="ФИО">
+                        <span class="desktop-user-name">{{ user.fullName }}</span>
+                        <button
+                          class="mobile-user-toggle"
+                          type="button"
+                          [attr.aria-expanded]="expandedUserId === user.id"
+                          [attr.aria-label]="(expandedUserId === user.id ? 'Скрыть данные пользователя ' : 'Показать данные пользователя ') + user.fullName"
+                          (click)="toggleUserDetails(user.id)">
+                            <span class="mobile-user-name">{{ user.fullName }}</span><span class="mobile-expand-indicator" aria-hidden="true">⌄</span>
+                        </button>
+                      </td>
                       <td data-label="Email">{{ user.email }}</td>
                       <td data-label="Username">{{ user.username }}</td>
                       <td data-label="Департамент">{{ user.department }}</td>
@@ -136,8 +182,12 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
                 }
               </tbody>
             </table>
-          } @else {
+          } @else if (!usersLoading) {
+            @if (usersList.length && hasUserFilters) {
+              <p class="empty" style="padding:16px;">По заданным условиям пользователи не найдены</p>
+            } @else {
             <p class="empty" style="padding:16px;">Пользователей не найдено</p>
+            }
           }
         </section>
       }
@@ -197,6 +247,13 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
       .report-list article div { min-width:0; flex:1; } .report-list article strong { font-size:10px; } .report-list article p { margin:4px 0 0; color:#84909d; font-size:9px; } .report-list article b { color:#4a5665; font-size:10px; white-space:nowrap; }
       .empty { padding:10px 16px; color:#8993a1; font-size:10px; }
       .users-toolbar { padding:12px 16px; border-bottom:1px solid #edf0f4; } .users-toolbar button { min-height:32px; }
+      .mobile-filters-toggle { display:none; }
+      .users-filters { display:grid; grid-template-columns:minmax(200px,2fr) repeat(3,minmax(140px,1fr)) auto; align-items:end; gap:10px; padding:12px 16px; border-bottom:1px solid #edf0f4; }
+      .users-filters label { min-width:0; }
+      .users-filters input, .users-filters select { width:100%; min-height:36px; }
+      .users-search { grid-column:span 1; }
+      .clear-user-filters { min-height:36px; padding:0 10px; border:1px solid #dfe4ea; border-radius:4px; background:#fff; color:#536173; cursor:pointer; }
+      .users-count { grid-column:1/-1; color:#8993a1; font-size:9px; }
       .users-table { width:100%; border-collapse:collapse; font-size:9px; }
       .users-table thead { background:#f7f9fb; }
       .users-table th { padding:10px 8px; text-align:left; color:#546173; font-weight:600; border-bottom:1px solid #dfe4ea; }
@@ -214,6 +271,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
       .users-table .actions { text-align:center; }
       .users-table button { width:24px; height:24px; margin:0 2px; padding:0; border:0; border-radius:3px; background:#f0f2f5; color:#546173; cursor:pointer; font-size:9px; }
       .users-table button:hover { background:#e2e7ed; }
+      .mobile-user-toggle { display:none; }
       @media(max-width:950px) { .policy-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .type-top { grid-template-columns:1fr 1fr; } .sla-grid { grid-template-columns:1fr; } .users-table { font-size:8px; } .users-table th, .users-table td { padding:6px 4px; } }
     `],
 })
@@ -234,6 +292,12 @@ export class AdminWorkspaceComponent implements OnInit {
     reports: ReportSummary[] = [];
     usersList: UserSummary[] = [];
     usersLoading = false;
+    usersSearch = '';
+    usersDepartmentFilter = '';
+    usersRoleFilter = '';
+    usersStatusFilter = '';
+    usersFiltersExpanded = false;
+    expandedUserId: number | null = null;
     availableRoles: RoleSummary[] = [];
     editingUserId: number | null = null;
     editingUser: Partial<UpdateAdminUserRequest> | null = null;
@@ -253,6 +317,32 @@ export class AdminWorkspaceComponent implements OnInit {
 
     get pageTitle(): string { return { settings: 'Настройки Service Desk', forms: 'Конструктор форм', escalations: 'Процесс эскалации', reports: 'Отчёты', users: 'Управление пользователями' }[this.section]; }
     get activeForm(): TicketFormDefinition | undefined { return this.forms.find(form => form.ticketTypeId === this.formId); }
+    get userDepartments(): string[] {
+        return [...new Set(this.usersList.map(user => user.department?.trim()).filter((department): department is string => !!department))]
+            .sort((a, b) => a.localeCompare(b, 'ru'));
+    }
+    get filteredUsers(): UserSummary[] {
+        const search = this.usersSearch.trim().toLocaleLowerCase();
+        const roleId = this.usersRoleFilter ? Number(this.usersRoleFilter) : null;
+
+        return this.usersList.filter(user => {
+            const manager = this.findUserName(user.managerId) ?? '';
+            const roleNames = user.roleIds
+                .map(id => this.availableRoles.find(role => role.id === id))
+                .filter((role): role is RoleSummary => role !== undefined)
+                .flatMap(role => [role.name, role.code]);
+            const searchFields = [user.fullName, user.email, user.username, user.department ?? '', manager, ...roleNames];
+
+            return (!search || searchFields.some(value => value.toLocaleLowerCase().includes(search)))
+                && (!this.usersDepartmentFilter || user.department === this.usersDepartmentFilter)
+                && (roleId === null || user.roleIds.includes(roleId))
+                && (!this.usersStatusFilter
+                    || (this.usersStatusFilter === 'active' ? user.isActive : !user.isActive));
+        });
+    }
+    get hasUserFilters(): boolean {
+        return !!(this.usersSearch.trim() || this.usersDepartmentFilter || this.usersRoleFilter || this.usersStatusFilter);
+    }
 
     ngOnInit(): void {
         this.section = this.route.snapshot.data['section'] as AdminSection;
@@ -377,13 +467,19 @@ export class AdminWorkspaceComponent implements OnInit {
     ]; }
 
     editUser(user: UserSummary): void {
+        this.expandedUserId = user.id;
         this.editingUserId = user.id;
         this.editingUser = { ...user, roleIds: [...user.roleIds] };
+    }
+
+    toggleUserDetails(userId: number): void {
+        this.expandedUserId = this.expandedUserId === userId ? null : userId;
     }
 
     cancelEdit(): void {
         this.editingUserId = null;
         this.editingUser = null;
+        this.expandedUserId = null;
         this.error = '';
     }
 
@@ -415,6 +511,7 @@ export class AdminWorkspaceComponent implements OnInit {
                 this.usersList = this.usersList.map(u => u.id === userId ? updated : u);
                 this.editingUserId = null;
                 this.editingUser = null;
+                this.expandedUserId = null;
                 this.notice = 'Пользователь обновлён.';
                 this.error = '';
             },
@@ -431,5 +528,12 @@ export class AdminWorkspaceComponent implements OnInit {
 
     findRoleName(roleId: number): string | undefined {
         return this.availableRoles.find(r => r.id === roleId)?.name;
+    }
+
+    clearUserFilters(): void {
+        this.usersSearch = '';
+        this.usersDepartmentFilter = '';
+        this.usersRoleFilter = '';
+        this.usersStatusFilter = '';
     }
 }
