@@ -22,10 +22,46 @@ import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/adm
         <section class="panel">
           <header><span class="step">01</span><div><h2>Основные данные</h2><p>Контактные и организационные сведения</p></div></header>
           <div class="field-grid">
-            <label class="wide">ФИО<input name="fullName" [(ngModel)]="form.fullName" autocomplete="name" required /></label>
-            <label>Email (логин)<input name="newUserEmail" type="email" [(ngModel)]="form.email" autocomplete="off" required /></label>
-            <label>Username<input name="newUserLogin" [(ngModel)]="form.username" autocomplete="off" required /></label>
-            <label>Департамент<input name="department" [(ngModel)]="form.department" required /></label>
+            <label class="wide">ФИО
+              <input name="fullName" [(ngModel)]="form.fullName" autocomplete="name" required />
+              @if (getFieldErrors('fullName').length > 0) {
+                <div class="field-errors">
+                  @for (err of getFieldErrors('fullName'); track err) {
+                    <p class="error-item">✘ {{ err }}</p>
+                  }
+                </div>
+              }
+            </label>
+            <label>Email (логин)
+              <input name="newUserEmail" type="email" [(ngModel)]="form.email" autocomplete="off" required />
+              @if (getFieldErrors('email').length > 0) {
+                <div class="field-errors">
+                  @for (err of getFieldErrors('email'); track err) {
+                    <p class="error-item">✘ {{ err }}</p>
+                  }
+                </div>
+              }
+            </label>
+            <label>Username
+              <input name="newUserLogin" [(ngModel)]="form.username" autocomplete="off" required />
+              @if (getFieldErrors('username').length > 0) {
+                <div class="field-errors">
+                  @for (err of getFieldErrors('username'); track err) {
+                    <p class="error-item">✘ {{ err }}</p>
+                  }
+                </div>
+              }
+            </label>
+            <label>Департамент
+              <input name="department" [(ngModel)]="form.department" required />
+              @if (getFieldErrors('department').length > 0) {
+                <div class="field-errors">
+                  @for (err of getFieldErrors('department'); track err) {
+                    <p class="error-item">✘ {{ err }}</p>
+                  }
+                </div>
+              }
+            </label>
             <label>Руководитель
               <select name="managerId" [(ngModel)]="form.managerId">
                 <option [ngValue]="null">Не назначен</option>
@@ -67,7 +103,7 @@ import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/adm
           @if (roles.length && form.roleIds.length === 0) { <p class="role-hint">Выберите хотя бы одну роль.</p> }
         </section>
 
-        <footer class="form-actions"><span>Пароль не отображается в списке пользователей.</span><button class="primary" type="submit" [disabled]="saving || roles.length === 0 || getPasswordErrors().length > 0 || form.initialPassword === ''">{{ saving ? 'Создание…' : 'Создать пользователя' }}</button></footer>
+        <footer class="form-actions"><span>Пароль не отображается в списке пользователей.</span><button class="primary" type="submit" [disabled]="saving || roles.length === 0 || !isFormValid()">{{ saving ? 'Создание…' : 'Создать пользователя' }}</button></footer>
       </form>
     </section>
   `,
@@ -91,6 +127,7 @@ import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/adm
       .security-grid { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:18px; padding:16px; }
       .security-grid small { color:#8993a1; font-size:9px; line-height:1.5; }
       .password-errors { margin-top:8px; padding:8px; border-radius:4px; background:#fff0ef; }
+      .field-errors { margin-top:6px; padding:6px 8px; border-radius:4px; background:#fff0ef; }
       .error-item { margin:4px 0; color:#a93232; font-size:9px; line-height:1.4; }
       .error-item:first-child { margin-top:0; }
       .error-item:last-child { margin-bottom:0; }
@@ -150,9 +187,9 @@ export class UserCreateComponent implements OnInit {
     }
 
     createUser(): void {
-        const passwordErrors = this.getPasswordErrors();
-        if (passwordErrors.length > 0) {
-            this.error = 'Пароль не соответствует требованиям: ' + passwordErrors.join(', ');
+        const allErrors = this.getAllFormErrors();
+        if (allErrors.length > 0) {
+            this.error = 'Ошибки в форме:\n' + allErrors.join('\n');
             return;
         }
         if (this.saving || !this.form.roleIds.length) return;
@@ -181,6 +218,56 @@ export class UserCreateComponent implements OnInit {
         });
     }
 
+    isFormValid(): boolean {
+        return this.getAllFormErrors().length === 0 && this.form.roleIds.length > 0;
+    }
+
+    getAllFormErrors(): string[] {
+        const errors: string[] = [];
+        
+        errors.push(...this.getFieldErrors('fullName'));
+        errors.push(...this.getFieldErrors('email'));
+        errors.push(...this.getFieldErrors('username'));
+        errors.push(...this.getFieldErrors('department'));
+        errors.push(...this.getPasswordErrors());
+
+        return errors;
+    }
+
+    getFieldErrors(field: keyof CreateAdminUserRequest): string[] {
+        const errors: string[] = [];
+        const value = this.form[field] as string | null | undefined;
+
+        if (!value || (typeof value === 'string' && !value.trim())) {
+            return errors;
+        }
+
+        if (field === 'fullName') {
+            if (value.length < 3) errors.push('ФИО должно содержать минимум 3 символа');
+            if (value.length > 100) errors.push('ФИО не должно превышать 100 символов');
+            if (!/^[а-яА-ЯёЁa-zA-Z\s\-'.]+$/.test(value)) errors.push('ФИО содержит недопустимые символы');
+        }
+
+        if (field === 'email') {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(value)) errors.push('Некорректный адрес Email');
+            if (value.length > 100) errors.push('Email не должен превышать 100 символов');
+        }
+
+        if (field === 'username') {
+            if (value.length < 3) errors.push('Username должен содержать минимум 3 символа');
+            if (value.length > 50) errors.push('Username не должен превышать 50 символов');
+            if (!/^[a-zA-Z0-9._-]+$/.test(value)) errors.push('Username может содержать только букв, цифр, точек, подчёркиваний и дефисов');
+        }
+
+        if (field === 'department') {
+            if (value.length < 2) errors.push('Департамент должен содержать минимум 2 символа');
+            if (value.length > 100) errors.push('Департамент не должен превышать 100 символов');
+        }
+
+        return errors;
+    }
+
     getPasswordErrors(): string[] {
         const pwd = this.form.initialPassword;
         const errors: string[] = [];
@@ -188,13 +275,13 @@ export class UserCreateComponent implements OnInit {
         if (!pwd) return errors;
 
         if (pwd.length < 12) {
-            errors.push('минимум 12 символов');
+            errors.push('Пароль: минимум 12 символов');
         }
         if (!/[A-Z]/.test(pwd)) {
-            errors.push('требуется заглавная буква');
+            errors.push('Пароль: требуется заглавная буква');
         }
         if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)) {
-            errors.push('требуется спецсимвол');
+            errors.push('Пароль: требуется спецсимвол');
         }
 
         return errors;
