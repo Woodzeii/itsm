@@ -3,6 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AdminService } from '../../core/admin/admin.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/admin/admin.models';
 
 @Component({
@@ -159,6 +160,7 @@ import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/adm
 })
 export class UserCreateComponent implements OnInit {
     private readonly admin = inject(AdminService);
+    private readonly auth = inject(AuthService);
     private readonly router = inject(Router);
 
     managers: UserSummary[] = [];
@@ -197,8 +199,10 @@ export class UserCreateComponent implements OnInit {
         this.error = '';
         this.notice = '';
 
+        const tenantId = this.auth.getTenantId();
         const request: CreateAdminUserRequest = {
             ...this.form,
+            tenantId,
             managerId: this.form.managerId,
         };
 
@@ -288,6 +292,6 @@ export class UserCreateComponent implements OnInit {
     }
 
     private emptyForm(): CreateAdminUserRequest {
-        return { fullName: '', email: '', username: '', department: '', managerId: null, initialPassword: '', isActive: true, roleIds: [] };
+        return { fullName: '', email: '', username: '', department: '', managerId: null, tenantId: null, initialPassword: '', isActive: true, roleIds: [] };
     }
 }
