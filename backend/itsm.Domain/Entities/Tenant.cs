@@ -9,4 +9,5 @@ public class Tenant
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 
     public ICollection<User> Users { get; set; } = new List<User>();
+    public ICollection<Dictionary> Dictionaries { get; set; } = new List<Dictionary>();
 }

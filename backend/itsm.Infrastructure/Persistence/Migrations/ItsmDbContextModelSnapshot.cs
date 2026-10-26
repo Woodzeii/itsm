@@ -707,12 +707,16 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.HasKey("Id")
                         .HasName("pk_dictionaries");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("TenantId", "Code")
                         .IsUnique()
-                        .HasDatabaseName("ix_dictionaries_code");
+                        .HasDatabaseName("ix_dictionaries_tenant_id_code");
 
                     b.ToTable("dictionaries", "public");
 
@@ -723,7 +727,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "warehouses",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsSystem = true,
-                            Name = "Склады"
+                            Name = "Склады",
+                            TenantId = 0
                         },
                         new
                         {
@@ -731,7 +736,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "locations",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsSystem = true,
-                            Name = "Места"
+                            Name = "Места",
+                            TenantId = 0
                         },
                         new
                         {
@@ -739,7 +745,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "departments",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsSystem = true,
-                            Name = "Подразделения"
+                            Name = "Подразделения",
+                            TenantId = 0
                         });
                 });
 
@@ -2710,6 +2717,18 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("itsm.Domain.Entities.Dictionary", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.Tenant", "Tenant")
+                        .WithMany("Dictionaries")
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_dictionaries_tenants_tenant_id");
+
+                    b.Navigation("Tenant");
+                });
+
             modelBuilder.Entity("itsm.Domain.Entities.DictionaryValue", b =>
                 {
                     b.HasOne("itsm.Domain.Entities.Dictionary", "Dictionary")
@@ -3251,6 +3270,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("itsm.Domain.Entities.Tenant", b =>
                 {
+                    b.Navigation("Dictionaries");
+
                     b.Navigation("Users");
                 });
 
