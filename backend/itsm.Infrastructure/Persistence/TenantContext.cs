@@ -23,11 +23,12 @@ public interface ITenantContext
 /// </summary>
 public class TenantContext : ITenantContext
 {
-    private static readonly AsyncLocal<int> _tenantId = new();
+    private const int DefaultTenantId = 1;
+    private static readonly AsyncLocal<int?> _tenantId = new();
 
     public int GetCurrentTenantId()
     {
-        return _tenantId.Value;
+        return _tenantId.Value ?? DefaultTenantId;
     }
 
     public void SetCurrentTenantId(int tenantId)

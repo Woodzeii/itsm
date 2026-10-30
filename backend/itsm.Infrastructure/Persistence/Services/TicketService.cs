@@ -81,6 +81,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             StatusId = initialStatusId,
             Priority = request.Priority.Trim(),
             CreatorId = creatorId,
+            TenantId = db.GetCurrentTenantId(),
             AssetId = request.AssetId,
             CustomFieldsData = CloneObject(request.CustomFieldsData),
             CreatedAt = now,

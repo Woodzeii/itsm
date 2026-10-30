@@ -38,6 +38,7 @@ public class UserService : IUserService
             VerificationTokenHash = verificationTokenHash,
             VerificationTokenExpiresAt = tokenExpiresAt,
             IsActive = true,
+            TenantId = _db.GetCurrentTenantId(),
             CreatedAt = DateTimeOffset.UtcNow
         };
 
