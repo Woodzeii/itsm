@@ -1,5 +1,6 @@
 using itsm.Application.Common.Models;
 using itsm.Infrastructure.Persistence.Services;
+using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -20,7 +21,7 @@ public class TenantsController : ControllerBase
 
     /// <summary>Получить список всех тенантов с информацией о лимитах и использовании.</summary>
     [HttpGet]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "tenant_admin")]
     public async Task<IActionResult> GetAllTenants(CancellationToken ct)
     {
         try
@@ -36,7 +37,7 @@ public class TenantsController : ControllerBase
 
     /// <summary>Получить информацию о конкретном тенанте.</summary>
     [HttpGet("{id:int}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "tenant_admin")]
     public async Task<IActionResult> GetTenant(int id, CancellationToken ct)
     {
         var tenant = await _tenantService.GetByIdAsync(id, ct);
@@ -47,9 +48,16 @@ public class TenantsController : ControllerBase
 
     /// <summary>Создать новый тенант с указанными лимитами.</summary>
     [HttpPost]
-    [Authorize(Roles = "admin")]
-    public async Task<IActionResult> CreateTenant([FromBody] CreateTenantRequest request, CancellationToken ct)
+    [Authorize(Roles = "tenant_admin")]
+    public async Task<IActionResult> CreateTenant(
+        [FromBody] CreateTenantRequest request,
+        [FromServices] IValidator<CreateTenantRequest> validator,
+        CancellationToken ct)
     {
+        var validation = await validator.ValidateAsync(request, ct);
+        if (!validation.IsValid)
+            return BadRequest(new { message = "Ошибка валидации", errors = validation.ToDictionary() });
+
         try
         {
             var tenant = await _tenantService.CreateAsync(request, ct);
@@ -63,7 +71,7 @@ public class TenantsController : ControllerBase
 
     /// <summary>Обновить параметры тенанта (лимиты, название).</summary>
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "tenant_admin")]
     public async Task<IActionResult> UpdateTenant(int id, [FromBody] UpdateTenantRequest request, CancellationToken ct)
     {
         try
@@ -81,7 +89,7 @@ public class TenantsController : ControllerBase
 
     /// <summary>Изменить статус активности тенанта (активен/неактивен).</summary>
     [HttpPatch("{id:int}/status")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "tenant_admin")]
     public async Task<IActionResult> UpdateTenantStatus(int id, [FromBody] UpdateTenantStatusRequest request, CancellationToken ct)
     {
         var tenant = await _tenantService.UpdateStatusAsync(id, request.IsActive, ct);
@@ -92,7 +100,7 @@ public class TenantsController : ControllerBase
 
     /// <summary>Заблокировать тенант (запретить доступ пользователям).</summary>
     [HttpPost("{id:int}/block")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "tenant_admin")]
     public async Task<IActionResult> BlockTenant(int id, [FromBody] BlockTenantRequest request, CancellationToken ct)
     {
         try
@@ -110,7 +118,7 @@ public class TenantsController : ControllerBase
 
     /// <summary>Разблокировать тенант (восстановить доступ пользователям).</summary>
     [HttpPost("{id:int}/unblock")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "tenant_admin")]
     public async Task<IActionResult> UnblockTenant(int id, CancellationToken ct)
     {
         try
@@ -128,7 +136,7 @@ public class TenantsController : ControllerBase
 
     /// <summary>Удалить тенант (только если в нём нет пользователей).</summary>
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "tenant_admin")]
     public async Task<IActionResult> DeleteTenant(int id, CancellationToken ct)
     {
         try

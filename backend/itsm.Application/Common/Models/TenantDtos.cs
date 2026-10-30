@@ -37,6 +37,9 @@ public class CreateTenantRequest
 {
     public string Name { get; set; } = string.Empty;
     public string FirstAdminLogin { get; set; } = string.Empty;
+    public string FirstAdminEmail { get; set; } = string.Empty;
+    public string FirstAdminFullName { get; set; } = string.Empty;
+    public string FirstAdminPassword { get; set; } = string.Empty;
     public int? MaxUsers { get; set; }
     public int? MaxAssets { get; set; }
     public int? MaxTickets { get; set; }

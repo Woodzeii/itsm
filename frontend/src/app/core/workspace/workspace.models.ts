@@ -256,6 +256,9 @@ export interface TenantRecord {
 export interface CreateTenantRequest {
     name: string;
     firstAdminLogin: string;
+    firstAdminEmail: string;
+    firstAdminFullName: string;
+    firstAdminPassword: string;
     maxUsers?: number;
     maxAssets?: number;
     maxTickets?: number;

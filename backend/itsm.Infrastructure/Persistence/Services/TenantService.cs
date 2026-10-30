@@ -1,5 +1,6 @@
 using itsm.Application.Common.Interfaces;
 using itsm.Application.Common.Models;
+using itsm.Domain.Constants;
 using itsm.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,10 +22,12 @@ public interface ITenantService
 public class TenantService : ITenantService
 {
     private readonly ItsmDbContext _db;
+    private readonly IPasswordHasher _passwordHasher;
 
-    public TenantService(ItsmDbContext db)
+    public TenantService(ItsmDbContext db, IPasswordHasher passwordHasher)
     {
         _db = db;
+        _passwordHasher = passwordHasher;
     }
 
     public async Task<List<TenantDto>> GetAllAsync(CancellationToken ct = default)
@@ -52,6 +55,8 @@ public class TenantService : ITenantService
     {
         var name = request.Name.Trim();
         var adminLogin = request.FirstAdminLogin.Trim();
+        var adminEmail = request.FirstAdminEmail.Trim();
+        var adminFullName = request.FirstAdminFullName.Trim();
 
         if (string.IsNullOrEmpty(name))
             throw new InvalidOperationException("Название тенанта обязательно");
@@ -59,12 +64,23 @@ public class TenantService : ITenantService
         if (string.IsNullOrEmpty(adminLogin))
             throw new InvalidOperationException("Логин администратора обязателен");
 
-        if (await _db.Tenants.AnyAsync(t => t.Code == name.ToLowerInvariant(), ct))
-            throw new InvalidOperationException($"Тенант с кодом '{name.ToLowerInvariant()}' уже существует");
+        var code = GenerateCode(name);
+        if (string.IsNullOrEmpty(code))
+            throw new InvalidOperationException("Не удалось сформировать код тенанта из названия");
+
+        if (await _db.Tenants.AnyAsync(t => t.Code == code, ct))
+            throw new InvalidOperationException($"Тенант с кодом '{code}' уже существует");
+
+        var adminRoleId = await _db.SystemRoles
+            .Where(role => role.Code == "admin")
+            .Select(role => (int?)role.Id)
+            .FirstOrDefaultAsync(ct);
+        if (!adminRoleId.HasValue)
+            throw new InvalidOperationException("Системная роль admin не найдена");
 
         var tenant = new Tenant
         {
-            Code = GenerateCode(name),
+            Code = code,
             Name = name,
             IsActive = true,
             MaxUsers = request.MaxUsers ?? 100,
@@ -72,8 +88,23 @@ public class TenantService : ITenantService
             MaxTickets = request.MaxTickets ?? 10000,
             MaxStorageBytes = request.MaxStorageBytes ?? 10_737_418_240, // 10 GB
             IsBlocked = false,
+            CurrentUserCount = 1,
             CreatedAt = DateTimeOffset.UtcNow
         };
+
+        var firstAdmin = new User
+        {
+            Username = adminLogin,
+            Email = adminEmail,
+            FullName = adminFullName,
+            IsActive = true,
+            Status = UserStatuses.Verified,
+            PasswordHash = _passwordHasher.Hash(request.FirstAdminPassword),
+            PasswordChangedAt = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        firstAdmin.RoleMappings.Add(new UserRoleMapping { RoleId = adminRoleId.Value });
+        tenant.Users.Add(firstAdmin);
 
         _db.Tenants.Add(tenant);
         await _db.SaveChangesAsync(ct);
@@ -154,7 +185,7 @@ public class TenantService : ITenantService
         if (tenant is null)
             return false;
 
-        if (await _db.Users.AnyAsync(u => u.TenantId == tenantId, ct))
+        if (await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.TenantId == tenantId, ct))
             throw new InvalidOperationException("Нельзя удалить тенант с пользователями. Сначала удалите всех пользователей.");
 
         _db.Tenants.Remove(tenant);
