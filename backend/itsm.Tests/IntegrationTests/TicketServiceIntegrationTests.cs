@@ -498,7 +498,8 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         {
             InventoryNumber = $"INV-{Guid.NewGuid():N}",
             Name = "Integration test asset",
-            LifecycleStage = stage
+            LifecycleStage = stage,
+            TenantId = db.GetCurrentTenantId()
         };
         db.Assets.Add(asset);
         await db.SaveChangesAsync();
@@ -519,6 +520,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
             StatusId = 1,
             Priority = "High",
             CreatorId = creatorId,
+            TenantId = db.GetCurrentTenantId(),
             AssetId = assetId,
             CriticalityLevelId = criticalityLevelId
         };

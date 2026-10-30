@@ -1,8 +1,9 @@
 namespace itsm.Domain.Entities;
 
-public class Asset
+public class Asset : IMultiTenant
 {
     public int Id { get; set; }
+    public int TenantId { get; set; }
     public string InventoryNumber { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public int? AssetClassId { get; set; }
