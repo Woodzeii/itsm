@@ -186,4 +186,66 @@ public class TenantServiceTests
         defaultTenantDto.CurrentStorageBytes.Should().Be(123);
         tenants.Single(tenant => tenant.Id == secondTenant.Id).CurrentUserCount.Should().Be(1);
     }
+
+    [Fact]
+    public async Task Update_StartsSevenDayGracePeriodWhenUserLimitIsLoweredBelowCurrentUsage()
+    {
+        var (service, db) = Create();
+        var tenant = await db.Tenants.SingleAsync(item => item.Id == 1);
+        tenant.MaxUsers = 5;
+        db.Users.AddRange(Enumerable.Range(0, 3).Select(index => new User
+        {
+            TenantId = tenant.Id,
+            Username = $"quota.user.{index}",
+            Email = $"quota.user.{index}@example.test",
+            IsActive = true
+        }));
+        await db.SaveChangesAsync();
+
+        await service.UpdateAsync(tenant.Id, new UpdateTenantRequest { MaxUsers = 2 });
+        var quota = await service.GetUserQuotaAsync(tenant.Id);
+
+        quota.Should().NotBeNull();
+        quota!.ActiveUserCount.Should().Be(3);
+        quota.MaxUsers.Should().Be(2);
+        quota.UsersOverLimit.Should().Be(1);
+        quota.GraceEndsAt.Should().BeAfter(DateTimeOffset.UtcNow.AddDays(6));
+        quota.GraceEndsAt.Should().BeBefore(DateTimeOffset.UtcNow.AddDays(8));
+    }
+
+    [Fact]
+    public async Task EnforceExpiredUserLimits_DeactivatesRandomUsersButProtectsAdministrators()
+    {
+        var (service, db) = Create();
+        var tenant = await db.Tenants.SingleAsync(item => item.Id == 1);
+        tenant.MaxUsers = 2;
+        tenant.UserLimitGraceEndsAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        db.Users.AddRange(Enumerable.Range(0, 3).Select(index => new User
+        {
+            TenantId = tenant.Id,
+            Username = $"eligible.user.{index}",
+            Email = $"eligible.user.{index}@example.test",
+            IsActive = true
+        }));
+        var admin = new User
+        {
+            TenantId = tenant.Id,
+            Username = "quota.admin",
+            Email = "quota.admin@example.test",
+            IsActive = true
+        };
+        admin.RoleMappings.Add(new UserRoleMapping { RoleId = 2 });
+        db.Users.Add(admin);
+        await db.SaveChangesAsync();
+
+        await service.EnforceExpiredUserLimitsAsync();
+
+        var activeUsers = await db.Users.IgnoreQueryFilters()
+            .Where(user => user.TenantId == tenant.Id && user.IsActive)
+            .ToListAsync();
+        activeUsers.Should().HaveCount(2);
+        activeUsers.Should().Contain(user => user.Id == admin.Id);
+        (await db.AuditLogs.CountAsync(log => log.Action == "user_auto_deactivated_quota")).Should().Be(2);
+        tenant.UserLimitGraceEndsAt.Should().BeNull();
+    }
 }

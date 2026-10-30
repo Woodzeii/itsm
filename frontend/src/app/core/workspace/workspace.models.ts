@@ -253,6 +253,16 @@ export interface TenantRecord {
     storagePercentage: number;
 }
 
+export interface TenantUserQuota {
+    tenantId: number;
+    tenantName: string;
+    activeUserCount: number;
+    maxUsers: number;
+    usersOverLimit: number;
+    usersEligibleForDeactivation: number;
+    graceEndsAt: string | null;
+}
+
 export interface CreateTenantRequest {
     name: string;
     firstAdminLogin: string;

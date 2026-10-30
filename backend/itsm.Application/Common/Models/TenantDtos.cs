@@ -33,6 +33,16 @@ public class TenantDto
     public decimal StoragePercentage => MaxStorageBytes > 0 ? (decimal)CurrentStorageBytes / MaxStorageBytes * 100 : 0;
 }
 
+/// <summary>Текущий лимит активных пользователей и срок его применения для тенанта.</summary>
+public sealed record TenantUserQuotaDto(
+    int TenantId,
+    string TenantName,
+    int ActiveUserCount,
+    int MaxUsers,
+    int UsersOverLimit,
+    int UsersEligibleForDeactivation,
+    DateTimeOffset? GraceEndsAt);
+
 public class CreateTenantRequest
 {
     public string Name { get; set; } = string.Empty;

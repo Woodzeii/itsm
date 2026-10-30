@@ -2,7 +2,9 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { OverviewData } from '../../core/workspace/workspace.models';
+import { OverviewData, TenantUserQuota } from '../../core/workspace/workspace.models';
+import { AuthService } from '../../core/auth/auth.service';
+import { TenantUserQuotaService } from '../../core/workspace/tenant-user-quota.service';
 
 @Component({
     selector: 'app-overview',
@@ -16,6 +18,20 @@ import { OverviewData } from '../../core/workspace/workspace.models';
       </header>
 
       @if (error) { <p class="notice error">{{ error }}</p> }
+      @if (quotaError) { <p class="notice error">{{ quotaError }}</p> }
+      @if (userQuota?.usersOverLimit) {
+        <aside class="quota-warning" role="alert">
+          <strong>Превышен лимит пользователей тенанта «{{ userQuota.tenantName }}»</strong>
+          <p>Активных пользователей: {{ userQuota.activeUserCount }} из {{ userQuota.maxUsers }}. Нужно освободить {{ userQuota.usersOverLimit }} мест.</p>
+          @if (userQuota.graceEndsAt && quotaDaysRemaining > 0) {
+            <p>Если не освободить места до {{ userQuota.graceEndsAt | date:'short' }}, система деактивирует до {{ usersScheduledForDeactivation }} случайных пользователей. Администраторы защищены.</p>
+          } @else if (userQuota.graceEndsAt) {
+            <p>Срок освобождения мест истёк. Деактивация выполнена для доступных пользователей; администраторы защищены. Остаток превышения: {{ userQuota.usersOverLimit }}.</p>
+          } @else {
+            <p>Начинается 7-дневный срок для освобождения мест.</p>
+          }
+        </aside>
+      }
       @if (data; as overview) {
         <div class="metric-grid">
           @for (metric of overview.metrics; track metric.label) {
@@ -95,17 +111,39 @@ import { OverviewData } from '../../core/workspace/workspace.models';
       .tag { display:inline-flex; padding:4px 7px; border-radius:4px; background:#f1f3f6; color:#687385; font-size:10px; }
       .tag.critical { background:#fff0f0; color:#c84c4c; } .tag.high { background:#fff2e8; color:#c66c30; }
       .notice { padding:14px; color:#697586; font-size:12px; } .error { color:#a93232; }
+      .quota-warning { margin:0 0 18px; padding:14px 16px; border:1px solid #f0c77a; border-radius:7px; background:#fff8e8; color:#684b16; font-size:12px; }
+      .quota-warning strong { display:block; font-size:13px; } .quota-warning p { margin:7px 0 0; line-height:1.5; }
       @media(max-width:900px) { .content-grid { grid-template-columns:minmax(0,1fr); } .quick-panel { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); column-gap:16px; } .quick-panel .panel-header { grid-column:1/-1; } }
       @media(max-width:620px) { .page { padding:22px 16px 30px; } .page-heading { align-items:flex-start; flex-direction:column; } .metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; } .metric { padding:13px; } .metric strong { font-size:22px; } .chart { gap:6px; padding-right:0; padding-left:0; } .quick-panel { grid-template-columns:minmax(0,1fr); } .quick-panel .panel-header { grid-column:auto; } .performance,.quick-panel,.recent-panel { padding:14px; } }
     `],
 })
 export class OverviewComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
+    private readonly auth = inject(AuthService);
+    private readonly quotaService = inject(TenantUserQuotaService);
     data: OverviewData | null = null;
+    userQuota: TenantUserQuota | null = null;
     error = '';
+    quotaError = '';
     readonly today = new Intl.DateTimeFormat('ru-RU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date());
+
+    get quotaDaysRemaining(): number {
+        if (!this.userQuota?.graceEndsAt) return 0;
+        return Math.max(0, Math.ceil((Date.parse(this.userQuota.graceEndsAt) - Date.now()) / 86_400_000));
+    }
+
+    get usersScheduledForDeactivation(): number {
+        if (!this.userQuota) return 0;
+        return Math.min(this.userQuota.usersOverLimit, this.userQuota.usersEligibleForDeactivation);
+    }
 
     ngOnInit(): void {
         this.workspace.getOverview().subscribe({ next: data => this.data = data, error: () => this.error = 'Не удалось загрузить обзор.' });
+        if (this.auth.isAdmin()) {
+            this.quotaService.getCurrentTenantQuota().subscribe({
+                next: quota => this.userQuota = quota,
+                error: () => this.quotaError = 'Не удалось загрузить состояние лимита пользователей.',
+            });
+        }
     }
 }

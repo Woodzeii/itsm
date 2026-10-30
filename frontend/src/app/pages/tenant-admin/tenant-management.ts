@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
@@ -43,7 +43,7 @@ import { TenantRecord } from '../../core/workspace/workspace.models';
           <label>Лимит пользователей<input name="editMaxUsers" [(ngModel)]="editMaxUsers" type="number" min="1" required /></label>
           <label>Лимит активов<input name="editMaxAssets" [(ngModel)]="editMaxAssets" type="number" min="1" required /></label>
           <label>Лимит тикетов<input name="editMaxTickets" [(ngModel)]="editMaxTickets" type="number" min="1" required /></label>
-          <label>Лимит хранилища, байт<input name="editMaxStorageBytes" [(ngModel)]="editMaxStorageBytes" type="number" min="1" required /></label>
+          <label>Лимит хранилища, байт (Бета — не функционирует)<input name="editMaxStorageBytes" [(ngModel)]="editMaxStorageBytes" type="number" min="1" required /></label>
           <div class="actions">
             <button class="primary" type="submit" [disabled]="saving || !editName.trim()">Сохранить</button>
             <button class="quiet" type="button" (click)="cancelEdit()">Отмена</button>
@@ -102,6 +102,7 @@ import { TenantRecord } from '../../core/workspace/workspace.models';
 })
 export class TenantManagementComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
+    private readonly changeDetector = inject(ChangeDetectorRef);
     tenants: TenantRecord[] = [];
     name = '';
     adminLogin = '';
@@ -141,10 +142,12 @@ export class TenantManagementComponent implements OnInit {
                 this.adminPassword = '';
                 this.notice = `Тенант «${tenant.name}» и первый администратор созданы.`;
                 this.saving = false;
+                this.changeDetector.markForCheck();
             },
             error: (err: unknown) => {
                 this.error = this.getErrorMessage(err);
                 this.saving = false;
+                this.changeDetector.markForCheck();
             },
         });
     }
@@ -177,10 +180,12 @@ export class TenantManagementComponent implements OnInit {
                 this.notice = `Настройки тенанта «${updated.name}» сохранены.`;
                 this.editingTenant = null;
                 this.saving = false;
+                this.changeDetector.markForCheck();
             },
             error: (err: unknown) => {
                 this.error = this.getErrorMessage(err);
                 this.saving = false;
+                this.changeDetector.markForCheck();
             },
         });
     }
@@ -197,8 +202,12 @@ export class TenantManagementComponent implements OnInit {
             next: (updated: TenantRecord) => {
                 this.tenants = this.tenants.map(item => item.id === updated.id ? updated : item);
                 this.notice = 'Тенант заблокирован.';
+                this.changeDetector.markForCheck();
             },
-            error: (err: unknown) => this.error = this.getErrorMessage(err),
+            error: (err: unknown) => {
+                this.error = this.getErrorMessage(err);
+                this.changeDetector.markForCheck();
+            },
         });
     }
 
@@ -209,8 +218,12 @@ export class TenantManagementComponent implements OnInit {
             next: (updated: TenantRecord) => {
                 this.tenants = this.tenants.map(item => item.id === updated.id ? updated : item);
                 this.notice = 'Тенант разблокирован.';
+                this.changeDetector.markForCheck();
             },
-            error: (err: unknown) => this.error = this.getErrorMessage(err),
+            error: (err: unknown) => {
+                this.error = this.getErrorMessage(err);
+                this.changeDetector.markForCheck();
+            },
         });
     }
 
@@ -222,8 +235,12 @@ export class TenantManagementComponent implements OnInit {
             next: () => {
                 this.tenants = this.tenants.filter(item => item.id !== tenant.id);
                 this.notice = 'Тенант удалён.';
+                this.changeDetector.markForCheck();
             },
-            error: (err: unknown) => this.error = this.getErrorMessage(err),
+            error: (err: unknown) => {
+                this.error = this.getErrorMessage(err);
+                this.changeDetector.markForCheck();
+            },
         });
     }
 
@@ -233,10 +250,12 @@ export class TenantManagementComponent implements OnInit {
             next: (tenants: TenantRecord[]) => {
                 this.tenants = tenants;
                 this.loading = false;
+                this.changeDetector.markForCheck();
             },
             error: (err: unknown) => {
                 this.error = this.getErrorMessage(err);
                 this.loading = false;
+                this.changeDetector.markForCheck();
             },
         });
     }

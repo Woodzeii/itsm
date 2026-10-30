@@ -1687,6 +1687,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<DateTimeOffset?>("UserLimitGraceEndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("user_limit_grace_ends_at");
+
                     b.HasKey("Id")
                         .HasName("pk_tenants");
 

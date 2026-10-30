@@ -10,6 +10,7 @@ public class Tenant
 
     // Лимиты на использование
     public int MaxUsers { get; set; } = 100;
+    public DateTimeOffset? UserLimitGraceEndsAt { get; set; }
     public int MaxAssets { get; set; } = 1000;
     public int MaxTickets { get; set; } = 10000;
     public long MaxStorageBytes { get; set; } = 10_737_418_240; // 10 GB

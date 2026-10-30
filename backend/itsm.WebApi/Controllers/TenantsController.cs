@@ -1,6 +1,7 @@
 using itsm.Application.Common.Models;
 using itsm.Infrastructure.Persistence.Services;
 using FluentValidation;
+using itsm.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,10 +14,23 @@ namespace itsm.WebApi.Controllers;
 public class TenantsController : ControllerBase
 {
     private readonly ITenantService _tenantService;
+    private readonly ITenantContext _tenantContext;
 
-    public TenantsController(ITenantService tenantService)
+    public TenantsController(ITenantService tenantService, ITenantContext tenantContext)
     {
         _tenantService = tenantService;
+        _tenantContext = tenantContext;
+    }
+
+    /// <summary>Получить квоту активных пользователей текущего тенанта.</summary>
+    [HttpGet("me/user-quota")]
+    [Authorize(Roles = "admin")]
+    [ProducesResponseType(typeof(TenantUserQuotaDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetCurrentUserQuota(CancellationToken ct)
+    {
+        var quota = await _tenantService.GetUserQuotaAsync(_tenantContext.GetCurrentTenantId(), ct);
+        return quota is null ? NotFound(new { message = "Тенант не найден" }) : Ok(quota);
     }
 
     /// <summary>Получить список всех тенантов с информацией о лимитах и использовании.</summary>

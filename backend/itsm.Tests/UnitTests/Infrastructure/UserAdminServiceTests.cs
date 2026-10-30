@@ -76,6 +76,26 @@ public class UserAdminServiceTests
     }
 
     [Fact]
+    public async Task Create_RejectsActiveUserWhenTenantQuotaIsFull()
+    {
+        var (svc, db) = Create();
+        var actor = AddUser(db, "actor", admin: true);
+        var tenant = await db.Tenants.SingleAsync(item => item.Id == 1);
+        tenant.MaxUsers = 1;
+        await db.SaveChangesAsync();
+
+        var act = () => svc.CreateAsync(new CreateUserRequest
+        {
+            Username = "over.limit",
+            Email = "over.limit@x.local",
+            Password = "Passw0rdX",
+            IsActive = true
+        }, actor.Id, null);
+
+        (await act.Should().ThrowAsync<UserAdminException>()).Which.Kind.Should().Be(UserAdminErrorKind.Conflict);
+    }
+
+    [Fact]
     public async Task Update_ChangesProfileRolesAndActiveState()
     {
         var (svc, db) = Create();
