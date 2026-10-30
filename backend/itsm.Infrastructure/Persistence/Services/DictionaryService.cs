@@ -1,22 +1,38 @@
 using itsm.Application.Common.Interfaces;
 using itsm.Application.Common.Models;
 using itsm.Domain.Entities;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace itsm.Infrastructure.Persistence.Services;
 
 public class DictionaryService : IDictionaryService
 {
     private readonly ItsmDbContext _db;
+    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public DictionaryService(ItsmDbContext db)
+    public DictionaryService(ItsmDbContext db, IHttpContextAccessor httpContextAccessor)
     {
         _db = db;
+        _httpContextAccessor = httpContextAccessor;
+    }
+
+    private int GetCurrentTenantId()
+    {
+        var tenantIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst("tenantId");
+        if (int.TryParse(tenantIdClaim?.Value, out var tenantId))
+            return tenantId;
+
+        return 1;
     }
 
     public async Task<List<DictionaryDto>> GetAllAsync(CancellationToken ct = default)
     {
+        var tenantId = GetCurrentTenantId();
+        
         return await _db.Dictionaries
+            .Where(d => d.TenantId == tenantId)
             .OrderBy(d => d.Id)
             .Select(d => new DictionaryDto
             {
@@ -31,9 +47,12 @@ public class DictionaryService : IDictionaryService
 
     public async Task<DictionaryDetailDto?> GetByIdAsync(int id, CancellationToken ct = default)
     {
+        var tenantId = GetCurrentTenantId();
+        
         var dict = await _db.Dictionaries
+            .Where(d => d.Id == id && d.TenantId == tenantId)
             .Include(d => d.Values)
-            .FirstOrDefaultAsync(d => d.Id == id, ct);
+            .FirstOrDefaultAsync(ct);
 
         if (dict is null) return null;
 
@@ -52,11 +71,14 @@ public class DictionaryService : IDictionaryService
 
     public async Task<DictionaryDto> CreateAsync(CreateDictionaryRequest request, CancellationToken ct = default)
     {
-        if (await _db.Dictionaries.AnyAsync(d => d.Code == request.Code, ct))
+        var tenantId = GetCurrentTenantId();
+        
+        if (await _db.Dictionaries.AnyAsync(d => d.TenantId == tenantId && d.Code == request.Code, ct))
             throw new InvalidOperationException($"Справочник с кодом '{request.Code}' уже существует");
 
         var dict = new Dictionary
         {
+            TenantId = tenantId,
             Code = request.Code,
             Name = request.Name,
             IsSystem = false,
@@ -78,7 +100,10 @@ public class DictionaryService : IDictionaryService
 
     public async Task<DictionaryDto?> UpdateAsync(int id, UpdateDictionaryRequest request, CancellationToken ct = default)
     {
-        var dict = await _db.Dictionaries.FirstOrDefaultAsync(d => d.Id == id, ct);
+        var tenantId = GetCurrentTenantId();
+        
+        var dict = await _db.Dictionaries
+            .FirstOrDefaultAsync(d => d.Id == id && d.TenantId == tenantId, ct);
         if (dict is null) return null;
 
         dict.Name = request.Name;
@@ -96,9 +121,12 @@ public class DictionaryService : IDictionaryService
 
     public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
     {
+        var tenantId = GetCurrentTenantId();
+        
         var dict = await _db.Dictionaries
+            .Where(d => d.Id == id && d.TenantId == tenantId)
             .Include(d => d.Values)
-            .FirstOrDefaultAsync(d => d.Id == id, ct);
+            .FirstOrDefaultAsync(ct);
 
         if (dict is null) return false;
 
@@ -115,7 +143,10 @@ public class DictionaryService : IDictionaryService
 
     public async Task<List<DictionaryValueDto>> GetValuesAsync(int dictionaryId, bool includeArchived = false, CancellationToken ct = default)
     {
-        var query = _db.DictionaryValues.Where(v => v.DictionaryId == dictionaryId);
+        var tenantId = GetCurrentTenantId();
+        
+        var query = _db.DictionaryValues
+            .Where(v => v.DictionaryId == dictionaryId && v.Dictionary.TenantId == tenantId);
 
         if (!includeArchived)
             query = query.Where(v => !v.IsArchived);
@@ -128,7 +159,9 @@ public class DictionaryService : IDictionaryService
 
     public async Task<DictionaryValueDto?> CreateValueAsync(int dictionaryId, CreateDictionaryValueRequest request, CancellationToken ct = default)
     {
-        if (!await _db.Dictionaries.AnyAsync(d => d.Id == dictionaryId, ct))
+        var tenantId = GetCurrentTenantId();
+        
+        if (!await _db.Dictionaries.AnyAsync(d => d.Id == dictionaryId && d.TenantId == tenantId, ct))
             return null;
 
         if (await _db.DictionaryValues.AnyAsync(v => v.DictionaryId == dictionaryId && v.Code == request.Code, ct))
@@ -152,8 +185,11 @@ public class DictionaryService : IDictionaryService
 
     public async Task<DictionaryValueDto?> UpdateValueAsync(int dictionaryId, int valueId, UpdateDictionaryValueRequest request, CancellationToken ct = default)
     {
+        var tenantId = GetCurrentTenantId();
+        
         var value = await _db.DictionaryValues
-            .FirstOrDefaultAsync(v => v.Id == valueId && v.DictionaryId == dictionaryId, ct);
+            .Where(v => v.Id == valueId && v.DictionaryId == dictionaryId && v.Dictionary.TenantId == tenantId)
+            .FirstOrDefaultAsync(ct);
 
         if (value is null) return null;
 
@@ -166,8 +202,11 @@ public class DictionaryService : IDictionaryService
 
     public async Task<bool> DeleteValueAsync(int dictionaryId, int valueId, CancellationToken ct = default)
     {
+        var tenantId = GetCurrentTenantId();
+        
         var value = await _db.DictionaryValues
-            .FirstOrDefaultAsync(v => v.Id == valueId && v.DictionaryId == dictionaryId, ct);
+            .Where(v => v.Id == valueId && v.DictionaryId == dictionaryId && v.Dictionary.TenantId == tenantId)
+            .FirstOrDefaultAsync(ct);
 
         if (value is null) return false;
 
@@ -175,15 +214,55 @@ public class DictionaryService : IDictionaryService
         if (!value.IsArchived)
             throw new InvalidOperationException("Нельзя удалить активное значение. Сначала архивируйте его.");
 
+        // Проверяем, не используется ли значение в других сущностях
+        await CheckIfValueIsUsedAsync(value, ct);
+
         _db.DictionaryValues.Remove(value);
         await _db.SaveChangesAsync(ct);
         return true;
     }
 
+    private async Task CheckIfValueIsUsedAsync(DictionaryValue value, CancellationToken ct)
+    {
+        // Получаем информацию о справочнике
+        var dictionary = await _db.Dictionaries.FindAsync(new object[] { value.DictionaryId }, cancellationToken: ct);
+        if (dictionary is null) return;
+
+        // Проверяем, используется ли значение в Asset.Status
+        if (dictionary.Code == "asset_status")
+        {
+            var usedInAssetStatus = await _db.Set<Asset>()
+                .AnyAsync(a => a.Status == value.Code, ct);
+            if (usedInAssetStatus)
+                throw new InvalidOperationException($"Значение '{value.Name}' используется в статусах активов и не может быть удалено.");
+        }
+
+        // Проверяем, используется ли значение в Asset.Category
+        if (dictionary.Code == "asset_category")
+        {
+            var usedInAssetCategory = await _db.Set<Asset>()
+                .AnyAsync(a => a.Category == value.Code, ct);
+            if (usedInAssetCategory)
+                throw new InvalidOperationException($"Значение '{value.Name}' используется в категориях активов и не может быть удалено.");
+        }
+
+        // Проверяем, используется ли значение в Ticket.Priority
+        if (dictionary.Code == "ticket_priority")
+        {
+            var usedInTicketPriority = await _db.Set<Ticket>()
+                .AnyAsync(t => t.Priority == value.Code, ct);
+            if (usedInTicketPriority)
+                throw new InvalidOperationException($"Значение '{value.Name}' используется в приоритетах тикетов и не может быть удалено.");
+        }
+    }
+
     public async Task<DictionaryValueDto?> ArchiveValueAsync(int dictionaryId, int valueId, CancellationToken ct = default)
     {
+        var tenantId = GetCurrentTenantId();
+        
         var value = await _db.DictionaryValues
-            .FirstOrDefaultAsync(v => v.Id == valueId && v.DictionaryId == dictionaryId, ct);
+            .Where(v => v.Id == valueId && v.DictionaryId == dictionaryId && v.Dictionary.TenantId == tenantId)
+            .FirstOrDefaultAsync(ct);
 
         if (value is null) return null;
 

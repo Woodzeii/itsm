@@ -4,6 +4,7 @@ using itsm.Application.Common.Interfaces;
 using itsm.Infrastructure;
 using itsm.Infrastructure.Persistence;
 using itsm.WebApi.Middlewares;
+using itsm.WebApi.HostedServices;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -38,6 +39,8 @@ try
                   .AllowAnyMethod());
     });
     builder.Services.AddInfrastructure(builder.Configuration);
+    if (!builder.Environment.IsEnvironment("Testing"))
+        builder.Services.AddHostedService<UserQuotaEnforcementWorker>();
 
     var jwtSection = builder.Configuration.GetSection("Jwt");
     var jwtKey = jwtSection["Key"]

@@ -24,7 +24,7 @@ public class JwtService : IJwtService
         _settings = settings.Value;
     }
 
-    public string GenerateToken(int userId, string login, string email, IEnumerable<string> roles)
+    public string GenerateToken(int userId, string login, string email, int tenantId, IEnumerable<string> roles)
     {
         var rolesList = roles.ToList();
 
@@ -33,6 +33,7 @@ public class JwtService : IJwtService
             new("Id", userId.ToString()),
             new("Login", login),
             new("Email", email),
+            new("tenant_id", tenantId.ToString()),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(JwtRegisteredClaimNames.Iat,
                 DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(),

@@ -13,6 +13,7 @@ const AUTH_KEY = 'itsm_is_authenticated';
 const ROLE_KEY = 'itsm_user_role';
 const ROLES_KEY = 'itsm_user_roles';
 const LOGIN_KEY = 'itsm_login';
+const TENANT_ID_KEY = 'itsm_tenant_id';
 
 export type UserRole = 'admin' | 'agent' | 'manager' | 'portal_user' | 'tenant_admin';
 
@@ -54,6 +55,7 @@ export class AuthService {
             ?? payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
         const rolesValue = payload['roles'];
         const loginValue = payload['Login'] ?? payload['login'];
+        const tenantIdValue = payload['tenantId'] ?? payload['tenant_id'] ?? payload['TenantId'];
 
         if (typeof rolesValue === 'string') {
             localStorage.setItem(ROLES_KEY, rolesValue);
@@ -69,6 +71,12 @@ export class AuthService {
 
         if (typeof loginValue === 'string') {
             localStorage.setItem(LOGIN_KEY, loginValue);
+        }
+
+        if (typeof tenantIdValue === 'number' || (typeof tenantIdValue === 'string' && !isNaN(Number(tenantIdValue)))) {
+            localStorage.setItem(TENANT_ID_KEY, String(tenantIdValue));
+        } else {
+            localStorage.removeItem(TENANT_ID_KEY);
         }
     }
 
@@ -97,6 +105,11 @@ export class AuthService {
 
     getLogin(): string {
         return localStorage.getItem(LOGIN_KEY) ?? '';
+    }
+
+    getTenantId(): number | null {
+        const tenantId = localStorage.getItem(TENANT_ID_KEY);
+        return tenantId ? parseInt(tenantId, 10) : null;
     }
 
     getRole(): UserRole {
@@ -134,5 +147,6 @@ export class AuthService {
         localStorage.removeItem(ROLE_KEY);
         localStorage.removeItem(ROLES_KEY);
         localStorage.removeItem(LOGIN_KEY);
+        localStorage.removeItem(TENANT_ID_KEY);
     }
 }

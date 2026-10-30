@@ -8,6 +8,9 @@ import {
     CreateAssetRequest,
     CreatePortalAccountRequest,
     CreateTenantRequest,
+    UpdateTenantRequest,
+    BlockTenantRequest,
+    UnblockTenantRequest,
     AdminSettings,
     EscalationHistoryEntry,
     EscalationPolicy,
@@ -62,9 +65,13 @@ export abstract class WorkspaceApi {
     abstract reviewPortalTicket(ticketId: string, accepted: boolean): Observable<Ticket>;
     abstract createPortalAccount(request: CreatePortalAccountRequest): Observable<string>;
     abstract getTenants(): Observable<TenantRecord[]>;
+    abstract getTenant(tenantId: number): Observable<TenantRecord>;
     abstract createTenant(request: CreateTenantRequest): Observable<TenantRecord>;
-    abstract setTenantActive(tenantId: string, active: boolean): Observable<TenantRecord>;
-    abstract deleteTenant(tenantId: string): Observable<void>;
+    abstract updateTenant(tenantId: number, request: UpdateTenantRequest): Observable<TenantRecord>;
+    abstract setTenantActive(tenantId: number, isActive: boolean): Observable<TenantRecord>;
+    abstract blockTenant(tenantId: number, request: BlockTenantRequest): Observable<TenantRecord>;
+    abstract unblockTenant(tenantId: number): Observable<TenantRecord>;
+    abstract deleteTenant(tenantId: number): Observable<void>;
     abstract getUsers(): Observable<UserRecord[]>;
     abstract getSystemRoles(): Observable<SystemRoleOption[]>;
     abstract createUser(request: CreateUserRequest): Observable<UserRecord>;

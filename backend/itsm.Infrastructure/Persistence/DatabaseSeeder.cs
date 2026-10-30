@@ -34,11 +34,13 @@ public class DatabaseSeeder : IDatabaseSeeder
         _logger.LogInformation("DatabaseSeeder: создаём тестовых пользователей");
 
         // Роли (уже есть благодаря HasData в миграции)
+        var tenantAdminRoleId = await _db.SystemRoles.Where(r => r.Code == "tenant_admin").Select(r => r.Id).FirstAsync(ct);
         var adminRoleId = await _db.SystemRoles.Where(r => r.Code == "admin").Select(r => r.Id).FirstAsync(ct);
         var managerRoleId = await _db.SystemRoles.Where(r => r.Code == "manager").Select(r => r.Id).FirstAsync(ct);
         var agentRoleId = await _db.SystemRoles.Where(r => r.Code == "agent").Select(r => r.Id).FirstAsync(ct);
         var portalRoleId = await _db.SystemRoles.Where(r => r.Code == "portal_user").Select(r => r.Id).FirstAsync(ct);
 
+        var tenantAdmin = NewUser("tenant.admin", "tenant.admin@itsm.local", "Администратор Тенантов", "Администрация", "admin123");
         var admin = NewUser("admin", "admin@itsm.local", "Администратор Системы", "IT", "admin123");
         var ivanov = NewUser("i.ivanov", "i.ivanov@itsm.local", "Иван Иванов", "IT", "pass123");
         var petrov = NewUser("p.petrov", "p.petrov@itsm.local", "Пётр Петров", "IT", "pass123");
@@ -46,7 +48,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         var anna = NewUser("a.anna", "a.anna@itsm.local", "Анна Аннова", "Бухгалтерия", "pass123");
         var maria = NewUser("m.maria", "m.maria@itsm.local", "Мария Марьина", "Отдел продаж", "pass123");
 
-        _db.Users.AddRange(admin, ivanov, petrov, sidorov, anna, maria);
+        _db.Users.AddRange(tenantAdmin, admin, ivanov, petrov, sidorov, anna, maria);
         await _db.SaveChangesAsync(ct);
 
         // Иерархия: Петров → Иванов → Админ
@@ -56,6 +58,7 @@ public class DatabaseSeeder : IDatabaseSeeder
 
         // Роли
         _db.UserRoleMappings.AddRange(
+            new UserRoleMapping { UserId = tenantAdmin.Id, RoleId = tenantAdminRoleId },
             new UserRoleMapping { UserId = admin.Id, RoleId = adminRoleId },
             new UserRoleMapping { UserId = ivanov.Id, RoleId = managerRoleId },
             new UserRoleMapping { UserId = petrov.Id, RoleId = agentRoleId },
@@ -65,7 +68,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         );
         await _db.SaveChangesAsync(ct);
 
-        _logger.LogInformation("DatabaseSeeder: создано 6 пользователей");
+        _logger.LogInformation("DatabaseSeeder: создано 7 пользователей");
     }
 
     private User NewUser(string username, string email, string fullName, string department, string password) => new()

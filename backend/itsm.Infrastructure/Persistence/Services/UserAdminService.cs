@@ -84,13 +84,19 @@ public class UserAdminService : IUserAdminService
         var username = request.Username.Trim();
         var email = request.Email.Trim();
 
-        if (await _db.Users.AnyAsync(u => u.Username.ToLower() == username.ToLower(), ct))
+        if (await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Username.ToLower() == username.ToLower(), ct))
             throw new UserAdminException(UserAdminErrorKind.Conflict, "Пользователь с таким логином уже существует");
-        if (await _db.Users.AnyAsync(u => u.Email.ToLower() == email.ToLower(), ct))
+        if (await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Email.ToLower() == email.ToLower(), ct))
             throw new UserAdminException(UserAdminErrorKind.Conflict, "Пользователь с таким email уже существует");
 
         await EnsureManagerExistsAsync(request.ManagerId, null, ct);
-        await EnsureTenantExistsAsync(request.TenantId, ct);
+        var isTenantAdmin = await IsTenantAdminAsync(actorId, ct);
+        var tenantId = isTenantAdmin
+            ? request.TenantId ?? _db.GetCurrentTenantId()
+            : _db.GetCurrentTenantId();
+        await EnsureTenantExistsAsync(tenantId, ct);
+        if (request.IsActive)
+            await EnsureUserQuotaAvailableAsync(tenantId, ct);
         var roleIds = request.RoleIds.Distinct().ToList();
         await EnsureRolesExistAsync(roleIds, ct);
 
@@ -101,7 +107,7 @@ public class UserAdminService : IUserAdminService
             FullName = request.FullName?.Trim() ?? string.Empty,
             Department = request.Department?.Trim(),
             ManagerId = request.ManagerId,
-            TenantId = request.TenantId ?? 1,
+            TenantId = tenantId,
             IsManager = request.IsManager,
             IsActive = request.IsActive,
             Status = UserStatuses.Verified,
@@ -128,13 +134,21 @@ public class UserAdminService : IUserAdminService
         var username = request.Username.Trim();
         var email = request.Email.Trim();
 
-        if (await _db.Users.AnyAsync(u => u.Id != id && u.Username.ToLower() == username.ToLower(), ct))
+        if (await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Id != id && u.Username.ToLower() == username.ToLower(), ct))
             throw new UserAdminException(UserAdminErrorKind.Conflict, "Пользователь с таким логином уже существует");
-        if (await _db.Users.AnyAsync(u => u.Id != id && u.Email.ToLower() == email.ToLower(), ct))
+        if (await _db.Users.IgnoreQueryFilters().AnyAsync(u => u.Id != id && u.Email.ToLower() == email.ToLower(), ct))
             throw new UserAdminException(UserAdminErrorKind.Conflict, "Пользователь с таким email уже существует");
 
         await EnsureManagerExistsAsync(request.ManagerId, id, ct);
-        await EnsureTenantExistsAsync(request.TenantId, ct);
+        var isTenantAdmin = await IsTenantAdminAsync(actorId, ct);
+        var tenantId = isTenantAdmin
+            ? request.TenantId ?? user.TenantId
+            : _db.GetCurrentTenantId();
+        if (user.IsActive && tenantId != user.TenantId)
+            await EnsureUserQuotaAvailableAsync(tenantId, ct);
+        await EnsureTenantExistsAsync(tenantId, ct);
+        if (!user.IsActive && request.IsActive == true)
+            await EnsureUserQuotaAvailableAsync(tenantId, ct);
 
         var roleIds = request.RoleIds?.Distinct().ToList();
         if (roleIds is not null)
@@ -178,7 +192,7 @@ public class UserAdminService : IUserAdminService
         user.FullName = request.FullName?.Trim() ?? string.Empty;
         user.Department = request.Department?.Trim();
         user.ManagerId = request.ManagerId;
-        user.TenantId = request.TenantId ?? user.TenantId;
+        user.TenantId = tenantId;
         if (request.IsActive.HasValue)
             user.IsActive = request.IsActive.Value;
         if (request.IsManager.HasValue)
@@ -227,6 +241,8 @@ public class UserAdminService : IUserAdminService
         var user = await LoadAsync(id, ct);
         if (!isActive)
             await EnsureCanDeactivateAsync(user, actorId, ct);
+        else if (!user.IsActive)
+            await EnsureUserQuotaAvailableAsync(user.TenantId, ct);
 
         var old = new { user.IsActive };
         user.IsActive = isActive;
@@ -354,6 +370,28 @@ public class UserAdminService : IUserAdminService
         if (!await _db.Tenants.AnyAsync(t => t.Id == tenantId.Value, ct))
             throw new UserAdminException(UserAdminErrorKind.Validation, "Тенант не найден");
     }
+
+    private async Task EnsureTenantExistsAsync(int tenantId, CancellationToken ct)
+        => await EnsureTenantExistsAsync((int?)tenantId, ct);
+
+    private async Task EnsureUserQuotaAvailableAsync(int tenantId, CancellationToken ct)
+    {
+        var tenant = await _db.Tenants.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => item.Id == tenantId, ct);
+        if (tenant is null)
+            throw new UserAdminException(UserAdminErrorKind.Validation, "Тенант не найден");
+
+        var activeUsers = await _db.Users.IgnoreQueryFilters()
+            .CountAsync(user => user.TenantId == tenantId && user.IsActive, ct);
+        if (activeUsers >= tenant.MaxUsers)
+            throw new UserAdminException(UserAdminErrorKind.Conflict,
+                $"Достигнут лимит активных пользователей ({tenant.MaxUsers}). Освободите место перед созданием или активацией пользователя.");
+    }
+
+    private Task<bool> IsTenantAdminAsync(int actorId, CancellationToken ct)
+        => _db.UserRoleMappings.AnyAsync(
+            mapping => mapping.UserId == actorId && mapping.Role.Code == "tenant_admin",
+            ct);
 
     private async Task EnsureRolesExistAsync(List<int> roleIds, CancellationToken ct)
     {

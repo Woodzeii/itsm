@@ -7,6 +7,9 @@ import {
     CreateAssetRequest,
     CreatePortalAccountRequest,
     CreateTenantRequest,
+    UpdateTenantRequest,
+    BlockTenantRequest,
+    UnblockTenantRequest,
     CreateUserRequest,
     CreateTicketRequest,
     EscalationPolicy,
@@ -57,9 +60,13 @@ export class WorkspaceService {
     reviewPortalTicket(ticketId: string, accepted: boolean) { return this.api.reviewPortalTicket(ticketId, accepted); }
     createPortalAccount(request: CreatePortalAccountRequest) { return this.api.createPortalAccount(request); }
     getTenants() { return this.api.getTenants(); }
+    getTenant(tenantId: number) { return this.api.getTenant(tenantId); }
     createTenant(request: CreateTenantRequest) { return this.api.createTenant(request); }
-    setTenantActive(tenantId: string, active: boolean) { return this.api.setTenantActive(tenantId, active); }
-    deleteTenant(tenantId: string) { return this.api.deleteTenant(tenantId); }
+    updateTenant(tenantId: number, request: UpdateTenantRequest) { return this.api.updateTenant(tenantId, request); }
+    setTenantActive(tenantId: number, isActive: boolean) { return this.api.setTenantActive(tenantId, isActive); }
+    blockTenant(tenantId: number, request: BlockTenantRequest) { return this.api.blockTenant(tenantId, request); }
+    unblockTenant(tenantId: number) { return this.api.unblockTenant(tenantId); }
+    deleteTenant(tenantId: number) { return this.api.deleteTenant(tenantId); }
     getUsers() { return this.api.getUsers(); }
     getSystemRoles() { return this.api.getSystemRoles(); }
     createUser(request: CreateUserRequest) { return this.api.createUser(request); }
