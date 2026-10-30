@@ -105,4 +105,85 @@ public class TenantServiceTests
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*уже существует*");
     }
+
+    [Fact]
+    public async Task GetAll_ReportsActualActiveUsersPerTenantInsteadOfStoredCounter()
+    {
+        var (service, db) = Create();
+        var defaultTenant = await db.Tenants.SingleAsync(tenant => tenant.Id == 1);
+        defaultTenant.CurrentUserCount = 0;
+        var secondTenant = new Tenant { Code = "second", Name = "Second Tenant" };
+        db.Tenants.Add(secondTenant);
+
+        var seededUsers = new List<User>();
+        for (var index = 0; index < 7; index++)
+        {
+            seededUsers.Add(new User
+            {
+                Username = $"seed.user.{index}",
+                Email = $"seed.user.{index}@example.test",
+                TenantId = defaultTenant.Id,
+                IsActive = true
+            });
+        }
+
+        db.Users.AddRange(seededUsers);
+        db.Users.Add(new User
+        {
+            Username = "second.tenant.user",
+            Email = "second@example.test",
+            TenantId = secondTenant.Id,
+            IsActive = true
+        });
+        db.Users.Add(new User
+        {
+            Username = "inactive.seed.user",
+            Email = "inactive@example.test",
+            TenantId = defaultTenant.Id,
+            IsActive = false
+        });
+        await db.SaveChangesAsync();
+
+        db.Assets.Add(new Asset
+        {
+            TenantId = defaultTenant.Id,
+            InventoryNumber = "seed-asset-1",
+            Name = "Seeded Asset"
+        });
+        var ticket = new Ticket
+        {
+            TenantId = defaultTenant.Id,
+            Title = "Seeded Ticket",
+            TypeId = 1,
+            StatusId = 1,
+            CreatorId = seededUsers[0].Id
+        };
+        var message = new TicketMessage
+        {
+            Ticket = ticket,
+            AuthorId = seededUsers[0].Id,
+            MessageBody = "Seeded attachment"
+        };
+        message.Attachments.Add(new Attachment
+        {
+            FileName = "seed.txt",
+            FilePath = "seed.txt",
+            ContentType = "text/plain",
+            SizeBytes = 123,
+            UploadedById = seededUsers[0].Id,
+            UploadedBy = seededUsers[0]
+        });
+        db.Tickets.Add(ticket);
+        db.TicketMessages.Add(message);
+        await db.SaveChangesAsync();
+
+        var tenants = await service.GetAllAsync();
+
+        var defaultTenantDto = tenants.Single(tenant => tenant.Id == defaultTenant.Id);
+        defaultTenantDto.CurrentUserCount.Should().Be(7);
+        defaultTenantDto.CurrentAssetCount.Should().Be(1);
+        defaultTenantDto.CurrentTicketCount.Should().Be(1);
+        defaultTenantDto.CurrentStorageBytes.Should().Be(123);
+        tenants.Single(tenant => tenant.Id == secondTenant.Id).CurrentUserCount.Should().Be(1);
+    }
 }

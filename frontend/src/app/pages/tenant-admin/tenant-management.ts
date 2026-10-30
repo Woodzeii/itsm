@@ -54,7 +54,7 @@ import { TenantRecord } from '../../core/workspace/workspace.models';
       <section class="panel">
         <header><div><h2>Организации</h2><p>{{ tenants.length }} тенантов</p></div></header>
         <div class="table-scroll"><table>
-          <thead><tr><th>Организация</th><th>Статус</th><th>Пользователи</th><th>Активы</th><th>Управление</th></tr></thead>
+          <thead><tr><th>Организация</th><th>Статус</th><th>Активные пользователи</th><th>Активы</th><th>Управление</th></tr></thead>
           <tbody>
             @for (tenant of tenants; track tenant.id) {
               <tr>

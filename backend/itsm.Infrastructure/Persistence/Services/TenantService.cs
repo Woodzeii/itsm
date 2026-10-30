@@ -32,16 +32,21 @@ public class TenantService : ITenantService
 
     public async Task<List<TenantDto>> GetAllAsync(CancellationToken ct = default)
     {
-        return await _db.Tenants
+        var tenants = await _db.Tenants
+            .AsNoTracking()
             .OrderBy(t => t.CreatedAt)
-            .Select(t => ToDto(t))
             .ToListAsync(ct);
+
+        return await ToDtosWithUsageAsync(tenants, ct);
     }
 
     public async Task<TenantDto?> GetByIdAsync(int tenantId, CancellationToken ct = default)
     {
         var tenant = await _db.Tenants.FindAsync(new object[] { tenantId }, cancellationToken: ct);
-        return tenant is null ? null : ToDto(tenant);
+        if (tenant is null)
+            return null;
+
+        return (await ToDtosWithUsageAsync(new[] { tenant }, ct)).Single();
     }
 
     public async Task<TenantDto?> GetByCodeAsync(string code, CancellationToken ct = default)
@@ -109,7 +114,7 @@ public class TenantService : ITenantService
         _db.Tenants.Add(tenant);
         await _db.SaveChangesAsync(ct);
 
-        return ToDto(tenant);
+        return (await GetByIdAsync(tenant.Id, ct))!;
     }
 
     public async Task<TenantDto?> UpdateAsync(int tenantId, UpdateTenantRequest request, CancellationToken ct = default)
@@ -134,7 +139,7 @@ public class TenantService : ITenantService
             tenant.MaxStorageBytes = request.MaxStorageBytes.Value;
 
         await _db.SaveChangesAsync(ct);
-        return ToDto(tenant);
+        return (await GetByIdAsync(tenant.Id, ct))!;
     }
 
     public async Task<TenantDto?> UpdateStatusAsync(int tenantId, bool isActive, CancellationToken ct = default)
@@ -146,7 +151,7 @@ public class TenantService : ITenantService
         tenant.IsActive = isActive;
         await _db.SaveChangesAsync(ct);
 
-        return ToDto(tenant);
+        return (await GetByIdAsync(tenant.Id, ct))!;
     }
 
     public async Task<TenantDto?> BlockAsync(int tenantId, BlockTenantRequest request, CancellationToken ct = default)
@@ -161,7 +166,7 @@ public class TenantService : ITenantService
         tenant.BlockedUntil = request.BlockedUntil;
 
         await _db.SaveChangesAsync(ct);
-        return ToDto(tenant);
+        return (await GetByIdAsync(tenant.Id, ct))!;
     }
 
     public async Task<TenantDto?> UnblockAsync(int tenantId, CancellationToken ct = default)
@@ -176,7 +181,7 @@ public class TenantService : ITenantService
         tenant.BlockedUntil = null;
 
         await _db.SaveChangesAsync(ct);
-        return ToDto(tenant);
+        return (await GetByIdAsync(tenant.Id, ct))!;
     }
 
     public async Task<bool> DeleteAsync(int tenantId, CancellationToken ct = default)
@@ -213,6 +218,53 @@ public class TenantService : ITenantService
         CurrentTicketCount = tenant.CurrentTicketCount,
         CurrentStorageBytes = tenant.CurrentStorageBytes
     };
+
+    private async Task<List<TenantDto>> ToDtosWithUsageAsync(
+        IReadOnlyCollection<Tenant> tenants,
+        CancellationToken ct)
+    {
+        var tenantIds = tenants.Select(tenant => tenant.Id).ToArray();
+        if (tenantIds.Length == 0)
+            return new List<TenantDto>();
+
+        var userCounts = await _db.Users
+            .IgnoreQueryFilters()
+            .Where(user => tenantIds.Contains(user.TenantId) && user.IsActive)
+            .GroupBy(user => user.TenantId)
+            .Select(group => new { TenantId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.TenantId, group => group.Count, ct);
+
+        var assetCounts = await _db.Assets
+            .IgnoreQueryFilters()
+            .Where(asset => tenantIds.Contains(asset.TenantId))
+            .GroupBy(asset => asset.TenantId)
+            .Select(group => new { TenantId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.TenantId, group => group.Count, ct);
+
+        var ticketCounts = await _db.Tickets
+            .IgnoreQueryFilters()
+            .Where(ticket => tenantIds.Contains(ticket.TenantId))
+            .GroupBy(ticket => ticket.TenantId)
+            .Select(group => new { TenantId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(group => group.TenantId, group => group.Count, ct);
+
+        var storageByTenant = await _db.Attachments
+            .IgnoreQueryFilters()
+            .Where(attachment => tenantIds.Contains(attachment.TicketMessage.Ticket.TenantId))
+            .GroupBy(attachment => attachment.TicketMessage.Ticket.TenantId)
+            .Select(group => new { TenantId = group.Key, Bytes = group.Sum(attachment => attachment.SizeBytes) })
+            .ToDictionaryAsync(group => group.TenantId, group => group.Bytes, ct);
+
+        return tenants.Select(tenant =>
+        {
+            var dto = ToDto(tenant);
+            dto.CurrentUserCount = userCounts.GetValueOrDefault(tenant.Id);
+            dto.CurrentAssetCount = assetCounts.GetValueOrDefault(tenant.Id);
+            dto.CurrentTicketCount = ticketCounts.GetValueOrDefault(tenant.Id);
+            dto.CurrentStorageBytes = storageByTenant.GetValueOrDefault(tenant.Id);
+            return dto;
+        }).ToList();
+    }
 
     private static string GenerateCode(string name)
     {
