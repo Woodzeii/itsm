@@ -15,7 +15,6 @@ export interface AuditLogEntry {
 }
 
 // ==================== User Summary ====================
-// ⚠️ НЕ РЕАЛИЗОВАНО В BACKEND.
 
 export interface UserSummary {
     id: number;
@@ -24,12 +23,34 @@ export interface UserSummary {
     fullName: string;
     department: string | null;
     managerId: number | null;
+    tenantId: number | null;
     roleIds: number[];
     isActive: boolean;
 }
 
+export interface CreateAdminUserRequest {
+    username: string;
+    email: string;
+    fullName: string;
+    department: string;
+    managerId: number | null;
+    initialPassword: string;
+    isActive: boolean;
+    roleIds: number[];
+}
+
+export interface UpdateAdminUserRequest {
+    username: string;
+    email: string;
+    fullName: string;
+    department: string | null;
+    managerId: number | null;
+    tenantId: number | null;
+    isActive: boolean;
+    roleIds: number[];
+}
+
 // ==================== Role Summary ====================
-// ⚠️ НЕ РЕАЛИЗОВАНО В BACKEND.
 
 export interface RoleSummary {
     id: number;

@@ -4,10 +4,6 @@ import { MockAdminApiService } from './mock-admin-api.service';
 import { HttpAdminApiService } from './http-admin-api.service';
 import { environment } from '../../../environments/environment';
 
-/**
- * ⚠️ Сейчас useMockAdminApi = true (моки).
- * Когда backend будет готов — переключить на false (HttpAdminApiService).
- */
 export const adminApiProvider: Provider = {
     provide: AdminApi,
     useClass: environment.useMockAdminApi

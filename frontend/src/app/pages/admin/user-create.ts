@@ -1,8 +1,9 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { CreateUserRequest, SystemRoleOption, UserRecord } from '../../core/workspace/workspace.models';
-import { WorkspaceService } from '../../core/workspace/workspace.service';
+import { Router } from '@angular/router';
+import { AdminService } from '../../core/admin/admin.service';
+import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/admin/admin.models';
 
 @Component({
     selector: 'app-user-create',
@@ -17,14 +18,50 @@ import { WorkspaceService } from '../../core/workspace/workspace.service';
       @if (error) { <p class="feedback error" role="alert">{{ error }}</p> }
       @if (notice) { <p class="feedback success" role="status">{{ notice }}</p> }
 
-      <form class="user-form" (ngSubmit)="createUser()">
+      <form class="user-form" autocomplete="off" (ngSubmit)="createUser()">
         <section class="panel">
           <header><span class="step">01</span><div><h2>Основные данные</h2><p>Контактные и организационные сведения</p></div></header>
           <div class="field-grid">
-            <label class="wide">ФИО<input name="fullName" [(ngModel)]="form.fullName" autocomplete="name" required /></label>
-            <label>Email (логин)<input name="email" type="email" [(ngModel)]="form.email" autocomplete="email" required /></label>
-            <label>Username<input name="username" [(ngModel)]="form.username" autocomplete="username" required /></label>
-            <label>Департамент<input name="department" [(ngModel)]="form.department" required /></label>
+            <label class="wide">ФИО
+              <input name="fullName" [(ngModel)]="form.fullName" autocomplete="name" required />
+              @if (getFieldErrors('fullName').length > 0) {
+                <div class="field-errors">
+                  @for (err of getFieldErrors('fullName'); track err) {
+                    <p class="error-item">✘ {{ err }}</p>
+                  }
+                </div>
+              }
+            </label>
+            <label>Email (логин)
+              <input name="newUserEmail" type="email" [(ngModel)]="form.email" autocomplete="off" required />
+              @if (getFieldErrors('email').length > 0) {
+                <div class="field-errors">
+                  @for (err of getFieldErrors('email'); track err) {
+                    <p class="error-item">✘ {{ err }}</p>
+                  }
+                </div>
+              }
+            </label>
+            <label>Username
+              <input name="newUserLogin" [(ngModel)]="form.username" autocomplete="off" required />
+              @if (getFieldErrors('username').length > 0) {
+                <div class="field-errors">
+                  @for (err of getFieldErrors('username'); track err) {
+                    <p class="error-item">✘ {{ err }}</p>
+                  }
+                </div>
+              }
+            </label>
+            <label>Департамент
+              <input name="department" [(ngModel)]="form.department" required />
+              @if (getFieldErrors('department').length > 0) {
+                <div class="field-errors">
+                  @for (err of getFieldErrors('department'); track err) {
+                    <p class="error-item">✘ {{ err }}</p>
+                  }
+                </div>
+              }
+            </label>
             <label>Руководитель
               <select name="managerId" [(ngModel)]="form.managerId">
                 <option [ngValue]="null">Не назначен</option>
@@ -37,7 +74,17 @@ import { WorkspaceService } from '../../core/workspace/workspace.service';
         <section class="panel">
           <header><span class="step">02</span><div><h2>Авторизация и безопасность</h2><p>Первичный пароль и доступ к системе</p></div></header>
           <div class="security-grid">
-            <label>Первичный пароль<input name="initialPassword" type="password" [(ngModel)]="form.initialPassword" autocomplete="new-password" minlength="12" required /><small>Не менее 12 символов, с заглавной буквой и спецсимволом.</small></label>
+            <label>Первичный пароль
+              <input name="initialPassword" type="password" [(ngModel)]="form.initialPassword" autocomplete="new-password" required />
+              <small>Не менее 12 символов, с заглавной буквой и спецсимволом.</small>
+              @if (getPasswordErrors().length > 0) {
+                <div class="password-errors">
+                  @for (error of getPasswordErrors(); track error) {
+                    <p class="error-item">✘ {{ error }}</p>
+                  }
+                </div>
+              }
+            </label>
             <label class="active-toggle"><input name="isActive" type="checkbox" [(ngModel)]="form.isActive" /><span><strong>Учётная запись активна</strong><small>Отключите, чтобы создать пользователя заблокированным.</small></span></label>
           </div>
         </section>
@@ -56,7 +103,7 @@ import { WorkspaceService } from '../../core/workspace/workspace.service';
           @if (roles.length && form.roleIds.length === 0) { <p class="role-hint">Выберите хотя бы одну роль.</p> }
         </section>
 
-        <footer class="form-actions"><span>Пароль не отображается в списке пользователей.</span><button class="primary" type="submit" [disabled]="saving || roles.length === 0">{{ saving ? 'Создание…' : 'Создать пользователя' }}</button></footer>
+        <footer class="form-actions"><span>Пароль не отображается в списке пользователей.</span><button class="primary" type="submit" [disabled]="saving || roles.length === 0 || !isFormValid()">{{ saving ? 'Создание…' : 'Создать пользователя' }}</button></footer>
       </form>
     </section>
   `,
@@ -79,6 +126,11 @@ import { WorkspaceService } from '../../core/workspace/workspace.service';
       .wide { grid-column:1/-1; }
       .security-grid { display:grid; grid-template-columns:1fr 1fr; align-items:center; gap:18px; padding:16px; }
       .security-grid small { color:#8993a1; font-size:9px; line-height:1.5; }
+      .password-errors { margin-top:8px; padding:8px; border-radius:4px; background:#fff0ef; }
+      .field-errors { margin-top:6px; padding:6px 8px; border-radius:4px; background:#fff0ef; }
+      .error-item { margin:4px 0; color:#a93232; font-size:9px; line-height:1.4; }
+      .error-item:first-child { margin-top:0; }
+      .error-item:last-child { margin-bottom:0; }
       .active-toggle { display:flex; align-items:flex-start; gap:10px; padding:12px; border:1px solid #e6eaf0; border-radius:5px; }
       .active-toggle input, .role-option input { accent-color:#2872c8; }
       .active-toggle input { margin:2px 0 0; }
@@ -106,22 +158,23 @@ import { WorkspaceService } from '../../core/workspace/workspace.service';
     `],
 })
 export class UserCreateComponent implements OnInit {
-    private readonly workspace = inject(WorkspaceService);
+    private readonly admin = inject(AdminService);
+    private readonly router = inject(Router);
 
-    managers: UserRecord[] = [];
-    roles: SystemRoleOption[] = [];
+    managers: UserSummary[] = [];
+    roles: RoleSummary[] = [];
     saving = false;
     error = '';
     notice = '';
     form = this.emptyForm();
 
     ngOnInit(): void {
-        this.workspace.getUsers().subscribe({
+        this.admin.getUsers().subscribe({
             next: users => this.managers = users.filter(user => user.isActive),
             error: err => this.error = err.message || 'Не удалось загрузить список пользователей.',
         });
-        this.workspace.getSystemRoles().subscribe({
-            next: roles => this.roles = roles,
+        this.admin.getRoles().subscribe({
+            next: roles => this.roles = roles.filter(role => role.code !== 'tenant_admin' && role.code !== 'admin'),
             error: err => this.error = err.message || 'Не удалось загрузить справочник ролей.',
         });
     }
@@ -134,22 +187,29 @@ export class UserCreateComponent implements OnInit {
     }
 
     createUser(): void {
+        const allErrors = this.getAllFormErrors();
+        if (allErrors.length > 0) {
+            this.error = 'Ошибки в форме:\n' + allErrors.join('\n');
+            return;
+        }
         if (this.saving || !this.form.roleIds.length) return;
         this.saving = true;
         this.error = '';
         this.notice = '';
 
-        const request: CreateUserRequest = {
+        const request: CreateAdminUserRequest = {
             ...this.form,
             managerId: this.form.managerId,
         };
 
-        this.workspace.createUser(request).subscribe({
+        this.admin.createUser(request).subscribe({
             next: user => {
-                this.managers = [user, ...this.managers];
-                this.notice = `Пользователь ${user.fullName} создан.`;
-                this.form = this.emptyForm();
                 this.saving = false;
+                void this.router.navigate(['/admin/users'], {
+                    state: { userCreated: user.fullName },
+                }).catch(err => {
+                    this.error = err.message || 'Пользователь создан, но не удалось открыть список пользователей.';
+                });
             },
             error: err => {
                 this.error = err.message || 'Не удалось создать пользователя.';
@@ -158,7 +218,76 @@ export class UserCreateComponent implements OnInit {
         });
     }
 
-    private emptyForm(): CreateUserRequest {
+    isFormValid(): boolean {
+        return this.getAllFormErrors().length === 0 && this.form.roleIds.length > 0;
+    }
+
+    getAllFormErrors(): string[] {
+        const errors: string[] = [];
+        
+        errors.push(...this.getFieldErrors('fullName'));
+        errors.push(...this.getFieldErrors('email'));
+        errors.push(...this.getFieldErrors('username'));
+        errors.push(...this.getFieldErrors('department'));
+        errors.push(...this.getPasswordErrors());
+
+        return errors;
+    }
+
+    getFieldErrors(field: keyof CreateAdminUserRequest): string[] {
+        const errors: string[] = [];
+        const value = this.form[field] as string | null | undefined;
+
+        if (!value || (typeof value === 'string' && !value.trim())) {
+            return errors;
+        }
+
+        if (field === 'fullName') {
+            if (value.length < 3) errors.push('ФИО должно содержать минимум 3 символа');
+            if (value.length > 100) errors.push('ФИО не должно превышать 100 символов');
+            if (!/^[а-яА-ЯёЁa-zA-Z\s\-'.]+$/.test(value)) errors.push('ФИО содержит недопустимые символы');
+        }
+
+        if (field === 'email') {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(value)) errors.push('Некорректный адрес Email');
+            if (value.length > 100) errors.push('Email не должен превышать 100 символов');
+        }
+
+        if (field === 'username') {
+            if (value.length < 3) errors.push('Username должен содержать минимум 3 символа');
+            if (value.length > 50) errors.push('Username не должен превышать 50 символов');
+            if (!/^[a-zA-Z0-9._-]+$/.test(value)) errors.push('Username может содержать только букв, цифр, точек, подчёркиваний и дефисов');
+        }
+
+        if (field === 'department') {
+            if (value.length < 2) errors.push('Департамент должен содержать минимум 2 символа');
+            if (value.length > 100) errors.push('Департамент не должен превышать 100 символов');
+        }
+
+        return errors;
+    }
+
+    getPasswordErrors(): string[] {
+        const pwd = this.form.initialPassword;
+        const errors: string[] = [];
+
+        if (!pwd) return errors;
+
+        if (pwd.length < 12) {
+            errors.push('Пароль: минимум 12 символов');
+        }
+        if (!/[A-Z]/.test(pwd)) {
+            errors.push('Пароль: требуется заглавная буква');
+        }
+        if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(pwd)) {
+            errors.push('Пароль: требуется спецсимвол');
+        }
+
+        return errors;
+    }
+
+    private emptyForm(): CreateAdminUserRequest {
         return { fullName: '', email: '', username: '', department: '', managerId: null, initialPassword: '', isActive: true, roleIds: [] };
     }
 }

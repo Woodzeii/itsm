@@ -18,26 +18,7 @@ public class AuditLogEntryDto
     public DateTimeOffset CreatedAt { get; set; }
 }
 
-// ==================== User Summary ====================
-/// <summary>
-/// ⚠️ НЕ РЕАЛИЗОВАНО В BACKEND. Мок для фронта.
-/// </summary>
-public class UserSummaryDto
-{
-    public int Id { get; set; }
-    public string Username { get; set; } = string.Empty;
-    public string Email { get; set; } = string.Empty;
-    public string FullName { get; set; } = string.Empty;
-    public string? Department { get; set; }
-    public int? ManagerId { get; set; }
-    public List<int> RoleIds { get; set; } = new();
-    public bool IsActive { get; set; }
-}
-
 // ==================== Role Summary ====================
-/// <summary>
-/// ⚠️ НЕ РЕАЛИЗОВАНО В BACKEND. Мок для фронта.
-/// </summary>
 public class RoleSummaryDto
 {
     public int Id { get; set; }

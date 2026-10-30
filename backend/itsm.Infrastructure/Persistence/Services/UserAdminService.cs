@@ -58,6 +58,19 @@ public class UserAdminService : IUserAdminService
         };
     }
 
+    public async Task<List<RoleSummaryDto>> GetRolesAsync(CancellationToken ct = default)
+    {
+        return await _db.SystemRoles.AsNoTracking()
+            .OrderBy(role => role.Id)
+            .Select(role => new RoleSummaryDto
+            {
+                Id = role.Id,
+                Code = role.Code ?? string.Empty,
+                Name = role.Name
+            })
+            .ToListAsync(ct);
+    }
+
     public async Task<UserAdminDto?> GetByIdAsync(int id, CancellationToken ct = default)
     {
         var user = await _db.Users.AsNoTracking()
@@ -90,7 +103,7 @@ public class UserAdminService : IUserAdminService
             ManagerId = request.ManagerId,
             TenantId = request.TenantId ?? 1,
             IsManager = request.IsManager,
-            IsActive = true,
+            IsActive = request.IsActive,
             Status = UserStatuses.Verified,
             PasswordHash = _hasher.Hash(request.Password),
             PasswordChangedAt = DateTimeOffset.UtcNow,
@@ -112,24 +125,87 @@ public class UserAdminService : IUserAdminService
     public async Task<UserAdminDto> UpdateAsync(int id, UpdateUserRequest request, int actorId, string? ip, CancellationToken ct = default)
     {
         var user = await LoadAsync(id, ct);
+        var username = request.Username.Trim();
         var email = request.Email.Trim();
 
+        if (await _db.Users.AnyAsync(u => u.Id != id && u.Username.ToLower() == username.ToLower(), ct))
+            throw new UserAdminException(UserAdminErrorKind.Conflict, "Пользователь с таким логином уже существует");
         if (await _db.Users.AnyAsync(u => u.Id != id && u.Email.ToLower() == email.ToLower(), ct))
             throw new UserAdminException(UserAdminErrorKind.Conflict, "Пользователь с таким email уже существует");
 
         await EnsureManagerExistsAsync(request.ManagerId, id, ct);
         await EnsureTenantExistsAsync(request.TenantId, ct);
 
-        var old = new { user.Email, user.FullName, user.Department, user.ManagerId, user.TenantId };
+        var roleIds = request.RoleIds?.Distinct().ToList();
+        if (roleIds is not null)
+            await EnsureRolesExistAsync(roleIds, ct);
 
+        if (request.IsActive == false && user.IsActive)
+            await EnsureCanDeactivateAsync(user, actorId, ct);
+
+        if (roleIds is not null)
+        {
+            var adminRoleId = await _db.SystemRoles
+                .Where(role => role.Code == AdminRoleCode)
+                .Select(role => (int?)role.Id)
+                .FirstOrDefaultAsync(ct);
+            var wasAdmin = adminRoleId.HasValue && user.RoleMappings.Any(mapping => mapping.RoleId == adminRoleId.Value);
+            var willBeAdmin = adminRoleId.HasValue && roleIds.Contains(adminRoleId.Value);
+
+            if (wasAdmin && !willBeAdmin)
+            {
+                if (user.Id == actorId)
+                    throw new UserAdminException(UserAdminErrorKind.Conflict, "Нельзя снять с себя роль администратора");
+                if (user.IsActive && request.IsActive != false && await IsLastActiveAdminAsync(user.Id, ct))
+                    throw new UserAdminException(UserAdminErrorKind.Conflict, "Нельзя снять роль у последнего администратора");
+            }
+        }
+
+        var old = new
+        {
+            user.Username,
+            user.Email,
+            user.FullName,
+            user.Department,
+            user.ManagerId,
+            user.TenantId,
+            user.IsActive,
+            RoleIds = user.RoleMappings.Select(mapping => mapping.RoleId).OrderBy(roleId => roleId).ToList()
+        };
+
+        user.Username = username;
         user.Email = email;
         user.FullName = request.FullName?.Trim() ?? string.Empty;
         user.Department = request.Department?.Trim();
         user.ManagerId = request.ManagerId;
-        user.TenantId = request.TenantId ?? 1;
+        user.TenantId = request.TenantId;
+        if (request.IsActive.HasValue)
+            user.IsActive = request.IsActive.Value;
+        if (request.IsManager.HasValue)
+            user.IsManager = request.IsManager.Value;
+
+        if (roleIds is not null)
+        {
+            var toRemove = user.RoleMappings.Where(mapping => !roleIds.Contains(mapping.RoleId)).ToList();
+            _db.UserRoleMappings.RemoveRange(toRemove);
+            foreach (var mapping in toRemove)
+                user.RoleMappings.Remove(mapping);
+            foreach (var roleId in roleIds.Where(roleId => user.RoleMappings.All(mapping => mapping.RoleId != roleId)))
+                user.RoleMappings.Add(new UserRoleMapping { UserId = user.Id, RoleId = roleId });
+        }
 
         AddAudit(actorId, id, "user_updated", old,
-            new { user.Email, user.FullName, user.Department, user.ManagerId, user.TenantId }, ip);
+            new
+            {
+                user.Username,
+                user.Email,
+                user.FullName,
+                user.Department,
+                user.ManagerId,
+                user.TenantId,
+                user.IsActive,
+                RoleIds = user.RoleMappings.Select(mapping => mapping.RoleId).OrderBy(roleId => roleId).ToList()
+            }, ip);
         await _db.SaveChangesAsync(ct);
 
         return ToDto(user);

@@ -1,7 +1,13 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { AdminApi } from './admin-api';
-import { AuditLogEntry, RoleSummary, UserSummary } from './admin.models';
+import {
+    AuditLogEntry,
+    CreateAdminUserRequest,
+    RoleSummary,
+    UpdateAdminUserRequest,
+    UserSummary,
+} from './admin.models';
 
 @Injectable({ providedIn: 'root' })
 export class AdminService {
@@ -17,5 +23,13 @@ export class AdminService {
 
     getRoles(): Observable<RoleSummary[]> {
         return this.api.getRoles();
+    }
+
+    createUser(request: CreateAdminUserRequest): Observable<UserSummary> {
+        return this.api.createUser(request);
+    }
+
+    updateUser(id: number, request: UpdateAdminUserRequest): Observable<UserSummary> {
+        return this.api.updateUser(id, request);
     }
 }

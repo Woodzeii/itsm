@@ -4,11 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace itsm.WebApi.Controllers;
 
-/// <summary>
-/// ⚠️ ВРЕМЕННЫЙ КОНТРОЛЛЕР. Возвращает хардкод-данные для фронта,
-/// пока реальный backend не реализован.
-/// После реализации CRUD — заменить на сервисы.
-/// </summary>
+/// <summary>Предоставляет временный журнал аудита для административного интерфейса.</summary>
 [ApiController]
 [Route("api/admin")]
 [Authorize]
@@ -64,35 +60,4 @@ public class AdminController : ControllerBase
         return Ok(items);
     }
 
-    // ==================== Users ====================
-    // ⚠️ НЕ РЕАЛИЗОВАНО В BACKEND (хардкод)
-    [HttpGet("users")]
-    public IActionResult GetUsers()
-    {
-        var users = new List<UserSummaryDto>
-        {
-            new() { Id = 1, Username = "admin", Email = "admin@itsm.local", FullName = "Администратор Системы", Department = "IT", ManagerId = null, RoleIds = new List<int> { 1 }, IsActive = true },
-            new() { Id = 2, Username = "i.ivanov", Email = "i.ivanov@itsm.local", FullName = "Иван Иванов", Department = "IT", ManagerId = 1, RoleIds = new List<int> { 4 }, IsActive = true },
-            new() { Id = 3, Username = "p.petrov", Email = "p.petrov@itsm.local", FullName = "Пётр Петров", Department = "IT", ManagerId = 2, RoleIds = new List<int> { 3 }, IsActive = true },
-            new() { Id = 4, Username = "s.sidorov", Email = "s.sidorov@itsm.local", FullName = "Сидор Сидоров", Department = "Бухгалтерия", ManagerId = null, RoleIds = new List<int> { 5 }, IsActive = true },
-            new() { Id = 5, Username = "a.anna", Email = "a.anna@itsm.local", FullName = "Анна Аннова", Department = "Бухгалтерия", ManagerId = null, RoleIds = new List<int> { 5 }, IsActive = false }
-        };
-        return Ok(users);
-    }
-
-    // ==================== Roles ====================
-    // ⚠️ НЕ РЕАЛИЗОВАНО В BACKEND (хардкод)
-    [HttpGet("roles")]
-    public IActionResult GetRoles()
-    {
-        var roles = new List<RoleSummaryDto>
-        {
-            new() { Id = 1, Code = "tenant_admin", Name = "Администратор тенантов" },
-            new() { Id = 2, Code = "admin", Name = "Администратор" },
-            new() { Id = 3, Code = "agent", Name = "Инженер ТП" },
-            new() { Id = 4, Code = "manager", Name = "Руководитель" },
-            new() { Id = 5, Code = "portal_user", Name = "Пользователь портала" }
-        };
-        return Ok(roles);
-    }
 }

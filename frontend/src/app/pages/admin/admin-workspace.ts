@@ -1,11 +1,14 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { finalize } from 'rxjs';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportSummary, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
+import { AdminService } from '../../core/admin/admin.service';
+import { RoleSummary, UpdateAdminUserRequest, UserSummary } from '../../core/admin/admin.models';
 
-type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
+type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 
 @Component({
     selector: 'app-admin-workspace',
@@ -14,7 +17,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
     template: `
     <section class="page">
       <header class="heading"><div><p class="eyebrow">Администрирование</p><h1>{{ pageTitle }}</h1></div></header>
-      <nav class="admin-nav"><a routerLink="/admin/settings" routerLinkActive="active">Настройки</a><a routerLink="/admin/forms" routerLinkActive="active">Конструктор форм</a><a routerLink="/admin/escalation-policies" routerLinkActive="active">Эскалация</a><a routerLink="/admin/reports" routerLinkActive="active">Отчёты</a><a routerLink="/dictionaries">Справочники</a><a routerLink="/asset-classes">Классы активов</a></nav>
+      <nav class="admin-nav"><a routerLink="/admin/settings" routerLinkActive="active">Настройки</a><a routerLink="/admin/forms" routerLinkActive="active">Конструктор форм</a><a routerLink="/admin/escalation-policies" routerLinkActive="active">Эскалация</a><a routerLink="/admin/reports" routerLinkActive="active">Отчёты</a><a routerLink="/admin/users" routerLinkActive="active">Пользователи</a><a routerLink="/dictionaries">Справочники</a><a routerLink="/asset-classes">Классы активов</a></nav>
       @if (error) { <p class="feedback error">{{ error }}</p> }
       @if (notice) { <p class="feedback success">{{ notice }}</p> }
 
@@ -94,6 +97,100 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
           <div class="report-list">@for (report of reports; track report.id) { <article><span class="report-icon" aria-hidden="true">▤</span><div><strong>{{ report.title }}</strong><p>{{ report.description }}</p></div><b>{{ report.value }}</b></article> }</div>
         </section>
       }
+
+      @if (section === 'users') {
+        <section class="panel"><header><h2>Управление пользователями</h2><p>Просмотр, редактирование и управление учётными записями пользователей</p></header>
+          <div class="users-toolbar"><button class="quiet" type="button" routerLink="/admin/users/new">+ Добавить пользователя</button></div>
+          @if (usersLoading) {
+            <p class="empty" style="padding:16px;">Загрузка пользователей…</p>
+          } @else if (usersList.length) {
+            <button
+              class="mobile-filters-toggle"
+              type="button"
+              aria-controls="users-filters"
+              [attr.aria-expanded]="usersFiltersExpanded"
+              (click)="usersFiltersExpanded = !usersFiltersExpanded">
+              Filters
+            </button>
+            <div id="users-filters" class="users-filters" [class.filters-expanded]="usersFiltersExpanded" aria-label="Фильтры пользователей">
+              <label class="users-search">Поиск
+                <input type="search" name="usersSearch" [(ngModel)]="usersSearch" placeholder="ФИО, email, username..." />
+              </label>
+              <label>Департамент
+                <select name="usersDepartment" [(ngModel)]="usersDepartmentFilter">
+                  <option value="">Все департаменты</option>
+                  @for (department of userDepartments; track department) { <option [value]="department">{{ department }}</option> }
+                </select>
+              </label>
+              <label>Роль
+                <select name="usersRole" [(ngModel)]="usersRoleFilter">
+                  <option value="">Все роли</option>
+                  @for (role of availableRoles; track role.id) { <option [value]="role.id">{{ role.name }}</option> }
+                </select>
+              </label>
+              <label>Статус
+                <select name="usersStatus" [(ngModel)]="usersStatusFilter">
+                  <option value="">Все статусы</option>
+                  <option value="active">Активные</option>
+                  <option value="inactive">Неактивные</option>
+                </select>
+              </label>
+              @if (hasUserFilters) { <button class="clear-user-filters" type="button" (click)="clearUserFilters()">Сбросить</button> }
+              <span class="users-count" aria-live="polite">Показано {{ filteredUsers.length }} из {{ usersList.length }}</span>
+            </div>
+          }
+          @if (!usersLoading && filteredUsers.length) {
+            <table class="users-table">
+              <thead>
+                <tr><th>ФИО</th><th>Email</th><th>Username</th><th>Департамент</th><th>Руководитель</th><th>Статус</th><th>Роли</th><th></th></tr>
+              </thead>
+              <tbody>
+                @for (user of filteredUsers; track user.id) {
+                  @if (editingUserId === user.id) {
+                    <tr class="edit-row mobile-expanded">
+                      <td data-label="ФИО"><input name="fullName" [(ngModel)]="editingUser!.fullName" /></td>
+                      <td data-label="Email"><input name="email" type="email" [(ngModel)]="editingUser!.email" /></td>
+                      <td data-label="Username"><input name="username" [(ngModel)]="editingUser!.username" /></td>
+                      <td data-label="Департамент"><input name="department" [(ngModel)]="editingUser!.department" /></td>
+                      <td data-label="Руководитель"><select name="managerId" [(ngModel)]="editingUser!.managerId"><option [ngValue]="null">Не назначен</option>@for (manager of usersList.filter(u => u.id !== user.id && u.isActive); track manager.id) { <option [ngValue]="manager.id">{{ manager.fullName }}</option> }</select></td>
+                      <td data-label="Статус"><label class="check"><input type="checkbox" [(ngModel)]="editingUser!.isActive" /><span>Активен</span></label></td>
+                      <td class="roles-cell" data-label="Роли"><div class="roles-list">@for (role of availableRoles; track role.id) { <label class="role-check"><input type="checkbox" [checked]="(editingUser?.roleIds || []).includes(role.id)" (change)="toggleEditingUserRole(role.id, $event)" /><span>{{ role.name }}</span></label> }</div></td>
+                      <td class="actions" data-label="Действия"><button type="button" aria-label="Сохранить пользователя" (click)="saveUser(user.id)">✓</button><button type="button" aria-label="Отменить редактирование" (click)="cancelEdit()">✕</button></td>
+                    </tr>
+                  } @else {
+                    <tr [class.mobile-expanded]="expandedUserId === user.id">
+                      <td data-label="ФИО">
+                        <span class="desktop-user-name">{{ user.fullName }}</span>
+                        <button
+                          class="mobile-user-toggle"
+                          type="button"
+                          [attr.aria-expanded]="expandedUserId === user.id"
+                          [attr.aria-label]="(expandedUserId === user.id ? 'Скрыть данные пользователя ' : 'Показать данные пользователя ') + user.fullName"
+                          (click)="toggleUserDetails(user.id)">
+                            <span class="mobile-user-name">{{ user.fullName }}</span><span class="mobile-expand-indicator" aria-hidden="true">⌄</span>
+                        </button>
+                      </td>
+                      <td data-label="Email">{{ user.email }}</td>
+                      <td data-label="Username">{{ user.username }}</td>
+                      <td data-label="Департамент">{{ user.department }}</td>
+                      <td data-label="Руководитель">{{ findUserName(user.managerId) || '—' }}</td>
+                      <td data-label="Статус"><span class="status" [class.active]="user.isActive" [class.inactive]="!user.isActive">{{ user.isActive ? 'Активен' : 'Неактивен' }}</span></td>
+                      <td data-label="Роли">{{ user.roleIds.map(id => findRoleName(id)).filter(n => n).join(', ') || '—' }}</td>
+                      <td class="actions" data-label="Действия"><button type="button" [attr.aria-label]="'Редактировать пользователя ' + user.fullName" (click)="editUser(user)">✎</button></td>
+                    </tr>
+                  }
+                }
+              </tbody>
+            </table>
+          } @else if (!usersLoading) {
+            @if (usersList.length && hasUserFilters) {
+              <p class="empty" style="padding:16px;">По заданным условиям пользователи не найдены</p>
+            } @else {
+            <p class="empty" style="padding:16px;">Пользователей не найдено</p>
+            }
+          }
+        </section>
+      }
     </section>
   `,
     styles: [`
@@ -149,13 +246,41 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports';
       .report-icon { width:30px; height:30px; display:grid; place-items:center; border-radius:5px; background:#edf4ff; color:#3270cb; }
       .report-list article div { min-width:0; flex:1; } .report-list article strong { font-size:10px; } .report-list article p { margin:4px 0 0; color:#84909d; font-size:9px; } .report-list article b { color:#4a5665; font-size:10px; white-space:nowrap; }
       .empty { padding:10px 16px; color:#8993a1; font-size:10px; }
-      @media(max-width:950px) { .policy-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .type-top { grid-template-columns:1fr 1fr; } .sla-grid { grid-template-columns:1fr; } }
-      @media(max-width:650px) { .page { padding:20px 13px 30px; } .field-grid,.list-editor,.field-main,.field-options,.account-grid,.add-field { grid-template-columns:1fr; } .status-row { grid-template-columns:1fr auto; } .status-row .check { grid-column:1; } .policy-row { grid-template-columns:1fr; } .period { align-items:stretch; flex-direction:column; } .period label { min-width:0; } }
+      .users-toolbar { padding:12px 16px; border-bottom:1px solid #edf0f4; } .users-toolbar button { min-height:32px; }
+      .mobile-filters-toggle { display:none; }
+      .users-filters { display:grid; grid-template-columns:minmax(200px,2fr) repeat(3,minmax(140px,1fr)) auto; align-items:end; gap:10px; padding:12px 16px; border-bottom:1px solid #edf0f4; }
+      .users-filters label { min-width:0; }
+      .users-filters input, .users-filters select { width:100%; min-height:36px; }
+      .users-search { grid-column:span 1; }
+      .clear-user-filters { min-height:36px; padding:0 10px; border:1px solid #dfe4ea; border-radius:4px; background:#fff; color:#536173; cursor:pointer; }
+      .users-count { grid-column:1/-1; color:#8993a1; font-size:9px; }
+      .users-table { width:100%; border-collapse:collapse; font-size:9px; }
+      .users-table thead { background:#f7f9fb; }
+      .users-table th { padding:10px 8px; text-align:left; color:#546173; font-weight:600; border-bottom:1px solid #dfe4ea; }
+      .users-table td { padding:10px 8px; border-bottom:1px solid #eef1f4; color:#414c5a; }
+      .users-table .edit-row input, .users-table .edit-row select { width:100%; min-height:28px; padding:4px 6px; border:1px solid #dfe4ea; border-radius:3px; }
+      .users-table .edit-row td { padding:8px 4px; }
+      .users-table .status { display:inline-block; padding:3px 6px; border-radius:3px; font-size:8px; font-weight:600; }
+      .users-table .status.active { background:#e6f7f0; color:#176f52; }
+      .users-table .status.inactive { background:#ffe9e9; color:#a93232; }
+      .users-table .roles-cell { max-width:180px; }
+      .roles-list { display:grid; gap:4px; }
+      .role-check { display:flex; align-items:center; gap:4px; min-height:24px; }
+      .role-check input { margin:0; }
+      .role-check span { font-size:8px; color:#546173; }
+      .users-table .actions { text-align:center; }
+      .users-table button { width:24px; height:24px; margin:0 2px; padding:0; border:0; border-radius:3px; background:#f0f2f5; color:#546173; cursor:pointer; font-size:9px; }
+      .users-table button:hover { background:#e2e7ed; }
+      .mobile-user-toggle { display:none; }
+      @media(max-width:950px) { .policy-row { grid-template-columns:repeat(2,minmax(0,1fr)); } .type-top { grid-template-columns:1fr 1fr; } .sla-grid { grid-template-columns:1fr; } .users-table { font-size:8px; } .users-table th, .users-table td { padding:6px 4px; } }
     `],
 })
 export class AdminWorkspaceComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
+    private readonly admin = inject(AdminService);
     private readonly route = inject(ActivatedRoute);
+    private readonly router = inject(Router);
+    private readonly changeDetector = inject(ChangeDetectorRef);
 
     section: AdminSection = 'settings';
     settings: AdminSettings | null = null;
@@ -165,6 +290,17 @@ export class AdminWorkspaceComponent implements OnInit {
     policies: EscalationPolicy[] = [];
     escalationHistory: EscalationHistoryEntry[] = [];
     reports: ReportSummary[] = [];
+    usersList: UserSummary[] = [];
+    usersLoading = false;
+    usersSearch = '';
+    usersDepartmentFilter = '';
+    usersRoleFilter = '';
+    usersStatusFilter = '';
+    usersFiltersExpanded = false;
+    expandedUserId: number | null = null;
+    availableRoles: RoleSummary[] = [];
+    editingUserId: number | null = null;
+    editingUser: Partial<UpdateAdminUserRequest> | null = null;
     error = '';
     notice = '';
     newCriticality = '';
@@ -179,11 +315,43 @@ export class AdminWorkspaceComponent implements OnInit {
     newHoliday = '';
     readonly weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-    get pageTitle(): string { return { settings: 'Настройки Service Desk', forms: 'Конструктор форм', escalations: 'Процесс эскалации', reports: 'Отчёты' }[this.section]; }
+    get pageTitle(): string { return { settings: 'Настройки Service Desk', forms: 'Конструктор форм', escalations: 'Процесс эскалации', reports: 'Отчёты', users: 'Управление пользователями' }[this.section]; }
     get activeForm(): TicketFormDefinition | undefined { return this.forms.find(form => form.ticketTypeId === this.formId); }
+    get userDepartments(): string[] {
+        return [...new Set(this.usersList.map(user => user.department?.trim()).filter((department): department is string => !!department))]
+            .sort((a, b) => a.localeCompare(b, 'ru'));
+    }
+    get filteredUsers(): UserSummary[] {
+        const search = this.usersSearch.trim().toLocaleLowerCase();
+        const roleId = this.usersRoleFilter ? Number(this.usersRoleFilter) : null;
+
+        return this.usersList.filter(user => {
+            const manager = this.findUserName(user.managerId) ?? '';
+            const roleNames = user.roleIds
+                .map(id => this.availableRoles.find(role => role.id === id))
+                .filter((role): role is RoleSummary => role !== undefined)
+                .flatMap(role => [role.name, role.code]);
+            const searchFields = [user.fullName, user.email, user.username, user.department ?? '', manager, ...roleNames];
+
+            return (!search || searchFields.some(value => value.toLocaleLowerCase().includes(search)))
+                && (!this.usersDepartmentFilter || user.department === this.usersDepartmentFilter)
+                && (roleId === null || user.roleIds.includes(roleId))
+                && (!this.usersStatusFilter
+                    || (this.usersStatusFilter === 'active' ? user.isActive : !user.isActive));
+        });
+    }
+    get hasUserFilters(): boolean {
+        return !!(this.usersSearch.trim() || this.usersDepartmentFilter || this.usersRoleFilter || this.usersStatusFilter);
+    }
 
     ngOnInit(): void {
         this.section = this.route.snapshot.data['section'] as AdminSection;
+        if (this.section === 'users') {
+            const createdUser = this.router.getCurrentNavigation()?.extras.state?.['userCreated'];
+            if (typeof createdUser === 'string') {
+                this.notice = `Пользователь ${createdUser} успешно создан.`;
+            }
+        }
         this.workspace.getAdminSettings().subscribe({ next: settings => this.settings = settings, error: err => this.error = err.message });
         if (this.section === 'settings') this.workspace.getTicketTypes().subscribe({ next: types => this.ticketTypes = types, error: err => this.error = err.message });
         if (this.section === 'forms') this.workspace.getForms().subscribe({ next: forms => { this.forms = forms; this.formId = forms[0]?.ticketTypeId ?? ''; }, error: err => this.error = err.message });
@@ -192,6 +360,24 @@ export class AdminWorkspaceComponent implements OnInit {
             this.workspace.getEscalationHistory().subscribe({ next: history => this.escalationHistory = history, error: err => this.error = err.message });
         }
         if (this.section === 'reports') this.loadReports();
+        if (this.section === 'users') {
+            this.usersLoading = true;
+            this.error = '';
+            this.admin.getUsers().pipe(finalize(() => {
+                this.usersLoading = false;
+                this.changeDetector.markForCheck();
+            })).subscribe({
+                next: users => {
+                    this.usersList = users;
+                    this.changeDetector.markForCheck();
+                },
+                error: err => {
+                    this.error = err.message;
+                    this.changeDetector.markForCheck();
+                },
+            });
+            this.admin.getRoles().subscribe({ next: roles => this.availableRoles = roles.filter(role => role.code !== 'tenant_admin' && role.code !== 'admin'), error: err => this.error = err.message });
+        }
     }
 
     saveSettings(): void {
@@ -279,4 +465,75 @@ export class AdminWorkspaceComponent implements OnInit {
         { id: `${id}-description`, name: 'Описание', type: 'textarea', required: true, visibleToRequester: true, immutable: true },
         { id: `${id}-priority`, name: 'Критичность', type: 'dictionary', required: true, visibleToRequester: true, options: this.settings?.criticalities, immutable: true },
     ]; }
+
+    editUser(user: UserSummary): void {
+        this.expandedUserId = user.id;
+        this.editingUserId = user.id;
+        this.editingUser = { ...user, roleIds: [...user.roleIds] };
+    }
+
+    toggleUserDetails(userId: number): void {
+        this.expandedUserId = this.expandedUserId === userId ? null : userId;
+    }
+
+    cancelEdit(): void {
+        this.editingUserId = null;
+        this.editingUser = null;
+        this.expandedUserId = null;
+        this.error = '';
+    }
+
+    toggleEditingUserRole(roleId: number, event: Event): void {
+        if (!this.editingUser) return;
+        const checked = (event.target as HTMLInputElement).checked;
+        this.editingUser.roleIds = checked
+            ? [...new Set([...(this.editingUser.roleIds || []), roleId])]
+            : (this.editingUser.roleIds || []).filter(id => id !== roleId);
+    }
+
+    saveUser(userId: number): void {
+        if (!this.editingUser || !this.editingUser.roleIds || this.editingUser.roleIds.length === 0) {
+            this.error = 'Назначьте пользователю хотя бы одну роль.';
+            return;
+        }
+        const request: UpdateAdminUserRequest = {
+            username: this.editingUser.username ?? '',
+            email: this.editingUser.email ?? '',
+            fullName: this.editingUser.fullName ?? '',
+            department: this.editingUser.department ?? null,
+            managerId: this.editingUser.managerId ?? null,
+            tenantId: this.editingUser.tenantId ?? null,
+            isActive: this.editingUser.isActive ?? true,
+            roleIds: this.editingUser.roleIds,
+        };
+        this.admin.updateUser(userId, request).subscribe({
+            next: updated => {
+                this.usersList = this.usersList.map(u => u.id === userId ? updated : u);
+                this.editingUserId = null;
+                this.editingUser = null;
+                this.expandedUserId = null;
+                this.notice = 'Пользователь обновлён.';
+                this.error = '';
+            },
+            error: err => {
+                this.error = err.message || 'Не удалось обновить пользователя.';
+            },
+        });
+    }
+
+    findUserName(userId: number | null): string | undefined {
+        if (!userId) return undefined;
+        return this.usersList.find(u => u.id === userId)?.fullName;
+    }
+
+    findRoleName(roleId: number): string | undefined {
+        return this.availableRoles.find(r => r.id === roleId)?.name;
+    }
+
+    clearUserFilters(): void {
+        this.usersSearch = '';
+        this.usersDepartmentFilter = '';
+        this.usersRoleFilter = '';
+        this.usersStatusFilter = '';
+    }
 }
