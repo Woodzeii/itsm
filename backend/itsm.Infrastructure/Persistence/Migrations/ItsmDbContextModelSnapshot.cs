@@ -42,12 +42,19 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.HasKey("Id")
                         .HasName("pk_agent_groups");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_agent_groups_tenant_id");
+
+                    b.HasIndex("TenantId", "Code")
                         .IsUnique()
-                        .HasDatabaseName("ix_agent_groups_code");
+                        .HasDatabaseName("ix_agent_groups_tenant_id_code");
 
                     b.ToTable("agent_groups", "public");
                 });
@@ -116,6 +123,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("status");
 
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.Property<int?>("WarehouseId")
                         .HasColumnType("integer")
                         .HasColumnName("warehouse_id");
@@ -129,12 +140,15 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.HasIndex("AssignedUserId")
                         .HasDatabaseName("ix_assets_assigned_user_id");
 
-                    b.HasIndex("InventoryNumber")
-                        .IsUnique()
-                        .HasDatabaseName("ix_assets_inventory_number");
-
                     b.HasIndex("LifecycleStage")
                         .HasDatabaseName("ix_assets_lifecycle_stage");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_assets_tenant_id");
+
+                    b.HasIndex("TenantId", "InventoryNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_assets_tenant_id_inventory_number");
 
                     b.ToTable("assets", "public");
                 });
@@ -637,12 +651,19 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDefaultValue(0)
                         .HasColumnName("sort_order");
 
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.HasKey("Id")
                         .HasName("pk_criticality_levels");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_criticality_levels_tenant_id");
+
+                    b.HasIndex("TenantId", "Code")
                         .IsUnique()
-                        .HasDatabaseName("ix_criticality_levels_code");
+                        .HasDatabaseName("ix_criticality_levels_tenant_id_code");
 
                     b.ToTable("criticality_levels", "public");
 
@@ -654,7 +675,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsActive = true,
                             Name = "Низкий",
-                            SortOrder = 1
+                            SortOrder = 1,
+                            TenantId = 1
                         },
                         new
                         {
@@ -663,7 +685,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsActive = true,
                             Name = "Средний",
-                            SortOrder = 2
+                            SortOrder = 2,
+                            TenantId = 1
                         },
                         new
                         {
@@ -672,7 +695,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsActive = true,
                             Name = "Высокий",
-                            SortOrder = 3
+                            SortOrder = 3,
+                            TenantId = 1
                         });
                 });
 
@@ -1063,6 +1087,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("service_id");
 
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.Property<int?>("TicketTypeId")
                         .HasColumnType("integer")
                         .HasColumnName("ticket_type_id");
@@ -1081,6 +1109,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ServiceId")
                         .HasDatabaseName("ix_form_templates_service_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_form_templates_tenant_id");
 
                     b.HasIndex("TicketTypeId")
                         .HasDatabaseName("ix_form_templates_ticket_type_id");
@@ -1381,11 +1412,18 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("parent_id");
 
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.HasKey("Id")
                         .HasName("pk_service_catalog");
 
                     b.HasIndex("ParentId")
                         .HasDatabaseName("ix_service_catalog_parent_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_service_catalog_tenant_id");
 
                     b.ToTable("service_catalog", "public");
                 });
@@ -1749,6 +1787,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("target_system");
 
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text")
@@ -1793,6 +1835,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("StatusId")
                         .HasDatabaseName("ix_tickets_status_id");
+
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_tickets_tenant_id");
 
                     b.HasIndex("TypeId")
                         .HasDatabaseName("ix_tickets_type_id");
@@ -2110,12 +2155,19 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDefaultValue(0)
                         .HasColumnName("sort_order");
 
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.HasKey("Id")
                         .HasName("pk_ticket_statuses");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_ticket_statuses_tenant_id");
+
+                    b.HasIndex("TenantId", "Code")
                         .IsUnique()
-                        .HasDatabaseName("ix_ticket_statuses_code");
+                        .HasDatabaseName("ix_ticket_statuses_tenant_id_code");
 
                     b.ToTable("ticket_statuses", "public");
 
@@ -2126,7 +2178,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "new",
                             IsSlaPausing = false,
                             Name = "Открыта",
-                            SortOrder = 1
+                            SortOrder = 1,
+                            TenantId = 1
                         },
                         new
                         {
@@ -2134,7 +2187,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "pending",
                             IsSlaPausing = false,
                             Name = "Ожидает выполнения",
-                            SortOrder = 2
+                            SortOrder = 2,
+                            TenantId = 1
                         },
                         new
                         {
@@ -2142,7 +2196,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "in_progress",
                             IsSlaPausing = false,
                             Name = "В работе",
-                            SortOrder = 3
+                            SortOrder = 3,
+                            TenantId = 1
                         },
                         new
                         {
@@ -2150,7 +2205,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "review",
                             IsSlaPausing = true,
                             Name = "Проверка",
-                            SortOrder = 4
+                            SortOrder = 4,
+                            TenantId = 1
                         },
                         new
                         {
@@ -2158,7 +2214,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "closed",
                             IsSlaPausing = false,
                             Name = "Закрыта",
-                            SortOrder = 5
+                            SortOrder = 5,
+                            TenantId = 1
                         });
                 });
 
@@ -2269,12 +2326,19 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.HasKey("Id")
                         .HasName("pk_ticket_types");
 
-                    b.HasIndex("Code")
+                    b.HasIndex("TenantId")
+                        .HasDatabaseName("ix_ticket_types_tenant_id");
+
+                    b.HasIndex("TenantId", "Code")
                         .IsUnique()
-                        .HasDatabaseName("ix_ticket_types_code");
+                        .HasDatabaseName("ix_ticket_types_tenant_id_code");
 
                     b.ToTable("ticket_types", "public");
 
@@ -2285,7 +2349,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "incident",
                             IsBuiltIn = false,
                             IsPortalAvailable = true,
-                            Name = "Инцидент"
+                            Name = "Инцидент",
+                            TenantId = 1
                         },
                         new
                         {
@@ -2293,7 +2358,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "service_request",
                             IsBuiltIn = false,
                             IsPortalAvailable = true,
-                            Name = "Запрос на обслуживание"
+                            Name = "Запрос на обслуживание",
+                            TenantId = 1
                         },
                         new
                         {
@@ -2301,7 +2367,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "change",
                             IsBuiltIn = false,
                             IsPortalAvailable = true,
-                            Name = "Изменение"
+                            Name = "Изменение",
+                            TenantId = 1
                         },
                         new
                         {
@@ -2309,7 +2376,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "access",
                             IsBuiltIn = false,
                             IsPortalAvailable = true,
-                            Name = "Запрос на доступ"
+                            Name = "Запрос на доступ",
+                            TenantId = 1
                         },
                         new
                         {
@@ -2317,7 +2385,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Code = "repair",
                             IsBuiltIn = true,
                             IsPortalAvailable = false,
-                            Name = "Тикет на ремонт"
+                            Name = "Тикет на ремонт",
+                            TenantId = 1
                         });
                 });
 
@@ -2399,7 +2468,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDefaultValue("Unverified")
                         .HasColumnName("status");
 
-                    b.Property<int?>("TenantId")
+                    b.Property<int>("TenantId")
                         .HasColumnType("integer")
                         .HasColumnName("tenant_id");
 
@@ -2428,26 +2497,26 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_users");
 
-                    b.HasIndex("Email")
-                        .IsUnique()
-                        .HasDatabaseName("ix_users_email");
-
                     b.HasIndex("ManagerId")
                         .HasDatabaseName("ix_users_manager_id");
-
-                    b.HasIndex("ObjectSid")
-                        .IsUnique()
-                        .HasDatabaseName("ix_users_object_sid");
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_users_tenant_id");
 
-                    b.HasIndex("Username")
-                        .IsUnique()
-                        .HasDatabaseName("ix_users_username");
-
                     b.HasIndex("VerificationTokenHash")
                         .HasDatabaseName("ix_users_verification_token_hash");
+
+                    b.HasIndex("TenantId", "Email")
+                        .IsUnique()
+                        .HasDatabaseName("ix_users_tenant_id_email");
+
+                    b.HasIndex("TenantId", "ObjectSid")
+                        .IsUnique()
+                        .HasDatabaseName("ix_users_tenant_id_object_sid");
+
+                    b.HasIndex("TenantId", "Username")
+                        .IsUnique()
+                        .HasDatabaseName("ix_users_tenant_id_username");
 
                     b.ToTable("users", "public");
                 });
@@ -3157,6 +3226,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .WithMany("Users")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
                         .HasConstraintName("fk_users_tenants_tenant_id");
 
                     b.Navigation("Manager");

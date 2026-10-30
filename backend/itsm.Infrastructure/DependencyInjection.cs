@@ -21,8 +21,14 @@ public static class DependencyInjection
     {
         var connectionString = DatabaseConfiguration.GetConnectionString(key => configuration[key]);
 
-        services.AddDbContext<ItsmDbContext>(options =>
-            options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention());
+        // Регистрируем TenantContext для поддержки мультитенантности
+        services.AddScoped<ITenantContext, TenantContext>();
+
+        services.AddDbContext<ItsmDbContext>((provider, options) =>
+        {
+            var tenantContext = provider.GetRequiredService<ITenantContext>();
+            options.UseNpgsql(connectionString).UseSnakeCaseNamingConvention();
+        });
 
         services.AddMemoryCache();
 

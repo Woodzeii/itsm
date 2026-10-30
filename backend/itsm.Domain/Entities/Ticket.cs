@@ -2,9 +2,10 @@ using System.Text.Json;
 
 namespace itsm.Domain.Entities;
 
-public class Ticket
+public class Ticket : IMultiTenant
 {
     public int Id { get; set; }
+    public int TenantId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public int TypeId { get; set; }
