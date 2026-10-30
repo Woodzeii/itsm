@@ -1,6 +1,6 @@
 namespace itsm.Domain.Entities;
 
-public class User
+public class User : IMultiTenant
 {
     public int Id { get; set; }
     public string? ObjectSid { get; set; }
@@ -17,7 +17,7 @@ public class User
     public string? PasswordHash { get; set; }
     public string? VerificationTokenHash { get; set; }
     public DateTimeOffset? VerificationTokenExpiresAt { get; set; }
-    public int? TenantId { get; set; }
+    public int TenantId { get; set; }
     public int FailedLoginAttempts { get; set; }
     public DateTimeOffset? LockedUntil { get; set; }
     public DateTimeOffset? PasswordChangedAt { get; set; }

@@ -3,6 +3,7 @@ using Scalar.AspNetCore;
 using itsm.Application.Common.Interfaces;
 using itsm.Infrastructure;
 using itsm.Infrastructure.Persistence;
+using itsm.WebApi.Middlewares;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -93,6 +94,10 @@ try
 
     app.UseHttpsRedirection();
     app.UseAuthentication();
+    
+    // Middleware для установки текущего TenantId из JWT или заголовка
+    app.UseTenantIdMiddleware();
+    
     app.UseAuthorization();
     app.MapControllers();
 

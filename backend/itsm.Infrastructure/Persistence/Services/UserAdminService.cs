@@ -101,7 +101,7 @@ public class UserAdminService : IUserAdminService
             FullName = request.FullName?.Trim() ?? string.Empty,
             Department = request.Department?.Trim(),
             ManagerId = request.ManagerId,
-            TenantId = request.TenantId,
+            TenantId = request.TenantId ?? 1,
             IsManager = request.IsManager,
             IsActive = request.IsActive,
             Status = UserStatuses.Verified,
@@ -178,7 +178,7 @@ public class UserAdminService : IUserAdminService
         user.FullName = request.FullName?.Trim() ?? string.Empty;
         user.Department = request.Department?.Trim();
         user.ManagerId = request.ManagerId;
-        user.TenantId = request.TenantId;
+        user.TenantId = request.TenantId ?? user.TenantId;
         if (request.IsActive.HasValue)
             user.IsActive = request.IsActive.Value;
         if (request.IsManager.HasValue)

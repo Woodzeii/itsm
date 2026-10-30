@@ -3,8 +3,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace itsm.Infrastructure.Persistence;
 
-public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(options)
+public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantContext? tenantContext = null) : DbContext(options)
 {
+    private readonly ITenantContext _tenantContext = tenantContext ?? new TenantContext();
     public DbSet<User> Users => Set<User>();
     public DbSet<SystemRole> SystemRoles => Set<SystemRole>();
     public DbSet<UserRoleMapping> UserRoleMappings => Set<UserRoleMapping>();
@@ -59,9 +60,10 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         {
             entity.ToTable("users");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.ObjectSid).IsUnique();
-            entity.HasIndex(x => x.Username).IsUnique();
-            entity.HasIndex(x => x.Email).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.ObjectSid }).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.Username }).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
+            entity.HasIndex(x => x.TenantId);
             entity.HasIndex(x => x.VerificationTokenHash);
 
             entity.Property(x => x.IsActive).HasDefaultValue(true);
@@ -102,13 +104,15 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         {
             entity.ToTable("agent_groups");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.Code).IsUnique();
+            entity.HasIndex(x => x.TenantId);
+            entity.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
         });
 
         modelBuilder.Entity<ServiceCatalog>(entity =>
         {
             entity.ToTable("service_catalog");
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.TenantId);
             entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.HasOne(x => x.Parent).WithMany(x => x.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -117,6 +121,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         {
             entity.ToTable("form_templates");
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.TenantId);
             entity.Property(x => x.FieldsSchema).HasColumnType("jsonb");
             entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
 
@@ -155,7 +160,8 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         {
             entity.ToTable("ticket_types");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.Code).IsUnique();
+            entity.HasIndex(x => x.TenantId);
+            entity.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
             entity.Property(x => x.IsBuiltIn).HasDefaultValue(false);
             entity.Property(x => x.IsPortalAvailable).HasDefaultValue(true);
         });
@@ -164,7 +170,8 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         {
             entity.ToTable("ticket_statuses");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.Code).IsUnique();
+            entity.HasIndex(x => x.TenantId);
+            entity.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
             entity.Property(x => x.IsSlaPausing).HasDefaultValue(false);
             entity.Property(x => x.SortOrder).HasDefaultValue(0);
         });
@@ -184,7 +191,8 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         {
             entity.ToTable("criticality_levels");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.Code).IsUnique();
+            entity.HasIndex(x => x.TenantId);
+            entity.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
             entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.Property(x => x.SortOrder).HasDefaultValue(0);
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
@@ -310,7 +318,8 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         {
             entity.ToTable("assets");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.InventoryNumber).IsUnique();
+            entity.HasIndex(x => x.TenantId);
+            entity.HasIndex(x => new { x.TenantId, x.InventoryNumber }).IsUnique();
             entity.HasIndex(x => x.LifecycleStage);
             entity.Property(x => x.LifecycleStage).HasDefaultValue("Purchased");
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
@@ -356,6 +365,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         {
             entity.ToTable("tickets");
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => x.TenantId);
             entity.Property(x => x.CustomFieldsData).HasColumnType("jsonb");
             entity.Property(x => x.IsReactionEscalated).HasDefaultValue(false);
             entity.Property(x => x.IsResolutionEscalated).HasDefaultValue(false);
@@ -554,25 +564,25 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
         );
 
         modelBuilder.Entity<CriticalityLevel>().HasData(
-            new CriticalityLevel { Id = 1, Code = "low", Name = "Низкий", SortOrder = 1, IsActive = true, CreatedAt = seedDate },
-            new CriticalityLevel { Id = 2, Code = "medium", Name = "Средний", SortOrder = 2, IsActive = true, CreatedAt = seedDate },
-            new CriticalityLevel { Id = 3, Code = "high", Name = "Высокий", SortOrder = 3, IsActive = true, CreatedAt = seedDate }
+            new CriticalityLevel { Id = 1, TenantId = 1, Code = "low", Name = "Низкий", SortOrder = 1, IsActive = true, CreatedAt = seedDate },
+            new CriticalityLevel { Id = 2, TenantId = 1, Code = "medium", Name = "Средний", SortOrder = 2, IsActive = true, CreatedAt = seedDate },
+            new CriticalityLevel { Id = 3, TenantId = 1, Code = "high", Name = "Высокий", SortOrder = 3, IsActive = true, CreatedAt = seedDate }
         );
 
         modelBuilder.Entity<TicketType>().HasData(
-            new TicketType { Id = 1, Code = "incident", Name = "Инцидент", IsBuiltIn = false, IsPortalAvailable = true },
-            new TicketType { Id = 2, Code = "service_request", Name = "Запрос на обслуживание", IsBuiltIn = false, IsPortalAvailable = true },
-            new TicketType { Id = 3, Code = "change", Name = "Изменение", IsBuiltIn = false, IsPortalAvailable = true },
-            new TicketType { Id = 4, Code = "access", Name = "Запрос на доступ", IsBuiltIn = false, IsPortalAvailable = true },
-            new TicketType { Id = 5, Code = "repair", Name = "Тикет на ремонт", IsBuiltIn = true, IsPortalAvailable = false }
+            new TicketType { Id = 1, TenantId = 1, Code = "incident", Name = "Инцидент", IsBuiltIn = false, IsPortalAvailable = true },
+            new TicketType { Id = 2, TenantId = 1, Code = "service_request", Name = "Запрос на обслуживание", IsBuiltIn = false, IsPortalAvailable = true },
+            new TicketType { Id = 3, TenantId = 1, Code = "change", Name = "Изменение", IsBuiltIn = false, IsPortalAvailable = true },
+            new TicketType { Id = 4, TenantId = 1, Code = "access", Name = "Запрос на доступ", IsBuiltIn = false, IsPortalAvailable = true },
+            new TicketType { Id = 5, TenantId = 1, Code = "repair", Name = "Тикет на ремонт", IsBuiltIn = true, IsPortalAvailable = false }
         );
 
         modelBuilder.Entity<TicketStatus>().HasData(
-            new TicketStatus { Id = 1, Code = "new", Name = "Открыта", IsSlaPausing = false, SortOrder = 1 },
-            new TicketStatus { Id = 2, Code = "pending", Name = "Ожидает выполнения", IsSlaPausing = false, SortOrder = 2 },
-            new TicketStatus { Id = 3, Code = "in_progress", Name = "В работе", IsSlaPausing = false, SortOrder = 3 },
-            new TicketStatus { Id = 4, Code = "review", Name = "Проверка", IsSlaPausing = true, SortOrder = 4 },
-            new TicketStatus { Id = 5, Code = "closed", Name = "Закрыта", IsSlaPausing = false, SortOrder = 5 }
+            new TicketStatus { Id = 1, TenantId = 1, Code = "new", Name = "Открыта", IsSlaPausing = false, SortOrder = 1 },
+            new TicketStatus { Id = 2, TenantId = 1, Code = "pending", Name = "Ожидает выполнения", IsSlaPausing = false, SortOrder = 2 },
+            new TicketStatus { Id = 3, TenantId = 1, Code = "in_progress", Name = "В работе", IsSlaPausing = false, SortOrder = 3 },
+            new TicketStatus { Id = 4, TenantId = 1, Code = "review", Name = "Проверка", IsSlaPausing = true, SortOrder = 4 },
+            new TicketStatus { Id = 5, TenantId = 1, Code = "closed", Name = "Закрыта", IsSlaPausing = false, SortOrder = 5 }
         );
 
         modelBuilder.Entity<TicketStatusTransition>().HasData(
@@ -624,6 +634,9 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
             new WorkingSchedule { Id = 2, Name = "8x5 Стандартный", ScheduleType = "work_hours", IsActive = true, CreatedAt = seedDate }
         );
 
+        // Применяем HasQueryFilter для автоматического разграничения данных по TenantId
+        ApplyTenantFilters(modelBuilder);
+
         foreach (var foreignKey in modelBuilder.Model.GetEntityTypes().SelectMany(x => x.GetForeignKeys()))
         {
             if (foreignKey.DeleteBehavior == DeleteBehavior.Cascade)
@@ -631,5 +644,52 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options) : DbContext(
 
             foreignKey.DeleteBehavior = DeleteBehavior.Restrict;
         }
+    }
+
+    /// <summary>
+    /// Применяет HasQueryFilter для всех IMultiTenant сущностей для автоматического
+    /// фильтрования по TenantId на уровне базы данных.
+    /// </summary>
+    private void ApplyTenantFilters(ModelBuilder modelBuilder)
+    {
+        var multiTenantTypes = modelBuilder.Model
+            .GetEntityTypes()
+            .Where(x => typeof(IMultiTenant).IsAssignableFrom(x.ClrType))
+            .ToList();
+
+        var tenantIdProperty = typeof(IMultiTenant).GetProperty(nameof(IMultiTenant.TenantId))!;
+
+        foreach (var entityType in multiTenantTypes)
+        {
+            // Создаём фильтр: e => e.TenantId == _tenantContext.GetCurrentTenantId()
+            var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
+            var property = System.Linq.Expressions.Expression.Property(parameter, tenantIdProperty);
+            var getTenantIdMethod = typeof(ITenantContext).GetMethod(nameof(ITenantContext.GetCurrentTenantId))!;
+            var getTenantIdCall = System.Linq.Expressions.Expression.Call(
+                System.Linq.Expressions.Expression.Constant(_tenantContext),
+                getTenantIdMethod
+            );
+            var equalExpression = System.Linq.Expressions.Expression.Equal(property, getTenantIdCall);
+            var lambda = System.Linq.Expressions.Expression.Lambda(equalExpression, parameter);
+
+            entityType.SetQueryFilter(lambda);
+        }
+    }
+
+    /// <summary>
+    /// Устанавливает текущий TenantId для фильтрации.
+    /// Должно быть вызвано перед каждым запросом.
+    /// </summary>
+    public void SetTenantId(int tenantId)
+    {
+        _tenantContext.SetCurrentTenantId(tenantId);
+    }
+
+    /// <summary>
+    /// Получает текущий TenantId.
+    /// </summary>
+    public int GetCurrentTenantId()
+    {
+        return _tenantContext.GetCurrentTenantId();
     }
 }

@@ -20,7 +20,9 @@ public class UserAdminServiceTests
         var options = new DbContextOptionsBuilder<ItsmDbContext>()
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
-        var db = new ItsmDbContext(options);
+        var tenantContext = new TenantContext();
+        tenantContext.SetCurrentTenantId(1);
+        var db = new ItsmDbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
         var hasher = new Mock<IPasswordHasher>();
@@ -30,7 +32,7 @@ public class UserAdminServiceTests
 
     private static User AddUser(ItsmDbContext db, string name, bool admin = false, bool active = true)
     {
-        var u = new User { Username = name, Email = name + "@x.local", FullName = name, IsActive = active };
+        var u = new User { Username = name, Email = name + "@x.local", FullName = name, IsActive = active, TenantId = 1 };
         if (admin) u.RoleMappings.Add(new UserRoleMapping { RoleId = AdminRoleId });
         db.Users.Add(u);
         db.SaveChanges();

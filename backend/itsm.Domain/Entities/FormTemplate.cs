@@ -2,9 +2,10 @@ using System.Text.Json;
 
 namespace itsm.Domain.Entities;
 
-public class FormTemplate
+public class FormTemplate : IMultiTenant
 {
     public int Id { get; set; }
+    public int TenantId { get; set; }
     public int ServiceId { get; set; }
     public int? TicketTypeId { get; set; }
     public JsonElement FieldsSchema { get; set; }

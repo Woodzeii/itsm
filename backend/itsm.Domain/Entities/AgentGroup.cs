@@ -1,8 +1,9 @@
 namespace itsm.Domain.Entities;
 
-public class AgentGroup
+public class AgentGroup : IMultiTenant
 {
     public int Id { get; set; }
+    public int TenantId { get; set; }
     public string? Code { get; set; }
     public string Name { get; set; } = string.Empty;
 

@@ -1,8 +1,9 @@
 namespace itsm.Domain.Entities;
 
-public class ServiceCatalog
+public class ServiceCatalog : IMultiTenant
 {
     public int Id { get; set; }
+    public int TenantId { get; set; }
     public int? ParentId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
