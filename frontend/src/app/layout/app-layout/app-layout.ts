@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 
@@ -87,6 +87,19 @@ import { AuthService } from '../../core/auth/auth.service';
             </div>
             <span class="chevron" aria-hidden="true">⌄</span>
           </div>
+          @if (isMultiRole) {
+            <button
+              class="role-switch"
+              type="button"
+              (click)="switchRole()"
+              aria-label="Сменить активную роль"
+              title="Сменить активную роль">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M7 7h10l-3-3m3 3-3 3M17 17H7l3 3m-3-3 3-3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <span class="role-switch-label">Сменить роль</span>
+            </button>
+          }
           <button class="icon-button" type="button" (click)="logout()" aria-label="Выйти" title="Выйти">
             <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v16h-6M3 12h11m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
@@ -240,6 +253,24 @@ import { AuthService } from '../../core/auth/auth.service';
       .user-meta small { color: #939baa; font-size: 10px; }
       .profile-more { margin-left: auto; color: #9aa3b1; font-size: 20px; line-height: 1; }
       .top-actions { display: flex; align-items: center; gap: 16px; }
+      .role-switch {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 34px;
+        padding: 0 12px;
+        border: 1px solid #d8e0ec;
+        border-radius: 9px;
+        background: #fff;
+        color: #344054;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .role-switch:hover { border-color: #2563eb; color: #2563eb; }
+      .role-switch:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+      .role-switch svg { width: 16px; height: 16px; }
+      .role-switch-label { white-space: nowrap; }
       .icon-button {
         position: relative;
         width: 34px;
@@ -298,6 +329,8 @@ import { AuthService } from '../../core/auth/auth.service';
         .breadcrumb { font-size: 11px; }
         .top-actions { gap: 8px; }
         .top-actions .user-meta, .top-divider, .chevron { display: none; }
+        .role-switch { padding: 0 8px; }
+        .role-switch-label { display: none; }
       }
 
       @media (max-width: 420px) {
@@ -309,10 +342,13 @@ import { AuthService } from '../../core/auth/auth.service';
     `,
   ],
 })
-export class AppLayoutComponent implements OnInit {
+export class AppLayoutComponent implements OnInit, OnDestroy {
+  private expiryTimer: ReturnType<typeof setTimeout> | null = null;
+
   isAdmin = false;
   isAdminOrAgent = false;
   isTenantAdmin = false;
+  isMultiRole = false;
   userInitial = 'П';
   userTitle = 'Пользователь';
   userRole = 'Пользователь';
@@ -326,6 +362,7 @@ export class AppLayoutComponent implements OnInit {
     this.isAdmin = this.authService.isAdmin();
     this.isAdminOrAgent = this.authService.canRead();
     this.isTenantAdmin = this.authService.isTenantAdmin();
+    this.isMultiRole = this.authService.hasMultipleRoles();
     const roleLabels = {
       admin: 'Администратор',
       agent: 'Инженер поддержки',
@@ -337,6 +374,31 @@ export class AppLayoutComponent implements OnInit {
     this.userRole = roleLabels[this.authService.getRole()];
     this.userTitle = login || this.userRole;
     this.userInitial = (login || this.userRole).charAt(0).toLocaleUpperCase();
+    this.scheduleExpiry();
+  }
+
+  ngOnDestroy(): void {
+    if (this.expiryTimer !== null) {
+      clearTimeout(this.expiryTimer);
+      this.expiryTimer = null;
+    }
+  }
+
+  /** Автоматически завершает сессию, когда истекает срок действия токена. */
+  private scheduleExpiry(): void {
+    const remaining = this.authService.getTokenRemainingMs();
+    if (remaining === null) return;
+
+    if (remaining <= 0) {
+      this.logout();
+      return;
+    }
+
+    this.expiryTimer = setTimeout(() => this.logout(), remaining);
+  }
+
+  switchRole(): void {
+    this.router.navigateByUrl('/select-role?switch=1');
   }
 
   logout(): void {

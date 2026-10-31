@@ -24,9 +24,16 @@ public class JwtService : IJwtService
         _settings = settings.Value;
     }
 
-    public string GenerateToken(int userId, string login, string email, IEnumerable<string> roles)
+    public string GenerateToken(
+        int userId,
+        string login,
+        string email,
+        IEnumerable<string> roles,
+        string? activeRole = null)
     {
         var rolesList = roles.ToList();
+        var normalizedActiveRole = rolesList.FirstOrDefault(role =>
+            string.Equals(role, activeRole, StringComparison.OrdinalIgnoreCase));
 
         var claims = new List<Claim>
         {
@@ -39,10 +46,18 @@ public class JwtService : IJwtService
                 ClaimValueTypes.Integer64)
         };
 
-        // Роли — чтобы [Authorize(Roles = "...")] работал
-        foreach (var role in rolesList)
+        // Role-claim нужен для [Authorize(Roles = "...")].
+        // Мультиролевой пользователь получает его только после выбора активной роли:
+        // до этого токен аутентифицирован, но role-protected API недоступны.
+        if (normalizedActiveRole is not null)
         {
-            claims.Add(new Claim(ClaimTypes.Role, role));
+            claims.Add(new Claim(ClaimTypes.Role, normalizedActiveRole));
+            claims.Add(new Claim("activeRole", normalizedActiveRole));
+        }
+        else if (rolesList.Count == 1)
+        {
+            claims.Add(new Claim(ClaimTypes.Role, rolesList[0]));
+            claims.Add(new Claim("activeRole", rolesList[0]));
         }
 
         // Упаковываем все роли как JSON-массив в custom claim "roles"
