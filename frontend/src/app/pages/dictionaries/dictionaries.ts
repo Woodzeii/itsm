@@ -171,7 +171,7 @@ export class DictionariesComponent implements OnInit {
 
     select(d: DictionaryDto): void {
         this.selected = d;
-        this.api.getValues(d.id).subscribe({
+        this.api.getValues(d.id, true).subscribe({
             next: list => {
                 this.values = list;
                 this.cdr.detectChanges();
@@ -225,6 +225,7 @@ export class DictionariesComponent implements OnInit {
                 this.newValueCode = '';
                 this.newValueName = '';
                 this.newValueSort = 0;
+                this.loadAll();
                 this.select(this.selected!);
             },
             error: err => {
@@ -237,7 +238,10 @@ export class DictionariesComponent implements OnInit {
     archiveValue(v: DictionaryValueDto): void {
         if (!this.selected) return;
         this.api.archiveValue(this.selected.id, v.id).subscribe({
-            next: () => this.select(this.selected!),
+            next: () => {
+                this.loadAll();
+                this.select(this.selected!);
+            },
             error: err => {
                 this.errorMessage = `Ошибка: ${err.status}`;
                 this.cdr.detectChanges();
@@ -248,7 +252,10 @@ export class DictionariesComponent implements OnInit {
     deleteValue(v: DictionaryValueDto): void {
         if (!this.selected || !confirm(`Удалить «${v.name}»?`)) return;
         this.api.deleteValue(this.selected.id, v.id).subscribe({
-            next: () => this.select(this.selected!),
+            next: () => {
+                this.loadAll();
+                this.select(this.selected!);
+            },
             error: err => {
                 this.errorMessage = `Ошибка: ${err.status} ${err.error?.message ?? ''}`;
                 this.cdr.detectChanges();

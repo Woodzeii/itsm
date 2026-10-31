@@ -37,8 +37,10 @@ export class DictionaryApiService {
         return this.http.delete<void>(`${API}/${id}`);
     }
 
-    getValues(dictionaryId: number): Observable<DictionaryValueDto[]> {
-        return this.http.get<DictionaryValueDto[]>(`${API}/${dictionaryId}/values`);
+    getValues(dictionaryId: number, includeArchived = false): Observable<DictionaryValueDto[]> {
+        return this.http.get<DictionaryValueDto[]>(`${API}/${dictionaryId}/values`, {
+            params: includeArchived ? { includeArchived: true } : {},
+        });
     }
 
     createValue(dictionaryId: number, req: CreateDictionaryValueRequest): Observable<DictionaryValueDto> {
