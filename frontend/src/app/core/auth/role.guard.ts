@@ -12,12 +12,16 @@ export const roleSelectionRequiredGuard: CanActivateFn = () => {
     return auth.needsRoleSelection() ? router.parseUrl('/select-role') : true;
 };
 
-/// Защита промежуточного экрана: доступен только пока роль не выбрана.
-export const selectRoleGuard: CanActivateFn = () => {
+/// Защита промежуточного экрана: доступен пока роль не выбрана
+/// или когда пользователь осознанно меняет активную роль (`?switch=1`).
+export const selectRoleGuard: CanActivateFn = (route) => {
     const auth = inject(AuthService);
     const router = inject(Router);
     if (!auth.isAuthenticated()) return router.parseUrl('/login');
-    if (auth.needsRoleSelection()) return true;
+
+    const isSwitching = route.queryParamMap.get('switch') === '1';
+    if (auth.needsRoleSelection() || isSwitching) return true;
+
     return router.parseUrl(auth.homeUrlForRole(auth.getActiveRole() ?? auth.getRole()));
 };
 

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { CanActivateFn, UrlTree, provideRouter } from '@angular/router';
+import { ActivatedRouteSnapshot, CanActivateFn, UrlTree, convertToParamMap, provideRouter } from '@angular/router';
 import { AuthApi } from './auth-api';
 import {
     adminOnlyAccessGuard,
@@ -9,8 +9,12 @@ import {
     selectRoleGuard,
 } from './role.guard';
 
-function runGuard(guard: CanActivateFn): boolean | UrlTree {
-    return TestBed.runInInjectionContext(() => guard({} as never, {} as never)) as boolean | UrlTree;
+function runGuard(
+    guard: CanActivateFn,
+    queryParams: Record<string, string> = {},
+): boolean | UrlTree {
+    const route = { queryParamMap: convertToParamMap(queryParams) } as ActivatedRouteSnapshot;
+    return TestBed.runInInjectionContext(() => guard(route, {} as never)) as boolean | UrlTree;
 }
 
 function redirectTarget(result: boolean | UrlTree): string {
@@ -82,6 +86,13 @@ describe('role selection guards', () => {
         localStorage.setItem('itsm_active_role', 'portal_user');
 
         expect(redirectTarget(runGuard(selectRoleGuard))).toBe('/portal');
+    });
+
+    it('opens /select-role for an explicit role switch', () => {
+        setSession(['admin', 'agent'], 'agent');
+
+        expect(redirectTarget(runGuard(selectRoleGuard))).toBe('/dashboard');
+        expect(runGuard(selectRoleGuard, { switch: '1' })).toBe(true);
     });
 
     it('applies the selected active role to the existing workspace guards', () => {

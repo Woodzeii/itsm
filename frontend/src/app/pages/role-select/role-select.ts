@@ -1,8 +1,8 @@
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService, type UserRole } from '../../core/auth/auth.service';
 import { SessionResponse } from '../../core/auth/auth.models';
-import { WorkspaceOption, workspaceOptionsFor } from '../../core/auth/workspace-options';
+import { WorkspaceOption, isUserRole, workspaceOptionsFor } from '../../core/auth/workspace-options';
 
 const styles = [`
   .page {
@@ -103,6 +103,7 @@ const styles = [`
     border-top: 1px solid #eef0f4;
     padding-top: 16px;
   }
+  .foot-actions { display: flex; align-items: center; gap: 14px; }
   button:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
 `];
 
@@ -118,9 +119,17 @@ const styles = [`
     <section class="page">
       <div class="card">
         <header class="head">
-          <span class="eyebrow">Безопасный вход</span>
-          <h1>Выберите рабочее пространство</h1>
-          @if (login) {
+          <span class="eyebrow">{{ switchMode ? 'Активная роль' : 'Безопасный вход' }}</span>
+          <h1>{{ switchMode ? 'Сменить рабочее пространство' : 'Выберите рабочее пространство' }}</h1>
+          @if (switchMode) {
+            <p class="muted">
+              @if (login) {
+                Вы вошли как <strong>{{ login }}</strong>.
+              }
+              Текущая роль — <strong>{{ currentRoleTitle }}</strong>. Выберите другую роль —
+              интерфейс и права обновятся сразу.
+            </p>
+          } @else if (login) {
             <p class="muted">
               Вы вошли как <strong>{{ login }}</strong>. Учётная запись имеет несколько ролей —
               выберите активную для текущей сессии.
@@ -167,8 +176,15 @@ const styles = [`
         }
 
         <footer class="foot">
-          <span class="muted small">Роль можно будет сменить при следующем входе.</span>
-          <button type="button" class="quiet" (click)="logout()" [disabled]="busy">Выйти</button>
+          <span class="muted small">
+            {{ switchMode ? 'Сессия продолжится с выбранной ролью.' : 'Сменить роль можно в верхней панели приложения.' }}
+          </span>
+          <span class="foot-actions">
+            @if (switchMode) {
+              <button type="button" class="quiet" (click)="cancel()" [disabled]="busy">Отмена</button>
+            }
+            <button type="button" class="quiet" (click)="logout()" [disabled]="busy">Выйти</button>
+          </span>
         </footer>
       </div>
     </section>
@@ -178,11 +194,13 @@ const styles = [`
 export class RoleSelectComponent implements OnInit {
     private readonly auth = inject(AuthService);
     private readonly router = inject(Router);
+    private readonly route = inject(ActivatedRoute);
     private readonly cdr = inject(ChangeDetectorRef);
 
     loading = true;
     busy = false;
     error = '';
+    switchMode = false;
     session: SessionResponse | null = null;
     selectedRole: UserRole | null = null;
 
@@ -194,7 +212,14 @@ export class RoleSelectComponent implements OnInit {
         return workspaceOptionsFor(this.session?.roles ?? []);
     }
 
+    get currentRoleTitle(): string {
+        const role = this.session?.activeRole ?? this.auth.getActiveRole();
+        if (!role) return 'не выбрана';
+        return workspaceOptionsFor([role])[0]?.title ?? role;
+    }
+
     ngOnInit(): void {
+        this.switchMode = this.route.snapshot.queryParamMap.get('switch') === '1';
         this.load();
     }
 
@@ -207,12 +232,17 @@ export class RoleSelectComponent implements OnInit {
                 this.session = session;
                 this.loading = false;
 
-                if (!session.requiresRoleSelection) {
+                if (!session.requiresRoleSelection && !this.switchMode) {
                     this.router.navigateByUrl(
                         this.auth.homeUrlForRole(session.activeRole ?? session.roles[0]),
                     );
                     return;
                 }
+
+                // В режиме смены роли подсвечиваем текущую активную роль.
+                this.selectedRole = session.activeRole && isUserRole(session.activeRole)
+                    ? session.activeRole
+                    : null;
 
                 this.cdr.detectChanges();
             },
@@ -243,6 +273,11 @@ export class RoleSelectComponent implements OnInit {
                 this.cdr.detectChanges();
             },
         });
+    }
+
+    cancel(): void {
+        const role = this.session?.activeRole ?? this.auth.getActiveRole() ?? this.auth.getRole();
+        this.router.navigateByUrl(this.auth.homeUrlForRole(role));
     }
 
     logout(): void {

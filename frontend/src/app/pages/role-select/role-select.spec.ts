@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { Router, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { Subject, of, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { SessionResponse } from '../../core/auth/auth.models';
@@ -11,10 +11,13 @@ describe('RoleSelectComponent', () => {
         selectRole: ReturnType<typeof vi.fn>;
         homeUrlForRole: ReturnType<typeof vi.fn>;
         getLogin: ReturnType<typeof vi.fn>;
+        getActiveRole: ReturnType<typeof vi.fn>;
+        getRole: ReturnType<typeof vi.fn>;
         logout: ReturnType<typeof vi.fn>;
     };
     let session$: Subject<SessionResponse>;
     let router: Router;
+    let queryParams: Record<string, string>;
 
     const multiRoleSession: SessionResponse = {
         userId: 9,
@@ -27,11 +30,14 @@ describe('RoleSelectComponent', () => {
 
     beforeEach(async () => {
         session$ = new Subject<SessionResponse>();
+        queryParams = {};
         auth = {
             loadSession: vi.fn().mockReturnValue(session$),
             selectRole: vi.fn(),
             homeUrlForRole: vi.fn((role: string) => role === 'admin' ? '/admin' : '/dashboard'),
             getLogin: vi.fn().mockReturnValue('m.multi'),
+            getActiveRole: vi.fn().mockReturnValue(null),
+            getRole: vi.fn().mockReturnValue('agent'),
             logout: vi.fn(),
         };
 
@@ -39,6 +45,14 @@ describe('RoleSelectComponent', () => {
             imports: [RoleSelectComponent],
             providers: [
                 provideRouter([]),
+                {
+                    provide: ActivatedRoute,
+                    useValue: {
+                        get snapshot() {
+                            return { queryParamMap: convertToParamMap(queryParams) };
+                        },
+                    },
+                },
                 { provide: AuthService, useValue: auth },
             ],
         }).compileComponents();
@@ -121,6 +135,50 @@ describe('RoleSelectComponent', () => {
         expect(component.busy).toBe(false);
         expect(component.selectedRole).toBeNull();
         expect(component.error).toBe('Выбранная роль недоступна для этой учётной записи');
+    });
+
+    it('switches the active role without leaving the screen', () => {
+        queryParams = { switch: '1' };
+        const navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+        const component = createComponent();
+
+        session$.next({
+            ...multiRoleSession,
+            activeRole: 'admin',
+            requiresRoleSelection: false,
+        });
+
+        expect(navigate).not.toHaveBeenCalled();
+        expect(component.switchMode).toBe(true);
+        expect(component.selectedRole).toBe('admin');
+        expect(component.currentRoleTitle).toBe('Админка');
+
+        auth.selectRole.mockReturnValue(of({
+            accessToken: 'scoped-token',
+            tokenType: 'Bearer',
+            expiresIn: 3600,
+            activeRole: 'agent',
+            roles: ['admin', 'agent'],
+        }));
+        component.choose('agent');
+
+        expect(auth.selectRole).toHaveBeenCalledWith('agent');
+        expect(navigate).toHaveBeenCalledWith('/dashboard');
+    });
+
+    it('cancels switching and returns to the current workspace', () => {
+        queryParams = { switch: '1' };
+        const navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+        const component = createComponent();
+
+        session$.next({
+            ...multiRoleSession,
+            activeRole: 'admin',
+            requiresRoleSelection: false,
+        });
+        component.cancel();
+
+        expect(navigate).toHaveBeenCalledWith('/admin');
     });
 
     it('logs out and returns to the login page', () => {
