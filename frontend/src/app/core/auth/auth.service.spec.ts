@@ -117,6 +117,48 @@ describe('AuthService multi-role session', () => {
         expect(service.needsRoleSelection()).toBe(false);
     });
 
+    it('treats an expired token as unauthenticated and clears the session', () => {
+        localStorage.setItem('itsm_access_token', makeToken({
+            exp: Math.floor(Date.now() / 1000) - 60,
+            roles: JSON.stringify(['agent']),
+            role: 'agent',
+        }));
+        localStorage.setItem('itsm_user_roles', JSON.stringify(['agent']));
+
+        expect(service.isAuthenticated()).toBe(false);
+        expect(localStorage.getItem('itsm_access_token')).toBeNull();
+        expect(localStorage.getItem('itsm_user_roles')).toBeNull();
+    });
+
+    it('treats a malformed token as unauthenticated and clears the session', () => {
+        localStorage.setItem('itsm_access_token', 'not-a-jwt');
+
+        expect(service.isAuthenticated()).toBe(false);
+        expect(localStorage.getItem('itsm_access_token')).toBeNull();
+    });
+
+    it('accepts a token with a future expiration', () => {
+        localStorage.setItem('itsm_access_token', makeToken({
+            exp: Math.floor(Date.now() / 1000) + 3600,
+            roles: JSON.stringify(['agent']),
+            role: 'agent',
+        }));
+
+        expect(service.isAuthenticated()).toBe(true);
+    });
+
+    it('reports the remaining token lifetime', () => {
+        localStorage.setItem('itsm_access_token', makeToken({
+            exp: Math.floor(Date.now() / 1000) + 3600,
+        }));
+
+        const remaining = service.getTokenRemainingMs();
+
+        expect(remaining).not.toBeNull();
+        expect(remaining!).toBeGreaterThan(3_500_000);
+        expect(remaining!).toBeLessThanOrEqual(3_600_000);
+    });
+
     it('maps roles to their workspace entry points', () => {
         expect(service.homeUrlForRole('admin')).toBe('/admin');
         expect(service.homeUrlForRole('tenant_admin')).toBe('/admin/tenants');

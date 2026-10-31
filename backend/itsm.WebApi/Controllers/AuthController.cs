@@ -305,7 +305,9 @@ public class AuthController : ControllerBase
         var roles = await _userService.GetRolesAsync(user.Id, ct);
         var activeRole = ResolveActiveRole(requestedRole, roles);
         if (activeRole is null)
-            return BadRequest(new { message = "Выбранная роль недоступна для этой учётной записи" });
+            return StatusCode(
+                StatusCodes.Status403Forbidden,
+                new { message = "Выбранная роль недоступна для этой учётной записи" });
 
         var token = _jwt.GenerateToken(user.Id, user.Username, user.Email, roles, activeRole);
         _logger.LogInformation(

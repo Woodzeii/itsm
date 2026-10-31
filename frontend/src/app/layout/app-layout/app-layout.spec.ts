@@ -11,6 +11,7 @@ describe('AppLayoutComponent role switch', () => {
         hasMultipleRoles: ReturnType<typeof vi.fn>;
         getLogin: ReturnType<typeof vi.fn>;
         getRole: ReturnType<typeof vi.fn>;
+        getTokenRemainingMs: ReturnType<typeof vi.fn>;
         logout: ReturnType<typeof vi.fn>;
     };
     let router: Router;
@@ -23,6 +24,7 @@ describe('AppLayoutComponent role switch', () => {
             hasMultipleRoles: vi.fn().mockReturnValue(true),
             getLogin: vi.fn().mockReturnValue('m.multi'),
             getRole: vi.fn().mockReturnValue('admin'),
+            getTokenRemainingMs: vi.fn().mockReturnValue(null),
             logout: vi.fn(),
         };
 
@@ -67,5 +69,23 @@ describe('AppLayoutComponent role switch', () => {
         auth.hasMultipleRoles.mockReturnValue(false);
 
         expect(switchButton()).toBeNull();
+    });
+
+    it('automatically returns to /login when the token expires', () => {
+        vi.useFakeTimers();
+        try {
+            auth.getTokenRemainingMs.mockReturnValue(1000);
+            const navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
+            const fixture = TestBed.createComponent(AppLayoutComponent);
+            fixture.detectChanges();
+
+            vi.advanceTimersByTime(1000);
+
+            expect(auth.logout).toHaveBeenCalledOnce();
+            expect(navigate).toHaveBeenCalledWith('/login');
+            fixture.destroy();
+        } finally {
+            vi.useRealTimers();
+        }
     });
 });

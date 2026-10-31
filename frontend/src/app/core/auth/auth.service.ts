@@ -162,8 +162,36 @@ export class AuthService {
         return localStorage.getItem(TOKEN_KEY);
     }
 
+    /** Авторизован только при наличии неистёкшего JWT. Истёкший токен сразу очищается. */
     isAuthenticated(): boolean {
-        return !!this.getToken();
+        const token = this.getToken();
+        if (!token) return false;
+
+        const payload = this.decodeJwt(token);
+        if (!payload) {
+            this.logout();
+            return false;
+        }
+
+        const expiresAt = payload['exp'];
+        if (typeof expiresAt === 'number' && expiresAt * 1000 <= Date.now()) {
+            this.logout();
+            return false;
+        }
+
+        return true;
+    }
+
+    /** Остаток жизни текущего JWT в миллисекундах (null — токена или exp нет). */
+    getTokenRemainingMs(): number | null {
+        const token = this.getToken();
+        if (!token) return null;
+
+        const payload = this.decodeJwt(token);
+        const expiresAt = payload?.['exp'];
+        if (typeof expiresAt !== 'number') return null;
+
+        return expiresAt * 1000 - Date.now();
     }
 
     getLogin(): string {

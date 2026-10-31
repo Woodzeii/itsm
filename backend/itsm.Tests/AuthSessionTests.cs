@@ -130,7 +130,7 @@ public class AuthSessionTests
     }
 
     [Fact]
-    public async Task SelectRole_WithRoleNotAssignedToUser_ReturnsBadRequest()
+    public async Task SelectRole_WithRoleNotAssignedToUser_ReturnsForbidden()
     {
         await ResetTotpAsync(MultiRoleUser);
         var client = _factory.CreateClient();
@@ -141,7 +141,14 @@ public class AuthSessionTests
             "/api/auth/session/role",
             new SelectRoleRequest { Role = "tenant_admin" });
 
-        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+
+        // Отказ не должен выдавать токен с чужой ролью.
+        var sessionResponse = await client.GetAsync("/api/auth/session");
+        var session = await sessionResponse.Content.ReadFromJsonAsync<SessionResponse>();
+        session.Should().NotBeNull();
+        session!.ActiveRole.Should().BeNull();
+        session.RequiresRoleSelection.Should().BeTrue();
     }
 
     [Fact]

@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 
@@ -342,7 +342,9 @@ import { AuthService } from '../../core/auth/auth.service';
     `,
   ],
 })
-export class AppLayoutComponent implements OnInit {
+export class AppLayoutComponent implements OnInit, OnDestroy {
+  private expiryTimer: ReturnType<typeof setTimeout> | null = null;
+
   isAdmin = false;
   isAdminOrAgent = false;
   isTenantAdmin = false;
@@ -372,6 +374,27 @@ export class AppLayoutComponent implements OnInit {
     this.userRole = roleLabels[this.authService.getRole()];
     this.userTitle = login || this.userRole;
     this.userInitial = (login || this.userRole).charAt(0).toLocaleUpperCase();
+    this.scheduleExpiry();
+  }
+
+  ngOnDestroy(): void {
+    if (this.expiryTimer !== null) {
+      clearTimeout(this.expiryTimer);
+      this.expiryTimer = null;
+    }
+  }
+
+  /** Автоматически завершает сессию, когда истекает срок действия токена. */
+  private scheduleExpiry(): void {
+    const remaining = this.authService.getTokenRemainingMs();
+    if (remaining === null) return;
+
+    if (remaining <= 0) {
+      this.logout();
+      return;
+    }
+
+    this.expiryTimer = setTimeout(() => this.logout(), remaining);
   }
 
   switchRole(): void {

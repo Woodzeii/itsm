@@ -124,10 +124,11 @@ export class MockAuthApiService extends AuthApi {
         roles: string[],
         activeRole: string | null,
     ): VerifyTwoFactorResponse {
-        const claims: Record<string, string> = {
+        const claims: Record<string, string | number> = {
             sub: String(userId),
             Login: username,
             roles: JSON.stringify(roles),
+            exp: Math.floor(Date.now() / 1000) + 3600,
         };
         if (activeRole) {
             claims['role'] = activeRole;

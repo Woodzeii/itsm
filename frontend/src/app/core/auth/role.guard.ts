@@ -20,7 +20,14 @@ export const selectRoleGuard: CanActivateFn = (route) => {
     if (!auth.isAuthenticated()) return router.parseUrl('/login');
 
     const isSwitching = route.queryParamMap.get('switch') === '1';
-    if (auth.needsRoleSelection() || isSwitching) return true;
+    if (isSwitching) {
+        // Менять активную роль могут только пользователи с несколькими ролями.
+        return auth.hasMultipleRoles()
+            ? true
+            : router.parseUrl(auth.homeUrlForRole(auth.getActiveRole() ?? auth.getRole()));
+    }
+
+    if (auth.needsRoleSelection()) return true;
 
     return router.parseUrl(auth.homeUrlForRole(auth.getActiveRole() ?? auth.getRole()));
 };

@@ -22,6 +22,15 @@ function redirectTarget(result: boolean | UrlTree): string {
     return (result as UrlTree).toString();
 }
 
+function makeValidToken(): string {
+    const payload = {
+        Login: 'm.multi',
+        exp: Math.floor(Date.now() / 1000) + 3600,
+    };
+    const encoded = btoa(JSON.stringify(payload)).replace(/\+/g, '-').replace(/\//g, '_');
+    return `header.${encoded}.signature`;
+}
+
 describe('role selection guards', () => {
     beforeEach(() => {
         localStorage.clear();
@@ -45,7 +54,7 @@ describe('role selection guards', () => {
     afterEach(() => localStorage.clear());
 
     function setSession(roles: string[], activeRole: string | null): void {
-        localStorage.setItem('itsm_access_token', 'token');
+        localStorage.setItem('itsm_access_token', makeValidToken());
         localStorage.setItem('itsm_user_roles', JSON.stringify(roles));
         localStorage.setItem('itsm_user_role', activeRole ?? roles[0]);
         if (activeRole) localStorage.setItem('itsm_active_role', activeRole);
@@ -93,6 +102,12 @@ describe('role selection guards', () => {
 
         expect(redirectTarget(runGuard(selectRoleGuard))).toBe('/dashboard');
         expect(runGuard(selectRoleGuard, { switch: '1' })).toBe(true);
+    });
+
+    it('does not allow single-role users to open the role switch screen', () => {
+        setSession(['agent'], 'agent');
+
+        expect(redirectTarget(runGuard(selectRoleGuard, { switch: '1' }))).toBe('/dashboard');
     });
 
     it('applies the selected active role to the existing workspace guards', () => {
