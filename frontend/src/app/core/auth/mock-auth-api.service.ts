@@ -4,15 +4,33 @@ import { AuthApi } from './auth-api';
 import {
     LoginRequest,
     LoginResponse,
+    SelectRoleRequest,
+    SelectRoleResponse,
+    SessionResponse,
     SkipTwoFactorSetupRequest,
     VerifyTwoFactorRequest,
     VerifyTwoFactorResponse,
 } from './auth.models';
 
+interface MockPendingUser {
+    userId: number;
+    username: string;
+    isSetup: boolean;
+    roles: string[];
+}
+
+interface MockSession {
+    userId: number;
+    username: string;
+    roles: string[];
+    activeRole: string | null;
+}
+
 @Injectable()
 export class MockAuthApiService extends AuthApi {
-    private readonly pendingUsers = new Map<string, { userId: number; username: string; isSetup: boolean }>();
+    private readonly pendingUsers = new Map<string, MockPendingUser>();
     private readonly enrolledUsers = new Set<string>();
+    private readonly issuedSessions = new Map<string, MockSession>();
     private nextUserId = 1;
     private nextChallengeId = 1;
 
@@ -22,14 +40,15 @@ export class MockAuthApiService extends AuthApi {
         }
         const userId = this.nextUserId++;
         const username = request.username.trim();
-        const role = roleFor(username);
+        const roles = rolesFor(username);
+        const isPortalOnly = roles.length === 1 && roles[0] === 'portal_user';
         const isSetup = !this.enrolledUsers.has(username.toLocaleLowerCase());
         const challengeId = String(this.nextChallengeId++);
-        this.pendingUsers.set(challengeId, { userId, username, isSetup });
+        this.pendingUsers.set(challengeId, { userId, username, isSetup, roles });
         return of({
             requiresTwoFactor: true,
             requiresTwoFactorSetup: isSetup,
-            canSkipTwoFactorSetup: isSetup && role === 'portal_user',
+            canSkipTwoFactorSetup: isSetup && isPortalOnly,
             userId,
             challengeId,
             secret: '',
@@ -48,31 +67,94 @@ export class MockAuthApiService extends AuthApi {
 
         this.pendingUsers.delete(request.challengeId);
         if (pending.isSetup) this.enrolledUsers.add(pending.username.toLocaleLowerCase());
-        return of(createTokenResponse(pending.userId, pending.username));
+        return of(this.createTokenResponse(pending.userId, pending.username, pending.roles, null));
     }
 
     skipTwoFactorSetup(request: SkipTwoFactorSetupRequest): Observable<VerifyTwoFactorResponse> {
         const pending = this.pendingUsers.get(request.challengeId);
-        if (!pending || !pending.isSetup || roleFor(pending.username) !== 'portal_user') {
+        const isPortalOnly = pending?.roles.length === 1 && pending.roles[0] === 'portal_user';
+        if (!pending || !pending.isSetup || !isPortalOnly) {
             return throwError(() => new Error('Настройку 2FA нельзя пропустить.'));
         }
 
         this.pendingUsers.delete(request.challengeId);
-        return of(createTokenResponse(pending.userId, pending.username));
+        return of(this.createTokenResponse(pending.userId, pending.username, pending.roles, null));
+    }
+
+    getSession(accessToken: string): Observable<SessionResponse> {
+        const session = this.issuedSessions.get(accessToken);
+        if (!session) {
+            return throwError(() => new Error('Сессия не найдена. Начните вход заново.'));
+        }
+
+        return of({
+            userId: session.userId,
+            login: session.username,
+            email: `${session.username}@itsm.local`,
+            roles: [...session.roles],
+            activeRole: session.activeRole,
+            requiresRoleSelection: session.roles.length > 1 && !session.activeRole,
+        });
+    }
+
+    selectRole(request: SelectRoleRequest, accessToken: string): Observable<SelectRoleResponse> {
+        const session = this.issuedSessions.get(accessToken);
+        if (!session) {
+            return throwError(() => new Error('Сессия не найдена. Начните вход заново.'));
+        }
+
+        const activeRole = session.roles.find(role => role === request.role);
+        if (!activeRole) {
+            return throwError(() => new Error('Выбранная роль недоступна для этой учётной записи.'));
+        }
+
+        const response = this.createTokenResponse(
+            session.userId,
+            session.username,
+            session.roles,
+            activeRole,
+        );
+
+        return of({ ...response, activeRole, roles: [...session.roles] });
+    }
+
+    private createTokenResponse(
+        userId: number,
+        username: string,
+        roles: string[],
+        activeRole: string | null,
+    ): VerifyTwoFactorResponse {
+        const claims: Record<string, string> = {
+            sub: String(userId),
+            Login: username,
+            roles: JSON.stringify(roles),
+        };
+        if (activeRole) {
+            claims['role'] = activeRole;
+            claims['activeRole'] = activeRole;
+        } else if (roles.length === 1) {
+            claims['role'] = roles[0];
+            claims['activeRole'] = roles[0];
+        }
+
+        const token = `mock.${encodeBase64Url(JSON.stringify(claims))}.development`;
+        this.issuedSessions.set(token, {
+            userId,
+            username,
+            roles: [...roles],
+            activeRole,
+        });
+
+        return { accessToken: token, tokenType: 'Bearer', expiresIn: 3600 };
     }
 }
 
-function roleFor(username: string): string {
+function rolesFor(username: string): string[] {
     const normalizedLogin = username.toLocaleLowerCase();
-    return ['admin', 'agent', 'manager', 'tenant_admin'].includes(normalizedLogin)
+    if (normalizedLogin === 'multi') return ['admin', 'agent'];
+    return [['admin', 'agent', 'manager', 'tenant_admin'].includes(normalizedLogin)
         ? normalizedLogin
-        : 'portal_user';
-}
-
-function createTokenResponse(userId: number, username: string): VerifyTwoFactorResponse {
-    const role = roleFor(username);
-    const claims = encodeBase64Url(JSON.stringify({ sub: String(userId), Login: username, role }));
-    return { accessToken: `mock.${claims}.development`, tokenType: 'Bearer', expiresIn: 3600 };
+        : 'portal_user'];
 }
 
 function encodeBase64Url(value: string): string {

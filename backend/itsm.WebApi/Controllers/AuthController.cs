@@ -254,6 +254,74 @@ public class AuthController : ControllerBase
         return Ok(CreateTokenResponse(user, roles));
     }
 
+    // ================= SESSION / ACTIVE ROLE =================
+
+    /// <summary>
+    /// Возвращает роли текущего пользователя из БД и признак необходимости выбора активной роли.
+    /// </summary>
+    [Authorize]
+    [HttpGet("session")]
+    public async Task<IActionResult> GetSession(CancellationToken ct)
+    {
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value, ct);
+        if (user is null || !user.IsActive)
+            return Unauthorized(new { message = "Сессия недействительна. Начните вход заново." });
+
+        var roles = await _userService.GetRolesAsync(user.Id, ct);
+        var activeRole = ResolveActiveRole(User.FindFirst("activeRole")?.Value, roles);
+
+        return Ok(new SessionResponse
+        {
+            UserId = user.Id,
+            Login = user.Username,
+            Email = user.Email,
+            Roles = roles,
+            ActiveRole = activeRole,
+            RequiresRoleSelection = roles.Count > 1 && activeRole is null
+        });
+    }
+
+    /// <summary>
+    /// Фиксирует активную роль текущей сессии и выпускает токен, ограниченный этой ролью.
+    /// </summary>
+    [Authorize]
+    [HttpPost("session/role")]
+    public async Task<IActionResult> SelectRole([FromBody] SelectRoleRequest request, CancellationToken ct)
+    {
+        var requestedRole = request.Role?.Trim();
+        if (string.IsNullOrEmpty(requestedRole))
+            return BadRequest(new { message = "Роль обязательна" });
+
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value, ct);
+        if (user is null || !user.IsActive)
+            return Unauthorized(new { message = "Сессия недействительна. Начните вход заново." });
+
+        var roles = await _userService.GetRolesAsync(user.Id, ct);
+        var activeRole = ResolveActiveRole(requestedRole, roles);
+        if (activeRole is null)
+            return BadRequest(new { message = "Выбранная роль недоступна для этой учётной записи" });
+
+        var token = _jwt.GenerateToken(user.Id, user.Username, user.Email, roles, activeRole);
+        _logger.LogInformation(
+            "Активная роль {Role} выбрана пользователем {Login} (userId={UserId})",
+            activeRole, user.Username, user.Id);
+
+        return Ok(new SelectRoleResponse
+        {
+            AccessToken = token,
+            TokenType = "Bearer",
+            ExpiresIn = _jwtSettings.ExpiresMinutes * 60,
+            ActiveRole = activeRole,
+            Roles = roles
+        });
+    }
+
     // ================= 2FA: SETUP =================
 
     [Authorize]
@@ -408,7 +476,9 @@ public class AuthController : ControllerBase
         itsm.Domain.Entities.User user,
         List<string> roles)
     {
-        var token = _jwt.GenerateToken(user.Id, user.Username, user.Email, roles);
+        // Одна роль — активна сразу; несколько — ждём выбора на промежуточном экране.
+        var activeRole = roles.Count == 1 ? roles[0] : null;
+        var token = _jwt.GenerateToken(user.Id, user.Username, user.Email, roles, activeRole);
         _logger.LogInformation("JWT выпущен для {Login} (userId={UserId})", user.Username, user.Id);
         return new VerifyTwoFactorResponse
         {
@@ -416,6 +486,17 @@ public class AuthController : ControllerBase
             TokenType = "Bearer",
             ExpiresIn = _jwtSettings.ExpiresMinutes * 60
         };
+    }
+
+    /// <summary>
+    /// Сопоставляет запрошенную/текущую роль со списком ролей из БД (без учёта регистра).
+    /// Возвращает null, если роль пользователю не назначена.
+    /// </summary>
+    private static string? ResolveActiveRole(string? role, List<string> roles)
+    {
+        if (string.IsNullOrWhiteSpace(role)) return null;
+        return roles.FirstOrDefault(candidate =>
+            string.Equals(candidate, role.Trim(), StringComparison.OrdinalIgnoreCase));
     }
 
     private sealed record LoginChallenge(int UserId, bool IsSetup);

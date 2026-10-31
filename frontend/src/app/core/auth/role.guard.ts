@@ -4,6 +4,23 @@ import { AuthService } from './auth.service';
 import { WorkspaceService } from '../workspace/workspace.service';
 import { map } from 'rxjs';
 
+/// Не пускает в рабочие разделы, пока мультиролевой пользователь не выбрал активную роль.
+export const roleSelectionRequiredGuard: CanActivateFn = () => {
+    const auth = inject(AuthService);
+    const router = inject(Router);
+    if (!auth.isAuthenticated()) return router.parseUrl('/login');
+    return auth.needsRoleSelection() ? router.parseUrl('/select-role') : true;
+};
+
+/// Защита промежуточного экрана: доступен только пока роль не выбрана.
+export const selectRoleGuard: CanActivateFn = () => {
+    const auth = inject(AuthService);
+    const router = inject(Router);
+    if (!auth.isAuthenticated()) return router.parseUrl('/login');
+    if (auth.needsRoleSelection()) return true;
+    return router.parseUrl(auth.homeUrlForRole(auth.getActiveRole() ?? auth.getRole()));
+};
+
 export const internalAccessGuard: CanActivateFn = () => {
     const auth = inject(AuthService);
     const router = inject(Router);
