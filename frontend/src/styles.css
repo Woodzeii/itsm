@@ -362,3 +362,360 @@ textarea {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+/* ==================== DARK THEME ==================== */
+
+html[data-theme='dark'] {
+    --app-bg: #0b1220;
+    --app-surface: #111a2b;
+    --app-surface-2: #162033;
+    --app-text: #e5e7eb;
+    --app-muted: #94a3b8;
+    --app-border: #263244;
+    --app-primary: #60a5fa;
+    --app-accent: #34d399;
+    color-scheme: dark;
+}
+
+html[data-theme='dark'] body {
+    background: var(--app-bg);
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-layout,
+html[data-theme='dark'] app-layout .app-shell,
+html[data-theme='dark'] app-layout .main-panel,
+html[data-theme='dark'] app-overview,
+html[data-theme='dark'] app-ticket-queue,
+html[data-theme='dark'] app-assets-page,
+html[data-theme='dark'] app-workspace-section,
+html[data-theme='dark'] app-self-service-portal,
+html[data-theme='dark'] app-admin-workspace,
+html[data-theme='dark'] app-dictionaries,
+html[data-theme='dark'] app-asset-classes,
+html[data-theme='dark'] app-tenant-management,
+html[data-theme='dark'] app-user-create,
+html[data-theme='dark'] app-security,
+html[data-theme='dark'] app-login,
+html[data-theme='dark'] app-role-select,
+html[data-theme='dark'] app-root {
+    background: var(--app-bg) !important;
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] .page,
+html[data-theme='dark'] .ac-page,
+html[data-theme='dark'] .dict-page,
+html[data-theme='dark'] .content {
+    background: transparent;
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] .panel,
+html[data-theme='dark'] .card,
+html[data-theme='dark'] .list,
+html[data-theme='dark'] .detail,
+html[data-theme='dark'] .metric,
+html[data-theme='dark'] .sidebar,
+html[data-theme='dark'] .topbar,
+html[data-theme='dark'] .queue,
+html[data-theme='dark'] .ticket-detail,
+html[data-theme='dark'] .quick-panel,
+html[data-theme='dark'] .recent-panel,
+html[data-theme='dark'] .performance,
+html[data-theme='dark'] .users-toolbar,
+html[data-theme='dark'] .users-filters,
+html[data-theme='dark'] .form-card,
+html[data-theme='dark'] .tenant-card,
+html[data-theme='dark'] .security-card,
+html[data-theme='dark'] .asset-card,
+html[data-theme='dark'] .portal-card,
+html[data-theme='dark'] .filters,
+html[data-theme='dark'] .ticket-facts,
+html[data-theme='dark'] .history,
+html[data-theme='dark'] .comments,
+html[data-theme='dark'] .report-list article,
+html[data-theme='dark'] .admin-nav,
+html[data-theme='dark'] .section,
+html[data-theme='dark'] .empty-detail,
+html[data-theme='dark'] .detail-header,
+html[data-theme='dark'] .modal,
+html[data-theme='dark'] .dialog,
+html[data-theme='dark'] .user-card,
+html[data-theme='dark'] .account-card,
+html[data-theme='dark'] .list-editor,
+html[data-theme='dark'] .add-field,
+html[data-theme='dark'] .field-main,
+html[data-theme='dark'] .field-options {
+    background: var(--app-surface) !important;
+    color: var(--app-text);
+    border-color: var(--app-border) !important;
+}
+
+html[data-theme='dark'] h1,
+html[data-theme='dark'] h2,
+html[data-theme='dark'] h3,
+html[data-theme='dark'] h4,
+html[data-theme='dark'] h5,
+html[data-theme='dark'] strong,
+html[data-theme='dark'] th,
+html[data-theme='dark'] td,
+html[data-theme='dark'] label {
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] p,
+html[data-theme='dark'] small,
+html[data-theme='dark'] .muted,
+html[data-theme='dark'] .subtitle,
+html[data-theme='dark'] .hint,
+html[data-theme='dark'] .empty,
+html[data-theme='dark'] .breadcrumb,
+html[data-theme='dark'] .nav-caption,
+html[data-theme='dark'] .workspace-note {
+    color: var(--app-muted);
+}
+
+html[data-theme='dark'] input,
+html[data-theme='dark'] select,
+html[data-theme='dark'] textarea {
+    background: #0f1728 !important;
+    color: var(--app-text) !important;
+    border-color: var(--app-border) !important;
+}
+
+html[data-theme='dark'] input::placeholder,
+html[data-theme='dark'] textarea::placeholder {
+    color: #64748b;
+}
+
+html[data-theme='dark'] .item:hover {
+    background: #1a2638 !important;
+}
+
+html[data-theme='dark'] .item.active {
+    background: #1b3352 !important;
+}
+
+html[data-theme='dark'] .badge,
+html[data-theme='dark'] .tag {
+    background: #1f2b3d !important;
+    color: #cbd5e1;
+}
+
+html[data-theme='dark'] .tag.critical,
+html[data-theme='dark'] .tag.high {
+    background: #4a1f27 !important;
+    color: #fecdd3;
+}
+
+html[data-theme='dark'] table {
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] th {
+    background: var(--app-surface-2) !important;
+    color: #cbd5e1 !important;
+}
+
+html[data-theme='dark'] td {
+    border-bottom-color: var(--app-border) !important;
+}
+
+html[data-theme='dark'] tbody tr:hover {
+    background: #151f31;
+}
+
+html[data-theme='dark'] button.secondary,
+html[data-theme='dark'] button.quiet,
+html[data-theme='dark'] button.outline,
+html[data-theme='dark'] .secondary,
+html[data-theme='dark'] .quiet,
+html[data-theme='dark'] .outline,
+html[data-theme='dark'] .icon-button,
+html[data-theme='dark'] .role-switch,
+html[data-theme='dark'] .mobile-filters-toggle,
+html[data-theme='dark'] .retry {
+    background: var(--app-surface-2) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] .icon-button:hover,
+html[data-theme='dark'] .secondary:hover,
+html[data-theme='dark'] .quiet:hover,
+html[data-theme='dark'] .outline:hover {
+    background: #1f2b3d !important;
+    border-color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] .error,
+html[data-theme='dark'] .err,
+html[data-theme='dark'] .notice.error,
+html[data-theme='dark'] .feedback.error {
+    background: #3b1d22 !important;
+    border-color: #7f1d1d !important;
+    color: #fecaca !important;
+}
+
+html[data-theme='dark'] .success,
+html[data-theme='dark'] .notice.success,
+html[data-theme='dark'] .feedback.success,
+html[data-theme='dark'] .ok {
+    background: #102a22 !important;
+    border-color: #14532d !important;
+    color: #bbf7d0 !important;
+}
+
+html[data-theme='dark'] .notice:not(.error):not(.success) {
+    background: var(--app-surface-2) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-muted) !important;
+}
+
+html[data-theme='dark'] .avatar,
+html[data-theme='dark'] .option-icon,
+html[data-theme='dark'] .sidebar-profile {
+    background-color: #1f2b3d !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] .history article,
+html[data-theme='dark'] .comments article,
+html[data-theme='dark'] .ticket-message,
+html[data-theme='dark'] .chat-message {
+    background: var(--app-surface-2) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] .comments article.internal {
+    background: #2a2438 !important;
+    border-color: #4c3b63 !important;
+}
+
+html[data-theme='dark'] .asset-row,
+html[data-theme='dark'] .ticket-row,
+html[data-theme='dark'] .ticket-summary,
+html[data-theme='dark'] .conversation,
+html[data-theme='dark'] .timeline,
+html[data-theme='dark'] .toolbar,
+html[data-theme='dark'] .tabs,
+html[data-theme='dark'] .card-form,
+html[data-theme='dark'] .request-form,
+html[data-theme='dark'] .repair-form,
+html[data-theme='dark'] .setup-section,
+html[data-theme='dark'] .security-grid,
+html[data-theme='dark'] .sla-grid,
+html[data-theme='dark'] .sla-level,
+html[data-theme='dark'] .escalation-list,
+html[data-theme='dark'] .account-list,
+html[data-theme='dark'] .account-grid,
+html[data-theme='dark'] .detail-grid,
+html[data-theme='dark'] .transition-matrix,
+html[data-theme='dark'] .calendar-settings,
+html[data-theme='dark'] .holiday-list span,
+html[data-theme='dark'] .search,
+html[data-theme='dark'] .message,
+html[data-theme='dark'] .movement-list,
+html[data-theme='dark'] .ticket-list {
+    background: var(--app-surface-2) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] .field-errors,
+html[data-theme='dark'] .password-errors {
+    background: #3b1d22 !important;
+    border-color: #7f1d1d !important;
+    color: #fecaca !important;
+}
+
+html[data-theme='dark'] .tag.attention {
+    background: #3d3018 !important;
+    color: #fde68a;
+}
+
+html[data-theme='dark'] td .status:not(.blocked),
+html[data-theme='dark'] .badge-on {
+    background: #123328 !important;
+    color: #86efac;
+}
+
+html[data-theme='dark'] td .status.blocked,
+html[data-theme='dark'] .badge-off {
+    background: #3b1d22 !important;
+    color: #fecaca;
+}
+
+html[data-theme='dark'] .icon-action {
+    background: #3b1d22 !important;
+    color: #fecaca !important;
+}
+
+html[data-theme='dark'] .option {
+    background: var(--app-surface) !important;
+    border-color: var(--app-border) !important;
+}
+
+html[data-theme='dark'] .option:hover:not(:disabled),
+html[data-theme='dark'] .option.selected {
+    background: #182740 !important;
+    border-color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] .option-copy strong { color: var(--app-text); }
+html[data-theme='dark'] .option-copy small { color: var(--app-muted); }
+html[data-theme='dark'] .option-arrow { color: var(--app-primary); }
+
+html[data-theme='dark'] .foot {
+    border-top-color: var(--app-border) !important;
+}
+
+html[data-theme='dark'] .eyebrow {
+    color: var(--app-primary);
+}
+
+html[data-theme='dark'] .nav a {
+    color: #cbd5e1;
+}
+
+html[data-theme='dark'] .nav a:hover,
+html[data-theme='dark'] .nav a.active {
+    background: rgba(96, 165, 250, 0.14);
+    color: #ffffff;
+}
+
+html[data-theme='dark'] .admin-nav a {
+    color: var(--app-muted);
+}
+
+html[data-theme='dark'] .admin-nav a.active,
+html[data-theme='dark'] .admin-nav a:hover {
+    background: #1b3352 !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] .chart-day small,
+html[data-theme='dark'] .legend,
+html[data-theme='dark'] .legend span {
+    color: var(--app-muted);
+}
+
+html[data-theme='dark'] .panel-header p,
+html[data-theme='dark'] .panel-header h2,
+html[data-theme='dark'] .detail-heading h2,
+html[data-theme='dark'] .detail-heading p {
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] .role-switch:hover {
+    color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] .qr-code {
+    background: #ffffff;
+    padding: 8px;
+    border-radius: 10px;
+}
