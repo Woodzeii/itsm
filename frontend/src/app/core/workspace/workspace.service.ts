@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+﻿import { Injectable, inject } from '@angular/core';
 import { WorkspaceApi } from './workspace-api';
 import {
     AdminSettings,
@@ -31,8 +31,8 @@ export class WorkspaceService {
     createTicket(request: CreateTicketRequest) { return this.api.createTicket(request); }
     getTicketTypes() { return this.api.getTicketTypes(); }
     saveTicketTypes(types: TicketType[]) { return this.api.saveTicketTypes(types); }
-    changeTicketStatus(ticketId: string, status: string) { return this.api.changeTicketStatus(ticketId, status); }
-    assignTicket(ticketId: string, assignee: string) { return this.api.assignTicket(ticketId, assignee); }
+    changeTicketStatus(ticketId: string, statusId: number) { return this.api.changeTicketStatus(ticketId, statusId); }
+    assignTicket(ticketId: string, assigneeId: number) { return this.api.assignTicket(ticketId, assigneeId); }
     changeTicketPriority(ticketId: string, priority: string) { return this.api.changeTicketPriority(ticketId, priority); }
     addTicketComment(ticketId: string, comment: Parameters<typeof this.api.addTicketComment>[1]) { return this.api.addTicketComment(ticketId, comment); }
     escalateTicket(ticketId: string, initiator: string) { return this.api.escalateTicket(ticketId, initiator); }
@@ -63,5 +63,5 @@ export class WorkspaceService {
     getUsers() { return this.api.getUsers(); }
     getSystemRoles() { return this.api.getSystemRoles(); }
     createUser(request: CreateUserRequest) { return this.api.createUser(request); }
-    updateUser(userId: number, changes: Partial<CreateUserRequest>) { return this.api.updateUser(userId, changes); }
+    setUserActive(userId: number, isActive: boolean) { return this.api.setUserActive(userId, isActive); }
 }

@@ -1,15 +1,20 @@
 import { Routes } from '@angular/router';
 import { AppLayoutComponent } from './layout/app-layout/app-layout';
 import { authGuard } from './core/auth/auth.guard';
-import { adminAccessGuard, adminOnlyAccessGuard, internalAccessGuard, portalAccessGuard, reportAccessGuard, tenantAdminAccessGuard } from './core/auth/role.guard';
+import { adminAccessGuard, adminOnlyAccessGuard, internalAccessGuard, portalAccessGuard, reportAccessGuard, roleSelectionRequiredGuard, selectRoleGuard, tenantAdminAccessGuard } from './core/auth/role.guard';
 
 export const routes: Routes = [
     { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
     { path: 'login', loadComponent: () => import('./pages/login/login').then(module => module.LoginComponent) },
     {
+        path: 'select-role',
+        loadComponent: () => import('./pages/role-select/role-select').then(module => module.RoleSelectComponent),
+        canActivate: [selectRoleGuard],
+    },
+    {
         path: '',
         component: AppLayoutComponent,
-        canActivate: [authGuard],
+        canActivate: [authGuard, roleSelectionRequiredGuard],
         children: [
             { path: 'dashboard', loadComponent: () => import('./pages/overview/overview').then(module => module.OverviewComponent), canActivate: [internalAccessGuard] },
             { path: 'tickets', loadComponent: () => import('./pages/tickets/ticket-queue').then(module => module.TicketQueueComponent), canActivate: [internalAccessGuard] },

@@ -45,8 +45,11 @@ public class DatabaseSeeder : IDatabaseSeeder
         var sidorov = NewUser("s.sidorov", "s.sidorov@itsm.local", "Сидор Сидоров", "Бухгалтерия", "pass123");
         var anna = NewUser("a.anna", "a.anna@itsm.local", "Анна Аннова", "Бухгалтерия", "pass123");
         var maria = NewUser("m.maria", "m.maria@itsm.local", "Мария Марьина", "Отдел продаж", "pass123");
+        // Демонстрационный пользователь с несколькими ролями — для проверки выбора
+        // активной роли после 2FA.
+        var multi = NewUser("m.multi", "m.multi@itsm.local", "Мультиролевой Пользователь", "IT", "pass123");
 
-        _db.Users.AddRange(admin, ivanov, petrov, sidorov, anna, maria);
+        _db.Users.AddRange(admin, ivanov, petrov, sidorov, anna, maria, multi);
         await _db.SaveChangesAsync(ct);
 
         // Иерархия: Петров → Иванов → Админ
@@ -61,11 +64,13 @@ public class DatabaseSeeder : IDatabaseSeeder
             new UserRoleMapping { UserId = petrov.Id, RoleId = agentRoleId },
             new UserRoleMapping { UserId = sidorov.Id, RoleId = portalRoleId },
             new UserRoleMapping { UserId = anna.Id, RoleId = portalRoleId },
-            new UserRoleMapping { UserId = maria.Id, RoleId = portalRoleId }
+            new UserRoleMapping { UserId = maria.Id, RoleId = portalRoleId },
+            new UserRoleMapping { UserId = multi.Id, RoleId = adminRoleId },
+            new UserRoleMapping { UserId = multi.Id, RoleId = agentRoleId }
         );
         await _db.SaveChangesAsync(ct);
 
-        _logger.LogInformation("DatabaseSeeder: создано 6 пользователей");
+        _logger.LogInformation("DatabaseSeeder: создано 7 пользователей");
     }
 
     private User NewUser(string username, string email, string fullName, string department, string password) => new()
