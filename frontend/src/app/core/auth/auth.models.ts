@@ -29,3 +29,26 @@ export interface VerifyTwoFactorResponse {
     tokenType: string;
     expiresIn: number;
 }
+
+/** Ответ GET /api/auth/session — роли и активная роль сессии берутся с бэкенда. */
+export interface SessionResponse {
+    userId: number;
+    login: string;
+    email: string;
+    roles: string[];
+    activeRole: string | null;
+    requiresRoleSelection: boolean;
+}
+
+export interface SelectRoleRequest {
+    role: string;
+}
+
+/** Ответ POST /api/auth/session/role — новый токен, ограниченный выбранной ролью. */
+export interface SelectRoleResponse {
+    accessToken: string;
+    tokenType: string;
+    expiresIn: number;
+    activeRole: string;
+    roles: string[];
+}
