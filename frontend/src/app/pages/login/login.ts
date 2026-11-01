@@ -13,7 +13,7 @@ import { environment } from '../../../environments/environment';
       <div class="card">
         <h1>Авторизация</h1>
         @if (environment.useMockAuth) {
-          <p>Тестовый вход: любые непустые логин и пароль; код — любые 6 цифр. Логины admin, agent, manager и tenant_admin выбирают роль, логин multi — пользователь с двумя ролями (выбор рабочего пространства).</p>
+          <p>Тестовый вход: любые непустые логин и пароль; код — любые 6 цифр. Логины admin, agent, manager и tenant_admin выбирают роль.</p>
         }
 
         @if (step === 1) {
@@ -213,7 +213,9 @@ export class LoginComponent {
 
         this.auth.verifyTwoFactor(this.challengeId, c).subscribe({
             next: () => {
-                this.completeLogin();
+                this.busy = false;
+                this.cdr.detectChanges();
+                this.navigateAfterLogin();
             },
             error: (err) => {
                 this.error = err.status === 401
@@ -233,7 +235,8 @@ export class LoginComponent {
         this.info = '';
         this.auth.skipTwoFactorSetup(this.challengeId).subscribe({
             next: () => {
-                this.completeLogin();
+                this.busy = false;
+                this.navigateAfterLogin();
             },
             error: (err) => {
                 this.error = err.message || 'Не удалось пропустить настройку 2FA';
@@ -243,42 +246,8 @@ export class LoginComponent {
         });
     }
 
-    /**
-     * После 2FA запрашиваем сессию у бэкенда: он сообщает все роли пользователя
-     * и нужно ли показать промежуточный экран выбора активной роли.
-     */
-    private completeLogin(): void {
-        this.auth.loadSession().subscribe({
-            next: (session) => {
-                this.busy = false;
-                this.cdr.detectChanges();
-
-                if (session.requiresRoleSelection) {
-                    this.router.navigateByUrl('/select-role');
-                    return;
-                }
-
-                this.router.navigateByUrl(
-                    this.auth.homeUrlForRole(session.activeRole ?? session.roles[0]),
-                );
-            },
-            error: () => {
-                // Эндпоинт сессии недоступен — используем роли из уже выданного JWT.
-                this.busy = false;
-                this.cdr.detectChanges();
-                this.navigateAfterLogin();
-            },
-        });
-    }
-
     private navigateAfterLogin(): void {
-        if (this.auth.needsRoleSelection()) {
-            this.router.navigateByUrl('/select-role');
-            return;
-        }
-
-        this.router.navigateByUrl(
-            this.auth.homeUrlForRole(this.auth.getActiveRole() ?? this.auth.getRole()),
-        );
+        const destination = this.auth.isTenantAdmin() ? '/admin/tenants' : this.auth.isPortalUser() ? '/portal' : '/dashboard';
+        this.router.navigateByUrl(destination);
     }
 }
