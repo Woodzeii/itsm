@@ -75,6 +75,20 @@ public class AuthController : ControllerBase
         if (exists)
             return Conflict(new { message = "Пользователь с таким логином или email уже зарегистрирован" });
 
+        var currentTenantId = _db.GetCurrentTenantId();
+        var tenant = await _db.Tenants.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => item.Id == currentTenantId, ct);
+        if (tenant is null)
+            return Conflict(new { message = "Тенант не найден" });
+
+        var activeUserCount = await _db.Users.IgnoreQueryFilters()
+            .CountAsync(user => user.TenantId == currentTenantId && user.IsActive, ct);
+        if (activeUserCount >= tenant.MaxUsers)
+            return Conflict(new
+            {
+                message = $"Достигнут лимит активных пользователей ({tenant.MaxUsers}). Регистрация временно недоступна."
+            });
+
         var passwordHash = _passwordHasher.Hash(request.Password);
         var (plainToken, tokenHash) = TokenGenerator.Generate();
         var expiresAt = DateTimeOffset.UtcNow.AddHours(24);
@@ -124,6 +138,7 @@ public class AuthController : ControllerBase
 
         // Ищем пользователя в БД
         var user = await _db.Users
+            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Username == request.Username, ct);
 
         if (user is null || !user.IsActive)
@@ -200,7 +215,8 @@ public class AuthController : ControllerBase
         if (!TryGetLoginChallenge(request.ChallengeId, out var challenge))
             return Unauthorized(new { message = "Сессия входа истекла. Начните вход заново." });
 
-        var dbUser = await _db.Users.FirstOrDefaultAsync(u => u.Id == challenge.UserId, ct);
+        var dbUser = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == challenge.UserId, ct);
         if (dbUser is null || !dbUser.IsActive || string.IsNullOrEmpty(dbUser.TwoFaSecret))
             return Unauthorized(new { message = "Сессия входа недействительна. Начните вход заново." });
 
@@ -239,7 +255,8 @@ public class AuthController : ControllerBase
         if (!TryGetLoginChallenge(request.ChallengeId, out var challenge) || !challenge.IsSetup)
             return Unauthorized(new { message = "Сессия входа истекла. Начните вход заново." });
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == challenge.UserId, ct);
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == challenge.UserId, ct);
         if (user is null || !user.IsActive)
             return Unauthorized(new { message = "Сессия входа недействительна. Начните вход заново." });
 
@@ -408,7 +425,7 @@ public class AuthController : ControllerBase
         itsm.Domain.Entities.User user,
         List<string> roles)
     {
-        var token = _jwt.GenerateToken(user.Id, user.Username, user.Email, roles);
+        var token = _jwt.GenerateToken(user.Id, user.Username, user.Email, user.TenantId, roles);
         _logger.LogInformation("JWT выпущен для {Login} (userId={UserId})", user.Username, user.Id);
         return new VerifyTwoFactorResponse
         {

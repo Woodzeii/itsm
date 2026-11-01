@@ -11,6 +11,9 @@ import {
     AssetRecord,
     CreateAssetRequest,
     CreateTenantRequest,
+    UpdateTenantRequest,
+    BlockTenantRequest,
+    UnblockTenantRequest,
     CreatePortalAccountRequest,
     CreateTicketRequest,
     EscalationHistoryEntry,
@@ -103,9 +106,13 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     reviewPortalTicket(ticketId: string, accepted: boolean) { return this.http.post<Ticket>(`${this.baseUrl}/portal/tickets/${ticketId}/review`, { accepted }); }
     createPortalAccount(request: CreatePortalAccountRequest) { return this.http.post<string>(`${this.baseUrl}/portal/accounts`, request); }
     getTenants() { return this.http.get<TenantRecord[]>(`${this.baseUrl}/tenants`); }
+    getTenant(tenantId: number) { return this.http.get<TenantRecord>(`${this.baseUrl}/tenants/${tenantId}`); }
     createTenant(request: CreateTenantRequest) { return this.http.post<TenantRecord>(`${this.baseUrl}/tenants`, request); }
-    setTenantActive(tenantId: string, active: boolean) { return this.http.patch<TenantRecord>(`${this.baseUrl}/tenants/${tenantId}/status`, { active }); }
-    deleteTenant(tenantId: string) { return this.http.delete<void>(`${this.baseUrl}/tenants/${tenantId}`); }
+    updateTenant(tenantId: number, request: UpdateTenantRequest) { return this.http.put<TenantRecord>(`${this.baseUrl}/tenants/${tenantId}`, request); }
+    setTenantActive(tenantId: number, isActive: boolean) { return this.http.patch<TenantRecord>(`${this.baseUrl}/tenants/${tenantId}/status`, { isActive }); }
+    blockTenant(tenantId: number, request: BlockTenantRequest) { return this.http.post<TenantRecord>(`${this.baseUrl}/tenants/${tenantId}/block`, request); }
+    unblockTenant(tenantId: number) { return this.http.post<TenantRecord>(`${this.baseUrl}/tenants/${tenantId}/unblock`, {}); }
+    deleteTenant(tenantId: number) { return this.http.delete<void>(`${this.baseUrl}/tenants/${tenantId}`); }
     getUsers() { return this.http.get<UserRecord[]>(`${this.baseUrl}/users`); }
     getSystemRoles() { return this.http.get<SystemRoleOption[]>(`${this.baseUrl}/system-roles`); }
     createUser(request: CreateUserRequest) { return this.http.post<UserRecord>(`${this.baseUrl}/users`, request); }
