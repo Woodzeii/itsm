@@ -224,9 +224,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         return this.getTicketTypes();
     }
 
-    changeTicketStatus(ticketId: string, statusId: number): Observable<Ticket> {
-        const status = this.settings.statuses[statusId - 1]?.name;
-        if (!status) return this.fail('Указан несуществующий статус заявки.');
+    changeTicketStatus(ticketId: string, status: string): Observable<Ticket> {
         const ticket = this.findTicket(ticketId);
         if (!this.settings.statusTransitions[ticket.status]?.includes(status)) return this.fail(`Недопустимый переход: ${ticket.status} → ${status}`);
         ticket.status = status;
@@ -235,10 +233,9 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         return of(ticket);
     }
 
-    assignTicket(ticketId: string, assigneeId: number): Observable<Ticket> {
+    assignTicket(ticketId: string, assignee: string): Observable<Ticket> {
         if (this.settings.assignmentMode !== 'manual') return this.fail('Ручное назначение отключено настройками.');
-        const assignee = this.settings.engineers?.[assigneeId - 1];
-        if (!assignee) return this.fail('Исполнитель должен быть инженером ТП.');
+        if (!this.settings.engineers?.includes(assignee)) return this.fail('Исполнитель должен быть инженером ТП.');
         const ticket = this.findTicket(ticketId);
         ticket.assignee = assignee;
         this.recordTicketHistory(ticket, `Назначен исполнитель: ${assignee}`, 'Администратор');
@@ -461,9 +458,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         const ticket = this.findTicket(ticketId);
         if (ticket.requesterLogin !== this.auth.getLogin()) return this.fail('Доступны только собственные заявки.');
         if (ticket.status !== 'Проверка') return this.fail('Заявку можно проверить только в статусе «Проверка».');
-        const statusName = accepted ? 'Закрыта' : 'Ожидает выполнения';
-        const statusId = this.settings.statuses.findIndex(status => status.name === statusName) + 1;
-        return this.changeTicketStatus(ticketId, statusId);
+        return this.changeTicketStatus(ticketId, accepted ? 'Закрыта' : 'Ожидает выполнения');
     }
 
     createPortalAccount(request: CreatePortalAccountRequest): Observable<string> {
@@ -589,13 +584,6 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         return of(this.systemRoles.map(role => ({ ...role })));
     }
 
-    setUserActive(userId: number, isActive: boolean): Observable<UserRecord> {
-        const user = this.users.find(item => item.id === userId);
-        if (!user) return this.fail('Пользователь не найден.');
-        user.isActive = isActive;
-        return of({ ...user, roleIds: [...user.roleIds] });
-    }
-
     createUser(request: CreateUserRequest): Observable<UserRecord> {
         const email = request.email.trim().toLocaleLowerCase();
         const username = request.username.trim();
@@ -605,9 +593,9 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         if (this.users.some(user => user.email.toLocaleLowerCase() === email || user.username.toLocaleLowerCase() === username.toLocaleLowerCase())) return this.fail('Пользователь с таким email или username уже существует.');
         if (!request.roleIds.length) return this.fail('Назначьте пользователю хотя бы одну роль.');
         if (request.managerId && !this.users.some(user => user.id === request.managerId && user.isActive)) return this.fail('Выберите действующего руководителя из списка.');
-        if (request.password.length < (policy?.minLength ?? 12)) return this.fail(`Пароль должен содержать минимум ${policy?.minLength ?? 12} символов.`);
-        if (policy?.requireUppercase && !/[A-ZА-Я]/.test(request.password)) return this.fail('В пароле должна быть заглавная буква.');
-        if (policy?.requireSpecial && !/[^a-zA-Zа-яА-Я0-9]/.test(request.password)) return this.fail('В пароле должен быть специальный символ.');
+        if (request.initialPassword.length < (policy?.minLength ?? 12)) return this.fail(`Пароль должен содержать минимум ${policy?.minLength ?? 12} символов.`);
+        if (policy?.requireUppercase && !/[A-ZА-Я]/.test(request.initialPassword)) return this.fail('В пароле должна быть заглавная буква.');
+        if (policy?.requireSpecial && !/[^a-zA-Zа-яА-Я0-9]/.test(request.initialPassword)) return this.fail('В пароле должен быть специальный символ.');
 
         const user: UserRecord = {
             id: Math.max(0, ...this.users.map(item => item.id)) + 1,
@@ -616,7 +604,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
             username,
             department: request.department.trim(),
             managerId: request.managerId,
-            isActive: true,
+            isActive: request.isActive,
             roleIds: [...request.roleIds],
         };
         this.users.unshift(user);
