@@ -1,6 +1,14 @@
 @itsm.WebApi_HostAddress = http://localhost:5230
+@adminToken = replace-with-admin-jwt
 
 GET {{itsm.WebApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
+
+### Get the current tenant's active-user quota (admin token required)
+GET {{itsm.WebApi_HostAddress}}/api/tenants/me/user-quota
+Authorization: Bearer {{adminToken}}
 Accept: application/json
 
 ###

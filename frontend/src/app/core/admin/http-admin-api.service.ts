@@ -38,6 +38,7 @@ export class HttpAdminApiService extends AdminApi {
             fullName: request.fullName,
             department: request.department,
             managerId: request.managerId,
+            tenantId: request.tenantId,
             isActive: request.isActive,
             roleIds: request.roleIds,
         });

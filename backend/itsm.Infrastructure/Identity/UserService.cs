@@ -18,7 +18,8 @@ public class UserService : IUserService
     }
 
     public Task<bool> ExistsByUsernameOrEmailAsync(string username, string email, CancellationToken ct = default)
-        => _db.Users.AnyAsync(u => u.Username == username || u.Email == email, ct);
+        => _db.Users.IgnoreQueryFilters()
+            .AnyAsync(u => u.Username == username || u.Email == email, ct);
 
     public async Task<int> CreateAsync(
         RegisterRequest request,

@@ -4,9 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportSummary, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
+import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportSummary, TenantUserQuota, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
 import { AdminService } from '../../core/admin/admin.service';
 import { RoleSummary, UpdateAdminUserRequest, UserSummary } from '../../core/admin/admin.models';
+import { TenantUserQuotaService } from '../../core/workspace/tenant-user-quota.service';
 
 type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 
@@ -100,6 +101,20 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 
       @if (section === 'users') {
         <section class="panel"><header><h2>Управление пользователями</h2><p>Просмотр, редактирование и управление учётными записями пользователей</p></header>
+          @if (quotaError) { <p class="feedback error">{{ quotaError }}</p> }
+          @if (userQuota?.usersOverLimit) {
+            <aside class="feedback error" role="alert">
+              <strong>Превышен лимит пользователей тенанта «{{ userQuota.tenantName }}»</strong>
+              <p>Активных пользователей: {{ userQuota.activeUserCount }} из {{ userQuota.maxUsers }}. Нужно освободить {{ userQuota.usersOverLimit }} мест.</p>
+              @if (userQuota.graceEndsAt && quotaDaysRemaining > 0) {
+                <p>Если не освободить места до {{ userQuota.graceEndsAt | date:'short' }}, система деактивирует до {{ usersScheduledForDeactivation }} случайных пользователей. Администраторы защищены.</p>
+              } @else if (userQuota.graceEndsAt) {
+                <p>Срок освобождения мест истёк. Деактивация выполнена для доступных пользователей; администраторы защищены. Остаток превышения: {{ userQuota.usersOverLimit }}.</p>
+              } @else {
+                <p>Начинается 7-дневный срок для освобождения мест.</p>
+              }
+            </aside>
+          }
           <div class="users-toolbar"><button class="quiet" type="button" routerLink="/admin/users/new">+ Добавить пользователя</button></div>
           @if (usersLoading) {
             <p class="empty" style="padding:16px;">Загрузка пользователей…</p>
@@ -278,6 +293,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 export class AdminWorkspaceComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
     private readonly admin = inject(AdminService);
+    private readonly quotaService = inject(TenantUserQuotaService);
     private readonly route = inject(ActivatedRoute);
     private readonly router = inject(Router);
     private readonly changeDetector = inject(ChangeDetectorRef);
@@ -292,6 +308,8 @@ export class AdminWorkspaceComponent implements OnInit {
     reports: ReportSummary[] = [];
     usersList: UserSummary[] = [];
     usersLoading = false;
+    userQuota: TenantUserQuota | null = null;
+    quotaError = '';
     usersSearch = '';
     usersDepartmentFilter = '';
     usersRoleFilter = '';
@@ -343,6 +361,14 @@ export class AdminWorkspaceComponent implements OnInit {
     get hasUserFilters(): boolean {
         return !!(this.usersSearch.trim() || this.usersDepartmentFilter || this.usersRoleFilter || this.usersStatusFilter);
     }
+    get quotaDaysRemaining(): number {
+        if (!this.userQuota?.graceEndsAt) return 0;
+        return Math.max(0, Math.ceil((Date.parse(this.userQuota.graceEndsAt) - Date.now()) / 86_400_000));
+    }
+    get usersScheduledForDeactivation(): number {
+        if (!this.userQuota) return 0;
+        return Math.min(this.userQuota.usersOverLimit, this.userQuota.usersEligibleForDeactivation);
+    }
 
     ngOnInit(): void {
         this.section = this.route.snapshot.data['section'] as AdminSection;
@@ -363,6 +389,7 @@ export class AdminWorkspaceComponent implements OnInit {
         if (this.section === 'users') {
             this.usersLoading = true;
             this.error = '';
+            this.loadUserQuota();
             this.admin.getUsers().pipe(finalize(() => {
                 this.usersLoading = false;
                 this.changeDetector.markForCheck();
@@ -514,9 +541,24 @@ export class AdminWorkspaceComponent implements OnInit {
                 this.expandedUserId = null;
                 this.notice = 'Пользователь обновлён.';
                 this.error = '';
+                this.loadUserQuota();
             },
             error: err => {
                 this.error = err.message || 'Не удалось обновить пользователя.';
+            },
+        });
+    }
+
+    private loadUserQuota(): void {
+        this.quotaError = '';
+        this.quotaService.getCurrentTenantQuota().subscribe({
+            next: quota => {
+                this.userQuota = quota;
+                this.changeDetector.markForCheck();
+            },
+            error: () => {
+                this.quotaError = 'Не удалось загрузить состояние лимита пользователей.';
+                this.changeDetector.markForCheck();
             },
         });
     }

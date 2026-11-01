@@ -83,7 +83,7 @@ export class MockAdminApiService extends AdminApi {
             fullName: request.fullName,
             department: request.department,
             managerId: request.managerId,
-            tenantId: null,
+            tenantId: request.tenantId,
             roleIds: [...request.roleIds],
             isActive: request.isActive,
         }).pipe(delay(150));

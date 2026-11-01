@@ -494,9 +494,11 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
         {
             entity.ToTable("dictionaries");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.Code).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
             entity.Property(x => x.IsSystem).HasDefaultValue(false);
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+
+            entity.HasOne(x => x.Tenant).WithMany(t => t.Dictionaries).HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<DictionaryValue>(entity =>
