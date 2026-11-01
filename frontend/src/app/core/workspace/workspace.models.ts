@@ -131,6 +131,7 @@ export interface CreateTicketRequest {
     requester: string;
     category?: string;
     type?: string;
+    typeId?: number;
     priority?: string;
     description?: string;
     assetId?: string;
@@ -317,10 +318,11 @@ export interface CreateUserRequest {
     fullName: string;
     email: string;
     username: string;
+    password: string;
     department: string;
     managerId: number | null;
-    initialPassword: string;
-    isActive: boolean;
+    tenantId: number | null;
+    isManager: boolean;
     roleIds: number[];
 }
 
