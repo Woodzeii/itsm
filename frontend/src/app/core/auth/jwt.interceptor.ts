@@ -39,10 +39,11 @@ export const jwtInterceptor: HttpInterceptorFn = (request, next) => {
                 });
             }
 
-            return throwError(() => error);
-        }),
-    );
-};
+    const authenticatedRequest = request.clone({
+        setHeaders: {
+            Authorization: `Bearer ${token}`
+        },
+    });
 
 function isAuthRequest(url: string): boolean {
     return AUTH_REQUESTS_WITHOUT_REDIRECT.some(path => url.includes(path));

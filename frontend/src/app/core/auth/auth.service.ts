@@ -17,6 +17,7 @@ const ROLE_KEY = 'itsm_user_role';
 const ROLES_KEY = 'itsm_user_roles';
 const ACTIVE_ROLE_KEY = 'itsm_active_role';
 const LOGIN_KEY = 'itsm_login';
+const TENANT_ID_KEY = 'itsm_tenant_id';
 
 export type UserRole = 'admin' | 'agent' | 'manager' | 'portal_user' | 'tenant_admin';
 
@@ -119,6 +120,7 @@ export class AuthService {
         const rolesValue = payload['roles'];
         const activeRoleValue = payload['activeRole'];
         const loginValue = payload['Login'] ?? payload['login'];
+        const tenantIdValue = payload['tenantId'] ?? payload['tenant_id'] ?? payload['TenantId'];
 
         if (typeof rolesValue === 'string') {
             localStorage.setItem(ROLES_KEY, rolesValue);
@@ -140,6 +142,12 @@ export class AuthService {
 
         if (typeof loginValue === 'string') {
             localStorage.setItem(LOGIN_KEY, loginValue);
+        }
+
+        if (typeof tenantIdValue === 'number' || (typeof tenantIdValue === 'string' && !isNaN(Number(tenantIdValue)))) {
+            localStorage.setItem(TENANT_ID_KEY, String(tenantIdValue));
+        } else {
+            localStorage.removeItem(TENANT_ID_KEY);
         }
     }
 
@@ -286,5 +294,6 @@ export class AuthService {
         localStorage.removeItem(ROLES_KEY);
         localStorage.removeItem(ACTIVE_ROLE_KEY);
         localStorage.removeItem(LOGIN_KEY);
+        localStorage.removeItem(TENANT_ID_KEY);
     }
 }

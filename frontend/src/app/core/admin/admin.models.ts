@@ -34,6 +34,7 @@ export interface CreateAdminUserRequest {
     fullName: string;
     department: string;
     managerId: number | null;
+    tenantId: number | null;
     initialPassword: string;
     isActive: boolean;
     roleIds: number[];

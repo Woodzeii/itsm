@@ -222,15 +222,78 @@ export interface CreatePortalAccountRequest {
 }
 
 export interface TenantRecord {
-    id: string;
+    id: number;
+    code: string;
     name: string;
-    firstAdminLogin: string;
-    active: boolean;
+    isActive: boolean;
+    createdAt: string;
+
+    // Лимиты
+    maxUsers: number;
+    maxAssets: number;
+    maxTickets: number;
+    maxStorageBytes: number;
+
+    // Блокировки
+    isBlocked: boolean;
+    blockReason?: string;
+    blockedAt?: string;
+    blockedUntil?: string;
+
+    // Статистика
+    currentUserCount: number;
+    currentAssetCount: number;
+    currentTicketCount: number;
+    currentStorageBytes: number;
+
+    // Вычисляемые проценты
+    usersPercentage: number;
+    assetsPercentage: number;
+    ticketsPercentage: number;
+    storagePercentage: number;
+}
+
+export interface TenantUserQuota {
+    tenantId: number;
+    tenantName: string;
+    activeUserCount: number;
+    maxUsers: number;
+    usersOverLimit: number;
+    usersEligibleForDeactivation: number;
+    graceEndsAt: string | null;
 }
 
 export interface CreateTenantRequest {
     name: string;
     firstAdminLogin: string;
+    firstAdminEmail: string;
+    firstAdminFullName: string;
+    firstAdminPassword: string;
+    maxUsers?: number;
+    maxAssets?: number;
+    maxTickets?: number;
+    maxStorageBytes?: number;
+}
+
+export interface UpdateTenantRequest {
+    name?: string;
+    maxUsers?: number;
+    maxAssets?: number;
+    maxTickets?: number;
+    maxStorageBytes?: number;
+}
+
+export interface UpdateTenantStatusRequest {
+    isActive: boolean;
+}
+
+export interface BlockTenantRequest {
+    reason?: string;
+    blockedUntil?: string;
+}
+
+export interface UnblockTenantRequest {
+    note?: string;
 }
 
 export interface SystemRoleOption {
