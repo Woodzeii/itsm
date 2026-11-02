@@ -15,7 +15,6 @@ export const jwtInterceptor: HttpInterceptorFn = (request, next) => {
     const auth = inject(AuthService);
     const router = inject(Router);
     const token = auth.getToken();
-
     const authenticatedRequest = token
         ? request.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
         : request;
@@ -39,11 +38,10 @@ export const jwtInterceptor: HttpInterceptorFn = (request, next) => {
                 });
             }
 
-    const authenticatedRequest = request.clone({
-        setHeaders: {
-            Authorization: `Bearer ${token}`
-        },
-    });
+            return throwError(() => error);
+        }),
+    );
+};
 
 function isAuthRequest(url: string): boolean {
     return AUTH_REQUESTS_WITHOUT_REDIRECT.some(path => url.includes(path));

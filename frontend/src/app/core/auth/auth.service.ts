@@ -170,6 +170,11 @@ export class AuthService {
         return localStorage.getItem(TOKEN_KEY);
     }
 
+    getTenantId(): number | null {
+        const tenantId = Number(localStorage.getItem(TENANT_ID_KEY));
+        return Number.isInteger(tenantId) && tenantId > 0 ? tenantId : null;
+    }
+
     /** Авторизован только при наличии неистёкшего JWT. Истёкший токен сразу очищается. */
     isAuthenticated(): boolean {
         const token = this.getToken();

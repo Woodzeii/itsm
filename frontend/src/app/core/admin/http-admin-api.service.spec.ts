@@ -129,6 +129,7 @@ describe('HttpAdminApiService user methods', () => {
             fullName: user.fullName,
             department: user.department ?? '',
             managerId: user.managerId,
+            tenantId: user.tenantId,
             initialPassword: 'StrongPassword1!',
             isActive: true,
             roleIds: user.roleIds,
@@ -145,6 +146,7 @@ describe('HttpAdminApiService user methods', () => {
             fullName: input.fullName,
             department: input.department,
             managerId: input.managerId,
+            tenantId: input.tenantId,
             isActive: input.isActive,
             roleIds: input.roleIds,
         });
