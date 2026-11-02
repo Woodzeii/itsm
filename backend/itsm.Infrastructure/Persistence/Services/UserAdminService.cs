@@ -144,11 +144,11 @@ public class UserAdminService : IUserAdminService
         var tenantId = isTenantAdmin
             ? request.TenantId ?? user.TenantId
             : _db.GetCurrentTenantId();
-        if (user.IsActive && tenantId != user.TenantId)
-            await EnsureUserQuotaAvailableAsync(tenantId, ct);
+        if (user.IsActive && tenantId.HasValue && tenantId != user.TenantId)
+            await EnsureUserQuotaAvailableAsync(tenantId.Value, ct);
         await EnsureTenantExistsAsync(tenantId, ct);
-        if (!user.IsActive && request.IsActive == true)
-            await EnsureUserQuotaAvailableAsync(tenantId, ct);
+        if (!user.IsActive && request.IsActive == true && tenantId.HasValue)
+            await EnsureUserQuotaAvailableAsync(tenantId.Value, ct);
 
         var roleIds = request.RoleIds?.Distinct().ToList();
         if (roleIds is not null)
@@ -241,8 +241,8 @@ public class UserAdminService : IUserAdminService
         var user = await LoadAsync(id, ct);
         if (!isActive)
             await EnsureCanDeactivateAsync(user, actorId, ct);
-        else if (!user.IsActive)
-            await EnsureUserQuotaAvailableAsync(user.TenantId, ct);
+        else if (!user.IsActive && user.TenantId.HasValue)
+            await EnsureUserQuotaAvailableAsync(user.TenantId.Value, ct);
 
         var old = new { user.IsActive };
         user.IsActive = isActive;

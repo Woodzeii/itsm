@@ -2536,7 +2536,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDefaultValue("Unverified")
                         .HasColumnName("status");
 
-                    b.Property<int>("TenantId")
+                    b.Property<int?>("TenantId")
                         .HasColumnType("integer")
                         .HasColumnName("tenant_id");
 
@@ -3306,7 +3306,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .WithMany("Users")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
                         .HasConstraintName("fk_users_tenants_tenant_id");
 
                     b.Navigation("Manager");
