@@ -25,7 +25,7 @@ public class JwtServiceTests
     public void MultiRoleToken_WithoutActiveRole_HasNoRoleClaims()
     {
         var token = Service.GenerateToken(
-            7, "m.multi", "m.multi@itsm.local", new[] { "admin", "agent" });
+            7, "m.multi", "m.multi@itsm.local", 1, new[] { "admin", "agent" });
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
 
@@ -38,7 +38,7 @@ public class JwtServiceTests
     public void MultiRoleToken_WithActiveRole_HasOnlySelectedRoleClaim()
     {
         var token = Service.GenerateToken(
-            7, "m.multi", "m.multi@itsm.local", new[] { "admin", "agent" }, "agent");
+            7, "m.multi", "m.multi@itsm.local", 1, new[] { "admin", "agent" }, "agent");
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
 
@@ -53,7 +53,7 @@ public class JwtServiceTests
     public void SingleRoleToken_IsActiveAutomatically()
     {
         var token = Service.GenerateToken(
-            3, "p.petrov", "p.petrov@itsm.local", new[] { "agent" });
+            3, "p.petrov", "p.petrov@itsm.local", 1, new[] { "agent" });
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
 
@@ -67,12 +67,23 @@ public class JwtServiceTests
     public void ActiveRole_NotAssignedToUser_IsIgnored()
     {
         var token = Service.GenerateToken(
-            7, "m.multi", "m.multi@itsm.local", new[] { "admin", "agent" }, "tenant_admin");
+            7, "m.multi", "m.multi@itsm.local", 1, new[] { "admin", "agent" }, "tenant_admin");
 
         var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
 
         jwt.Claims.Should().NotContain(claim => claim.Type == ClaimTypes.Role);
         jwt.Claims.Should().NotContain(claim => claim.Type == "activeRole");
+    }
+
+    [Fact]
+    public void Token_ContainsTenantIdClaim()
+    {
+        var token = Service.GenerateToken(
+            7, "m.multi", "m.multi@itsm.local", 42, new[] { "admin", "agent" });
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(token);
+
+        jwt.Claims.Should().Contain(claim => claim.Type == "tenant_id" && claim.Value == "42");
     }
 
     private static List<string> ReadRoles(JwtSecurityToken jwt)

@@ -24,7 +24,13 @@ public class JwtService : IJwtService
         _settings = settings.Value;
     }
 
-    public string GenerateToken(int userId, string login, string email, int tenantId, IEnumerable<string> roles)
+    public string GenerateToken(
+        int userId,
+        string login,
+        string email,
+        int tenantId,
+        IEnumerable<string> roles,
+        string? activeRole = null)
     {
         var rolesList = roles.ToList();
         var normalizedActiveRole = rolesList.FirstOrDefault(role =>
