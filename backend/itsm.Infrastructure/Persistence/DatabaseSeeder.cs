@@ -51,7 +51,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         // активной роли после 2FA.
         var multi = NewUser("m.multi", "m.multi@itsm.local", "Мультиролевой Пользователь", "IT", "pass123");
 
-        _db.Users.AddRange(tenantAdmin, admin, ivanov, petrov, sidorov, anna, maria);
+        _db.Users.AddRange(tenantAdmin, admin, ivanov, petrov, sidorov, anna, maria, multi);
         await _db.SaveChangesAsync(ct);
 
         // Иерархия: Петров → Иванов → Админ
@@ -73,7 +73,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         );
         await _db.SaveChangesAsync(ct);
 
-        _logger.LogInformation("DatabaseSeeder: создано 7 пользователей");
+        _logger.LogInformation("DatabaseSeeder: создано 8 пользователей");
     }
 
     private User NewUser(string username, string email, string fullName, string department, string password) => new()

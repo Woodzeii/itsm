@@ -623,7 +623,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         return of({ ...user, roleIds: [...user.roleIds] });
     }
 
-    updateUser(userId: number, changes: Partial<CreateUserRequest>): Observable<UserRecord> {
+    updateUser(userId: number, changes: Partial<UserRecord>): Observable<UserRecord> {
         const user = this.users.find(u => u.id === userId);
         if (!user) return this.fail('Пользователь не найден.');
 

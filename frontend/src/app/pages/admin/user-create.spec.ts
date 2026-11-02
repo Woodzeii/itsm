@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Router, provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AdminService } from '../../core/admin/admin.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { CreateAdminUserRequest, UserSummary } from '../../core/admin/admin.models';
 import { UserCreateComponent } from './user-create';
 
@@ -37,6 +38,7 @@ describe('UserCreateComponent', () => {
             providers: [
                 provideRouter([]),
                 { provide: AdminService, useValue: admin },
+                { provide: AuthService, useValue: { getTenantId: () => null } },
             ],
         }).compileComponents();
         router = TestBed.inject(Router);
@@ -53,6 +55,7 @@ describe('UserCreateComponent', () => {
             fullName: createdUser.fullName,
             department: createdUser.department ?? '',
             managerId: null,
+            tenantId: null,
             initialPassword: 'StrongPassword1!',
             isActive: true,
             roleIds: [3],
@@ -80,6 +83,7 @@ describe('UserCreateComponent', () => {
             fullName: 'Existing User',
             department: 'IT',
             managerId: null,
+            tenantId: null,
             initialPassword: 'StrongPassword1!',
             isActive: true,
             roleIds: [3],
