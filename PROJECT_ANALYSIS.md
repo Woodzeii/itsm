@@ -95,17 +95,17 @@
 
 | Требование | Статус | Комментарий |
 |---|---|---|
-| РОЛ-02–05 | **Частично** | Роли в JWT и guards (`admin`, `agent`, `manager`, `portal_user`, `tenant_admin`). Seeder создаёт пользователей с ролями. **Нет** полного RBAC на все операции ТЗ; **tenant_admin** и SaaS-тенанты — UI без API. |
-| РОЛ-01 Админ тенантов | **Частично** | Маршрут `/admin/tenants`, mock API. |
+| РОЛ-02–05 | **Частично** | Роли в JWT и guards (`admin`, `agent`, `manager`, `portal_user`, `tenant_admin`). Есть API управления пользователями и назначения ролей; полного RBAC на все операции ТЗ нет. |
+| РОЛ-01 Админ тенантов | **Частично** | Есть API управления тенантами (`TenantsController`) и экран `/admin/tenants`; frontend использует mock API. `tenant_admin` управляет платформенными тенантами. |
 
 ### 10. Нефункциональные (НФТ-*)
 
 | Требование | Статус | Комментарий |
 |---|---|---|
-| НФТ-01–02 SaaS / изоляция тенантов | **Нет** | `TenantId` на пользователях; мультитенантность не доведена. |
+| НФТ-01–02 SaaS / изоляция тенантов | **Частично** | Для tenant-scoped сущностей применяется EF query filter по `TenantId`; у пользователя `TenantId` nullable и также есть tenant-фильтр. Аккаунт `tenant_admin` не привязан к тенанту; миграция снимает привязку у таких пользователей. Полная изоляция уровня PostgreSQL (RLS) и проверка всех сценариев SaaS не реализованы. |
 | НФТ-07 Парольные политики, блокировка | **Нет** | Сущность `PasswordPolicy`; API `/api/security-settings` не реализован. |
 | НФТ-08 Журнал действий | **Нет** | `/api/audit-log` не реализован; есть `TicketAuditLog` по заявкам. |
-| НФТ-10 MFA обязательна для admin/agent | **Нет** | TOTP опционален (`/api/auth/2fa/*`); принудительного включения нет. |
+| НФТ-10 MFA обязательна для admin/agent | **Частично** | При первом входе сотрудники, включая созданных через админский API, проходят TOTP enrollment; portal-only пользователь может пропустить настройку. Для уже включённой 2FA требуется TOTP при входе. |
 | НФТ-11 Уведомления только в системе | **Частично** | Запись `Notification` при эскалации; **нет** API списка/прочтения уведомлений. |
 | НФТ-09 HTTPS | **Частично** | `UseHttpsRedirection` в API; типичный dev — HTTP на 5062/4200. |
 
@@ -172,9 +172,15 @@ Mock LDAP **снят**; login не использует внешний AD.
 
 Настройка эскалации по типу и назначение руководителя SD.
 
+### `/api/users`, `/api/tenants`
+
+`UsersController` предоставляет API управления пользователями: список, создание и изменение, активацию, назначение ролей, сброс MFA и разблокировку. Доступ разрешён ролям `admin` и `tenant_admin`.
+
+`TenantsController` предоставляет API списка и просмотра тенантов, создания, изменения, смены статуса, блокировки/разблокировки и удаления; также есть endpoint квоты пользователей текущего тенанта.
+
 ### Не реализовано (но есть в `openapi/index.json`)
 
-Assets, form-templates, reports, users/roles/security-settings, tenants, audit-log, notifications, SLA/working-schedules/calendar-exceptions, ticket-types/statuses/transitions, assignment-settings, criticality-levels, portal-маршруты и др.
+Assets, form-templates, reports, security-settings, audit-log, notifications, SLA/working-schedules/calendar-exceptions, ticket-types/statuses/transitions, assignment-settings, criticality-levels, portal-маршруты и др.
 
 ---
 
@@ -199,14 +205,13 @@ Seed в миграциях: роли, типы заявок, статусы, п�
 
 ## Тесты
 
-Последний прогон: **2026-10-19**, Docker доступен, команда из корня backend:
+Последний прогон: **2026-11-02**, команда из корня репозитория:
 
 ```powershell
-cd backend
-dotnet test
+dotnet test backend\itsm.sln
 ```
 
-**Итог: 33 пройдено, 4 не пройдено, 37 всего, ~49 с.**
+**Итог: 71 пройдено, 0 не пройдено, 71 всего (~77 с).**
 
 ### Backend (`backend/itsm.Tests`)
 
@@ -221,7 +226,7 @@ dotnet test
 |---|---:|---|---|
 | `IntegrationTests/TicketServiceIntegrationTests.cs` | 16 | Создание/очередь/статусы/назначение/ремонт↔актив, сообщения и вложения, видимость portal vs staff, ручная эскалация, правила эскалации, история заявок по активу, руководитель SD | **16/16** |
 | `RegistrationTests.cs` | 12 | `POST /api/auth/register`: валидация, дубликаты, email, слабый пароль, запись в БД, `RecordingEmailService` | **12/12** |
-| `AuthTests.cs` | 8 | QR enrollment and activation, TOTP challenge, portal-only skip, JWT claims, invalid credentials/code/challenge | Не выполнены локально: Docker недоступен |
+| `AuthTests.cs` | 10 | QR enrollment and activation, TOTP challenge, portal-only skip, JWT claims, invalid credentials/code/challenge; enrollment для admin, созданного tenant admin, и 2FA у tenant admin без тенанта | **10/10** |
 | `UnitTests/Infrastructure/PhysicalTicketAttachmentStorageTests.cs` | 2 | Файловое хранилище вложений, защита от path traversal | **2/2** |
 | `UnitTests/Infrastructure/ItsmDbContextTests.cs` | 1 | Схема модели: таблицы, ключи, `jsonb` | **1/1** |
 | `UnitTest1.cs` | 1 | Пустой placeholder | **1/1** |
