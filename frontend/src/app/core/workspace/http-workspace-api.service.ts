@@ -235,8 +235,11 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     blockTenant(tenantId: number, request: BlockTenantRequest) { return this.http.post<TenantRecord>(`${this.baseUrl}/tenants/${tenantId}/block`, request); }
     unblockTenant(tenantId: number) { return this.http.post<TenantRecord>(`${this.baseUrl}/tenants/${tenantId}/unblock`, {}); }
     deleteTenant(tenantId: number) { return this.http.delete<void>(`${this.baseUrl}/tenants/${tenantId}`); }
-    getUsers() { return this.http.get<UserRecord[]>(`${this.baseUrl}/users`); }
-    getSystemRoles() { return this.http.get<SystemRoleOption[]>(`${this.baseUrl}/system-roles`); }
+    getUsers() {
+        return this.http.get<{ items: UserRecord[] }>(`${this.baseUrl}/users`)
+            .pipe(map(response => response.items));
+    }
+    getSystemRoles() { return this.http.get<SystemRoleOption[]>(`${this.baseUrl}/users/roles`); }
     createUser(request: CreateUserRequest) { return this.http.post<UserRecord>(`${this.baseUrl}/users`, request); }
     setUserActive(userId: number, isActive: boolean) {
         return this.http.put<UserRecord>(`${this.baseUrl}/users/${userId}/active`, { isActive });
