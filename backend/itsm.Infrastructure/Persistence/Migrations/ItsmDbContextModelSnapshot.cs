@@ -1437,12 +1437,13 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("itsm.Domain.Entities.ServiceDeskHeadSetting", b =>
                 {
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -1454,7 +1455,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("user_id");
 
-                    b.HasKey("Id")
+                    b.HasKey("TenantId", "Id")
                         .HasName("pk_service_desk_head_settings");
 
                     b.HasIndex("UserId")

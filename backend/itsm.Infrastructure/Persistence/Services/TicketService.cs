@@ -446,7 +446,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
         var now = DateTimeOffset.UtcNow;
         var expiredUploads = await db.TicketAttachmentUploads
-            .Where(upload => upload.ExpiresAt <= now)
+            .Where(upload => upload.ExpiresAt <= now
+                && upload.Ticket.TenantId == db.GetCurrentTenantId())
             .ToListAsync(ct);
         foreach (var expiredUpload in expiredUploads)
             await attachmentStorage.DeleteAsync(expiredUpload.StorageKey, ct);
@@ -492,6 +493,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         var attachment = await db.Attachments
             .Where(item => item.Id == attachmentId
                 && item.TicketMessage.TicketId == ticketId
+                && item.TicketMessage.Ticket.TenantId == db.GetCurrentTenantId()
                 && (isStaff || (item.TicketMessage.Ticket.CreatorId == userId && item.TicketMessage.IsInternal != true)))
             .Select(item => new { item.FileName, item.FilePath })
             .FirstOrDefaultAsync(ct);
@@ -677,7 +679,12 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         var setting = await db.ServiceDeskHeadSettings.FirstOrDefaultAsync(item => item.Id == 1, ct);
         if (setting is null)
         {
-            setting = new ServiceDeskHeadSetting { Id = 1, UserId = user.Id };
+            setting = new ServiceDeskHeadSetting
+            {
+                Id = 1,
+                TenantId = db.GetCurrentTenantId(),
+                UserId = user.Id
+            };
             db.ServiceDeskHeadSettings.Add(setting);
         }
         else

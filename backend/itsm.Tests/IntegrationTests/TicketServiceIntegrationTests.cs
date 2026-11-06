@@ -34,6 +34,132 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
     }
 
     [Fact]
+    public async Task TicketRequestsAreRestrictedToTheCurrentTenant()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var tenantOneCreator = await CreateUserAsync(scope.Db);
+        var tenantOneTicket = await service.CreateAsync(
+            NewTicketRequest(),
+            tenantOneCreator.Id,
+            isStaff: false,
+            isEngineer: false);
+
+        await CreateTenantAsync(scope.Db, 2);
+        scope.Db.ChangeTracker.Clear();
+        scope.Db.SetTenantId(2);
+        var tenantTwoType = new TicketType
+        {
+            TenantId = 2,
+            Code = "incident",
+            Name = "Incident",
+            IsPortalAvailable = true
+        };
+        var tenantTwoStatus = new TicketStatus
+        {
+            TenantId = 2,
+            Code = "new",
+            Name = "New"
+        };
+        scope.Db.TicketTypes.Add(tenantTwoType);
+        scope.Db.TicketStatuses.Add(tenantTwoStatus);
+        await scope.Db.SaveChangesAsync();
+        var tenantTwoCreator = await CreateUserAsync(scope.Db);
+        var tenantTwoTicket = await service.CreateAsync(
+            NewTicketRequest(typeId: tenantTwoType.Id),
+            tenantTwoCreator.Id,
+            isStaff: false,
+            isEngineer: false);
+
+        Assert.Equal(2, await scope.Db.Tickets
+            .Where(ticket => ticket.Id == tenantTwoTicket.Id)
+            .Select(ticket => ticket.TenantId)
+            .SingleAsync());
+
+        var secondContextOptions = new DbContextOptionsBuilder<ItsmDbContext>()
+            .UseNpgsql(scope.Db.Database.GetConnectionString())
+            .UseSnakeCaseNamingConvention()
+            .Options;
+        await using (var secondContext = new ItsmDbContext(secondContextOptions, new TenantContext()))
+        {
+            secondContext.SetTenantId(2);
+            Assert.True(await secondContext.Tickets.AnyAsync(ticket => ticket.Id == tenantTwoTicket.Id));
+            Assert.True(await secondContext.Users.AnyAsync(user => user.Id == tenantTwoCreator.Id));
+            Assert.False(await secondContext.Users.AnyAsync(user => user.Id == tenantOneCreator.Id));
+            secondContext.SetTenantId(1);
+            Assert.False(await secondContext.Tickets.AnyAsync(ticket => ticket.Id == tenantTwoTicket.Id));
+            Assert.True(await secondContext.Users.AnyAsync(user => user.Id == tenantOneCreator.Id));
+            Assert.False(await secondContext.Users.AnyAsync(user => user.Id == tenantTwoCreator.Id));
+        }
+
+        scope.Db.ChangeTracker.Clear();
+        scope.Db.SetTenantId(1);
+        Assert.NotNull(await service.GetByIdAsync(tenantOneTicket.Id, tenantOneCreator.Id, isStaff: false));
+        Assert.Null(await service.GetByIdAsync(tenantTwoTicket.Id, tenantOneCreator.Id, isStaff: true));
+        Assert.Null(await service.UpdateAsync(
+            tenantTwoTicket.Id,
+            new UpdateTicketRequest { Priority = "Low" },
+            tenantOneCreator.Id));
+        Assert.Null(await service.GetMessagesAsync(tenantTwoTicket.Id, tenantOneCreator.Id, isStaff: true));
+        Assert.Null(await service.AssignAsync(
+            tenantTwoTicket.Id,
+            new AssignTicketRequest { AssigneeId = tenantOneCreator.Id },
+            tenantOneCreator.Id));
+        Assert.Null(await service.EscalateAsync(tenantTwoTicket.Id, tenantOneCreator.Id));
+        Assert.Single(await service.GetQueueAsync());
+    }
+
+    [Fact]
+    public async Task ExpiredAttachmentCleanupOnlyRemovesCurrentTenantUploads()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var tenantOneCreator = await CreateUserAsync(scope.Db);
+        var tenantOneTicket = await CreateTicketAsync(scope.Db, tenantOneCreator.Id);
+        var tenantOneUploadId = await CreateExpiredUploadAsync(service, scope.Db, tenantOneTicket.Id, tenantOneCreator.Id);
+
+        await CreateTenantAsync(scope.Db, 2);
+        scope.Db.ChangeTracker.Clear();
+        scope.Db.SetTenantId(2);
+        var tenantTwoType = new TicketType
+        {
+            TenantId = 2,
+            Code = "incident",
+            Name = "Incident",
+            IsPortalAvailable = true
+        };
+        var tenantTwoStatus = new TicketStatus
+        {
+            TenantId = 2,
+            Code = "new",
+            Name = "New"
+        };
+        scope.Db.TicketTypes.Add(tenantTwoType);
+        scope.Db.TicketStatuses.Add(tenantTwoStatus);
+        await scope.Db.SaveChangesAsync();
+        var tenantTwoCreator = await CreateUserAsync(scope.Db);
+        var tenantTwoTicket = await CreateTicketAsync(scope.Db, tenantTwoCreator.Id, typeId: tenantTwoType.Id, statusId: tenantTwoStatus.Id);
+        var tenantTwoUploadId = await CreateExpiredUploadAsync(service, scope.Db, tenantTwoTicket.Id, tenantTwoCreator.Id);
+
+        scope.Db.ChangeTracker.Clear();
+        scope.Db.SetTenantId(1);
+        var content = new MemoryStream(Encoding.UTF8.GetBytes("new upload"));
+        await using (content)
+            await service.UploadAttachmentAsync(
+                tenantOneTicket.Id,
+                tenantOneCreator.Id,
+                isStaff: false,
+                "new.txt",
+                content,
+                content.Length);
+
+        Assert.False(await scope.Db.TicketAttachmentUploads.IgnoreQueryFilters()
+            .AnyAsync(upload => upload.Id == tenantOneUploadId));
+        Assert.True(await scope.Db.TicketAttachmentUploads.IgnoreQueryFilters()
+            .AnyAsync(upload => upload.Id == tenantTwoUploadId));
+    }
+
+    [Fact]
     public async Task CreateRepairTicketRequiresEngineerAndMovesAssetIntoRepair()
     {
         await using var scope = await fixture.CreateScopeAsync();
@@ -436,6 +562,29 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
     }
 
     [Fact]
+    public async Task ServiceDeskHeadSettingIsIsolatedByTenant()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var tenantOneEngineer = await CreateUserAsync(scope.Db, "agent");
+        await service.SetServiceDeskHeadAsync(new SetServiceDeskHeadRequest { UserId = tenantOneEngineer.Id });
+
+        await CreateTenantAsync(scope.Db, 2);
+        scope.Db.ChangeTracker.Clear();
+        scope.Db.SetTenantId(2);
+        var tenantTwoEngineer = await CreateUserAsync(scope.Db, "agent");
+        await service.SetServiceDeskHeadAsync(new SetServiceDeskHeadRequest { UserId = tenantTwoEngineer.Id });
+        Assert.Equal(2, await scope.Db.ServiceDeskHeadSettings.IgnoreQueryFilters().CountAsync());
+
+        scope.Db.ChangeTracker.Clear();
+        scope.Db.SetTenantId(1);
+        Assert.Equal(tenantOneEngineer.Id, (await service.GetServiceDeskHeadAsync())!.UserId);
+        scope.Db.ChangeTracker.Clear();
+        scope.Db.SetTenantId(2);
+        Assert.Equal(tenantTwoEngineer.Id, (await service.GetServiceDeskHeadAsync())!.UserId);
+    }
+
+    [Fact]
     public async Task ServiceDeskHeadMustBeActiveSupportEngineer()
     {
         await using var scope = await fixture.CreateScopeAsync();
@@ -472,7 +621,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
             Username = $"user-{suffix}",
             Email = $"user-{suffix}@itsm.local",
             FullName = $"Test User {suffix[..8]}",
-            TenantId = 1,
+            TenantId = db.GetCurrentTenantId(),
             IsActive = isActive,
             Status = "Verified"
         };
@@ -490,6 +639,17 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         }
 
         return user;
+    }
+
+    private static async Task CreateTenantAsync(ItsmDbContext db, int tenantId)
+    {
+        db.Tenants.Add(new Tenant
+        {
+            Id = tenantId,
+            Code = $"tenant-{tenantId}",
+            Name = $"Tenant {tenantId}"
+        });
+        await db.SaveChangesAsync();
     }
 
     private static async Task<Asset> CreateAssetAsync(ItsmDbContext db, string stage)
@@ -510,14 +670,16 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         ItsmDbContext db,
         int creatorId,
         int? assetId = null,
-        int? criticalityLevelId = null)
+        int? criticalityLevelId = null,
+        int typeId = 1,
+        int statusId = 1)
     {
         var ticket = new Ticket
         {
             Title = "Integration test ticket",
             Description = "Ticket created by an integration test.",
-            TypeId = 1,
-            StatusId = 1,
+            TypeId = typeId,
+            StatusId = statusId,
             Priority = "High",
             CreatorId = creatorId,
             TenantId = db.GetCurrentTenantId(),
@@ -527,6 +689,31 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         db.Tickets.Add(ticket);
         await db.SaveChangesAsync();
         return ticket;
+    }
+
+    private static async Task<Guid> CreateExpiredUploadAsync(
+        TicketService service,
+        ItsmDbContext db,
+        int ticketId,
+        int userId)
+    {
+        var content = new MemoryStream(Encoding.UTF8.GetBytes("expired upload"));
+        await using (content)
+        {
+            var upload = await service.UploadAttachmentAsync(
+                ticketId,
+                userId,
+                isStaff: false,
+                "expired.txt",
+                content,
+                content.Length);
+            Assert.NotNull(upload);
+            var uploadId = Guid.ParseExact(upload.Id, "N");
+            var uploadRecord = await db.TicketAttachmentUploads.SingleAsync(item => item.Id == uploadId);
+            uploadRecord.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+            await db.SaveChangesAsync();
+            return uploadId;
+        }
     }
 
     private static CreateTicketRequest NewTicketRequest(int typeId = 1, int? assetId = null) =>
