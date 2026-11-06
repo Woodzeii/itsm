@@ -6,6 +6,7 @@ namespace itsm.Infrastructure.Persistence;
 public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantContext? tenantContext = null) : DbContext(options)
 {
     private readonly ITenantContext _tenantContext = tenantContext ?? new TenantContext();
+    public int CurrentTenantId => _tenantContext.GetCurrentTenantId();
     public DbSet<User> Users => Set<User>();
     public DbSet<SystemRole> SystemRoles => Set<SystemRole>();
     public DbSet<UserRoleMapping> UserRoleMappings => Set<UserRoleMapping>();
@@ -82,7 +83,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
                   .WithMany(t => t.Users)
                   .HasForeignKey(x => x.TenantId)
                   .OnDelete(DeleteBehavior.Restrict);
-            entity.HasQueryFilter(user => user.TenantId == _tenantContext.GetCurrentTenantId());
+            entity.HasQueryFilter(user => user.TenantId == CurrentTenantId);
         });
 
         modelBuilder.Entity<SystemRole>(entity =>
@@ -465,7 +466,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
         modelBuilder.Entity<ServiceDeskHeadSetting>(entity =>
         {
             entity.ToTable("service_desk_head_settings", table => table.HasCheckConstraint("ck_service_desk_head_settings_singleton", "id = 1"));
-            entity.HasKey(x => x.Id);
+            entity.HasKey(x => new { x.TenantId, x.Id });
             entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
 
             entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
@@ -664,15 +665,13 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
 
         foreach (var entityType in multiTenantTypes)
         {
-            // Создаём фильтр: e => e.TenantId == _tenantContext.GetCurrentTenantId()
+            // Read the tenant from this DbContext so EF can parameterize the filter per context.
             var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
             var property = System.Linq.Expressions.Expression.Property(parameter, tenantIdProperty);
-            var getTenantIdMethod = typeof(ITenantContext).GetMethod(nameof(ITenantContext.GetCurrentTenantId))!;
-            var getTenantIdCall = System.Linq.Expressions.Expression.Call(
-                System.Linq.Expressions.Expression.Constant(_tenantContext),
-                getTenantIdMethod
-            );
-            var equalExpression = System.Linq.Expressions.Expression.Equal(property, getTenantIdCall);
+            var currentTenantId = System.Linq.Expressions.Expression.Property(
+                System.Linq.Expressions.Expression.Constant(this),
+                nameof(CurrentTenantId));
+            var equalExpression = System.Linq.Expressions.Expression.Equal(property, currentTenantId);
             var lambda = System.Linq.Expressions.Expression.Lambda(equalExpression, parameter);
 
             entityType.SetQueryFilter(lambda);

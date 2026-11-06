@@ -24,7 +24,7 @@ public interface ITenantContext
 public class TenantContext : ITenantContext
 {
     private const int DefaultTenantId = 1;
-    private static readonly AsyncLocal<int?> _tenantId = new();
+    private readonly AsyncLocal<int?> _tenantId = new();
 
     public int GetCurrentTenantId()
     {
