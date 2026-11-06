@@ -323,8 +323,8 @@ public class TenantService : ITenantService
 
         var userCounts = await _db.Users
             .IgnoreQueryFilters()
-            .Where(user => tenantIds.Contains(user.TenantId) && user.IsActive)
-            .GroupBy(user => user.TenantId)
+            .Where(user => user.TenantId.HasValue && tenantIds.Contains(user.TenantId.Value) && user.IsActive)
+            .GroupBy(user => user.TenantId!.Value)
             .Select(group => new { TenantId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(group => group.TenantId, group => group.Count, ct);
 

@@ -82,6 +82,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
                   .WithMany(t => t.Users)
                   .HasForeignKey(x => x.TenantId)
                   .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(user => user.TenantId == _tenantContext.GetCurrentTenantId());
         });
 
         modelBuilder.Entity<SystemRole>(entity =>

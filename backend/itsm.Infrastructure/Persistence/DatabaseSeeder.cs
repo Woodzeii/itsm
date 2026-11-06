@@ -40,7 +40,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         var agentRoleId = await _db.SystemRoles.Where(r => r.Code == "agent").Select(r => r.Id).FirstAsync(ct);
         var portalRoleId = await _db.SystemRoles.Where(r => r.Code == "portal_user").Select(r => r.Id).FirstAsync(ct);
 
-        var tenantAdmin = NewUser("tenant.admin", "tenant.admin@itsm.local", "Администратор Тенантов", "Администрация", "admin123");
+        var tenantAdmin = NewUser("tenant.admin", "tenant.admin@itsm.local", "Администратор Тенантов", "Администрация", "admin123", tenantId: null);
         var admin = NewUser("admin", "admin@itsm.local", "Администратор Системы", "IT", "admin123");
         var ivanov = NewUser("i.ivanov", "i.ivanov@itsm.local", "Иван Иванов", "IT", "pass123");
         var petrov = NewUser("p.petrov", "p.petrov@itsm.local", "Пётр Петров", "IT", "pass123");
@@ -76,7 +76,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         _logger.LogInformation("DatabaseSeeder: создано 8 пользователей");
     }
 
-    private User NewUser(string username, string email, string fullName, string department, string password) => new()
+    private User NewUser(string username, string email, string fullName, string department, string password, int? tenantId = 1) => new()
     {
         Username = username,
         Email = email,
@@ -85,7 +85,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         Status = UserStatuses.Verified, // тестовые — уже подтверждённые
         PasswordHash = _passwordHasher.Hash(password),
         IsActive = true,
-        TenantId = 1,
+        TenantId = tenantId,
         CreatedAt = DateTimeOffset.UtcNow
     };
 }

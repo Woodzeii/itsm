@@ -283,7 +283,8 @@ public class AuthController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value, ct);
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == userId.Value, ct);
         if (user is null || !user.IsActive)
             return Unauthorized(new { message = "Сессия недействительна. Начните вход заново." });
 
@@ -315,7 +316,8 @@ public class AuthController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value, ct);
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == userId.Value, ct);
         if (user is null || !user.IsActive)
             return Unauthorized(new { message = "Сессия недействительна. Начните вход заново." });
 
@@ -326,7 +328,8 @@ public class AuthController : ControllerBase
                 StatusCodes.Status403Forbidden,
                 new { message = "Выбранная роль недоступна для этой учётной записи" });
 
-        var token = _jwt.GenerateToken(user.Id, user.Username, user.Email, user.TenantId, roles, activeRole);
+        var token = _jwt.GenerateToken(user.Id, user.Username, user.Email,
+            user.TenantId ?? _db.GetCurrentTenantId(), roles, activeRole);
         _logger.LogInformation(
             "Активная роль {Role} выбрана пользователем {Login} (userId={UserId})",
             activeRole, user.Username, user.Id);
@@ -350,7 +353,8 @@ public class AuthController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == userId.Value);
         if (user is null) return NotFound();
 
         if (user.IsTwoFactorEnabled)
@@ -382,7 +386,8 @@ public class AuthController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == userId.Value);
         if (user is null) return NotFound();
 
         if (user.IsTwoFactorEnabled)
@@ -410,7 +415,8 @@ public class AuthController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == userId.Value);
         if (user is null) return NotFound();
 
         return Ok(new TwoFactorStatusResponse
@@ -430,7 +436,8 @@ public class AuthController : ControllerBase
         var userId = GetCurrentUserId();
         if (userId is null) return Unauthorized();
 
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value);
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == userId.Value);
         if (user is null) return NotFound();
 
         var roles = await _userService.GetRolesAsync(user.Id);
@@ -497,7 +504,8 @@ public class AuthController : ControllerBase
     {
         // Одна роль — активна сразу; несколько — ждём выбора на промежуточном экране.
         var activeRole = roles.Count == 1 ? roles[0] : null;
-        var token = _jwt.GenerateToken(user.Id, user.Username, user.Email, user.TenantId, roles, activeRole);
+        var token = _jwt.GenerateToken(user.Id, user.Username, user.Email,
+            user.TenantId ?? _db.GetCurrentTenantId(), roles, activeRole);
         _logger.LogInformation("JWT выпущен для {Login} (userId={UserId})", user.Username, user.Id);
         return new VerifyTwoFactorResponse
         {
