@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import { AdminService } from '../../core/admin/admin.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/admin/admin.models';
+import { WorkspaceService } from '../../core/workspace/workspace.service';
 
 @Component({
     selector: 'app-user-create',
@@ -91,17 +92,19 @@ import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/adm
         </section>
 
         <section class="panel">
-          <header><span class="step">03</span><div><h2>Назначение ролей</h2><p>Можно выбрать несколько ролей одновременно</p></div></header>
-          <fieldset class="role-grid">
-            <legend class="visually-hidden">Роли пользователя</legend>
-            @for (role of roles; track role.id) {
-              <label class="role-option">
-                <input type="checkbox" [checked]="form.roleIds.includes(role.id)" (change)="toggleRole(role.id, $event)" />
-                <span>{{ role.name }}</span>
-              </label>
-            }
-          </fieldset>
-          @if (roles.length && form.roleIds.length === 0) { <p class="role-hint">Выберите хотя бы одну роль.</p> }
+          <header><span class="step">03</span><div><h2>Назначение роли</h2><p>Выберите одну роль: администратор, руководитель, инженер ТП или пользователь портала</p></div></header>
+          <div class="role-grid single-select">
+            <label>Роль
+              <select name="roleId" [ngModel]="selectedRoleId" (ngModelChange)="selectRole($event)">
+                <option [ngValue]="null">Не выбрана</option>
+                @for (role of availableRolesForCreate; track role.id) {
+                  <option [ngValue]="role.id" [disabled]="isRoleBlocked(role)">{{ role.name }}@if (isRoleBlocked(role)) { — {{ adminRoleBlockedMessage }} }</option>
+                }
+              </select>
+            </label>
+          </div>
+          @if (availableRolesForCreate.length && !selectedRoleId) { <p class="role-hint">Выберите хотя бы одну роль.</p> }
+          @if (isAdminRoleBlockedForCurrentUser) { <p class="role-hint">{{ adminRoleBlockedMessage }}</p> }
         </section>
 
         <footer class="form-actions"><span>Пароль не отображается в списке пользователей.</span><button class="primary" type="submit" [disabled]="saving || roles.length === 0 || !isFormValid()">{{ saving ? 'Создание…' : 'Создать пользователя' }}</button></footer>
@@ -161,6 +164,7 @@ import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/adm
 export class UserCreateComponent implements OnInit {
     private readonly admin = inject(AdminService);
     private readonly auth = inject(AuthService);
+    private readonly workspace = inject(WorkspaceService);
     private readonly router = inject(Router);
 
     managers: UserSummary[] = [];
@@ -168,24 +172,51 @@ export class UserCreateComponent implements OnInit {
     saving = false;
     error = '';
     notice = '';
+    selectedRoleId: number | null = null;
+    allowAdminsCreateAdmins = true;
     form = this.emptyForm();
 
+    get availableRolesForCreate(): RoleSummary[] {
+        return this.roles.filter(role => ['admin', 'manager', 'agent', 'portal_user'].includes(role.code));
+    }
+
+    get isAdminRoleBlockedForCurrentUser(): boolean {
+        return this.auth.getRole() === 'admin' && !this.allowAdminsCreateAdmins;
+    }
+
+    get adminRoleBlockedMessage(): string {
+        return 'Создание админа недоступно. Обратитесь к владельцу тенанта';
+    }
+
     ngOnInit(): void {
+        this.workspace.getAdminSettings().subscribe({
+            next: settings => {
+                this.allowAdminsCreateAdmins = settings.allowAdminsCreateAdmins ?? true;
+            },
+            error: () => {
+                this.allowAdminsCreateAdmins = true;
+            },
+        });
         this.admin.getUsers().subscribe({
             next: users => this.managers = users.filter(user => user.isActive),
             error: err => this.error = err.message || 'Не удалось загрузить список пользователей.',
         });
         this.admin.getRoles().subscribe({
-            next: roles => this.roles = roles.filter(role => ['admin', 'agent', 'portal_user'].includes(role.code)),
+            next: roles => {
+                this.roles = roles.filter(role => ['admin', 'manager', 'agent', 'portal_user'].includes(role.code));
+                this.selectedRoleId = this.form.roleIds[0] ?? null;
+            },
             error: err => this.error = err.message || 'Не удалось загрузить справочник ролей.',
         });
     }
 
-    toggleRole(roleId: number, event: Event): void {
-        const checked = (event.target as HTMLInputElement).checked;
-        this.form.roleIds = checked
-            ? [...new Set([...this.form.roleIds, roleId])]
-            : this.form.roleIds.filter(id => id !== roleId);
+    selectRole(roleId: number | null): void {
+        this.selectedRoleId = roleId;
+        this.form.roleIds = roleId ? [roleId] : [];
+    }
+
+    isRoleBlocked(role: RoleSummary): boolean {
+        return role.code === 'admin' && this.isAdminRoleBlockedForCurrentUser;
     }
 
     createUser(): void {

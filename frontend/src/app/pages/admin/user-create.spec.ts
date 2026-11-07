@@ -4,6 +4,7 @@ import { of, throwError } from 'rxjs';
 import { AdminService } from '../../core/admin/admin.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { CreateAdminUserRequest, UserSummary } from '../../core/admin/admin.models';
+import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { UserCreateComponent } from './user-create';
 
 describe('UserCreateComponent', () => {
@@ -38,7 +39,8 @@ describe('UserCreateComponent', () => {
             providers: [
                 provideRouter([]),
                 { provide: AdminService, useValue: admin },
-                { provide: AuthService, useValue: { getTenantId: () => null } },
+                { provide: AuthService, useValue: { getTenantId: () => null, getRole: () => 'admin' } },
+                { provide: WorkspaceService, useValue: { getAdminSettings: () => of({ allowAdminsCreateAdmins: true }) } },
             ],
         }).compileComponents();
         router = TestBed.inject(Router);

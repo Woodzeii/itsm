@@ -209,6 +209,7 @@ export interface AdminSettings {
     tenantMode?: 'on-premise' | 'saas';
     passwordPolicy?: { minLength: number; requireUppercase: boolean; requireSpecial: boolean; expiryDays: number; maxFailedAttempts: number; lockoutMinutes: number };
     reportAccessRoles?: string[];
+    allowAdminsCreateAdmins?: boolean;
 }
 
 export interface ReportSummary {

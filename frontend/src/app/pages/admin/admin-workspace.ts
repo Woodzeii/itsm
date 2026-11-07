@@ -34,6 +34,8 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
             <label class="check"><input type="checkbox" name="slaEnabled" [(ngModel)]="settings.slaEnabled" /> SLA включён в системе</label>
             <label class="check"><input type="checkbox" name="reportAdmin" [checked]="settings.reportAccessRoles?.includes('admin')" (change)="toggleReportRole('admin',$event)" /> Отчёты доступны администратору</label>
             <label class="check"><input type="checkbox" name="reportManager" [checked]="settings.reportAccessRoles?.includes('manager')" (change)="toggleReportRole('manager',$event)" /> Отчёты доступны руководителю</label>
+            <label class="check"><input type="checkbox" name="allowAdminsCreateAdmins" [(ngModel)]="settings.allowAdminsCreateAdmins" [disabled]="!canManageAdminCreationSetting" /> Администраторы могут создавать администраторов</label>
+            @if (!canManageAdminCreationSetting) { <p class="field-note">Настройка доступна только владельцу тенанта.</p> }
           </div></section>
 
           <section class="panel"><header><h2>Критичность</h2><p>От 3 до 5 уровней; уровень задаёт автор, инженер может изменить</p></header>
@@ -170,7 +172,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
                       <td data-label="Департамент"><input name="department" [(ngModel)]="editingUser!.department" /></td>
                       <td data-label="Руководитель"><select name="managerId" [(ngModel)]="editingUser!.managerId"><option [ngValue]="null">Не назначен</option>@for (manager of usersList.filter(u => u.id !== user.id && u.isActive); track manager.id) { <option [ngValue]="manager.id">{{ manager.fullName }}</option> }</select></td>
                       <td data-label="Статус"><label class="check"><input type="checkbox" [(ngModel)]="editingUser!.isActive" [disabled]="isSelfTenantOwner(user)" /><span>Активен</span></label></td>
-                      <td class="roles-cell" data-label="Роли"><div class="roles-list">@for (role of assignableRoles; track role.id) { <label class="role-check"><input type="checkbox" [checked]="(editingUser?.roleIds || []).includes(role.id)" (change)="toggleEditingUserRole(role.id, $event)" /><span>{{ role.name }}</span></label> }</div></td>
+                      <td class="roles-cell" data-label="Роли"><div class="roles-list">@for (role of assignableRoles; track role.id) { <label class="role-check"><input type="radio" [name]="'edit-role-' + user.id" [checked]="(editingUser?.roleIds || []).includes(role.id)" (change)="toggleEditingUserRole(role.id, $event)" [disabled]="role.code === 'admin' && !canCreateAdminRoleForCurrentUser" /><span>{{ role.name }}@if (role.code === 'admin' && !canCreateAdminRoleForCurrentUser) { <small> — Создание админа недоступно. Обратитесь к владельцу тенанта</small> }</span></label> }</div></td>
                       <td class="actions" data-label="Действия"><button type="button" aria-label="Сохранить пользователя" (click)="saveUser(user.id)">✓</button><button type="button" aria-label="Отменить редактирование" (click)="cancelEdit()">✕</button></td>
                     </tr>
                   } @else {
@@ -335,7 +337,12 @@ export class AdminWorkspaceComponent implements OnInit {
     newHoliday = '';
     readonly weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
-    get assignableRoles(): RoleSummary[] { return this.availableRoles.filter(role => ['admin', 'agent', 'portal_user'].includes(role.code)); }
+    get assignableRoles(): RoleSummary[] { return this.availableRoles.filter(role => ['admin', 'manager', 'agent', 'portal_user'].includes(role.code)); }
+    get canManageAdminCreationSetting(): boolean { return this.auth.isTenantOwner(); }
+    get canCreateAdminRoleForCurrentUser(): boolean {
+        if (this.auth.isTenantOwner() || this.auth.isTenantAdmin()) return true;
+        return this.auth.isAdmin() && (this.settings?.allowAdminsCreateAdmins ?? true);
+    }
     get pageTitle(): string { return { settings: 'Настройки Service Desk', forms: 'Конструктор форм', escalations: 'Процесс эскалации', reports: 'Отчёты', users: 'Управление пользователями' }[this.section]; }
     get activeForm(): TicketFormDefinition | undefined { return this.forms.find(form => form.ticketTypeId === this.formId); }
     get userDepartments(): string[] {
@@ -516,11 +523,10 @@ export class AdminWorkspaceComponent implements OnInit {
 
     toggleEditingUserRole(roleId: number, event: Event): void {
         if (!this.editingUser) return;
-        if (this.availableRoles.find(role => role.id === roleId)?.code === 'tenant_owner') return;
+        const selectedRole = this.availableRoles.find(role => role.id === roleId);
+        if (selectedRole?.code === 'tenant_owner') return;
         const checked = (event.target as HTMLInputElement).checked;
-        this.editingUser.roleIds = checked
-            ? [...new Set([...(this.editingUser.roleIds || []), roleId])]
-            : (this.editingUser.roleIds || []).filter(id => id !== roleId);
+        this.editingUser.roleIds = checked ? [roleId] : [];
     }
 
     saveUser(userId: number): void {
