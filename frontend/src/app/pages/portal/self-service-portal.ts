@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
@@ -107,6 +107,7 @@ export class SelfServicePortalComponent implements OnInit {
     private readonly portalApi = inject(HttpWorkspaceApiService);
     private readonly chatApi = inject(HttpWorkspaceApiService);
     private readonly auth = inject(AuthService);
+    private readonly changeDetector = inject(ChangeDetectorRef);
 
     readonly criticalities = ['Низкий', 'Средний', 'Высокий'];
     view: 'list' | 'create' | 'detail' = 'list';
@@ -137,21 +138,32 @@ export class SelfServicePortalComponent implements OnInit {
     get canEscalate(): boolean { return !!this.policyList.find(policy => policy.ticketTypeName === this.active?.type)?.allowManualByRequester; }
 
     ngOnInit(): void {
-        this.portalApi.getPortalTickets().subscribe({ next: tickets => this.tickets = tickets, error: err => this.error = err.message });
+        this.portalApi.getPortalTickets().subscribe({
+            next: tickets => { this.tickets = tickets; this.changeDetector.markForCheck(); },
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
+        });
         this.portalApi.getPortalTicketTypes().subscribe({
             next: types => {
                 this.ticketTypes = types;
                 this.typeId = String(types[0]?.id ?? '');
                 this.isLoadingTypes = false;
+                this.changeDetector.markForCheck();
             },
             error: err => {
                 this.error = err.message;
                 this.isLoadingTypes = false;
+                this.changeDetector.markForCheck();
             },
         });
         this.priority = 'Средний';
-        this.workspace.getAdminSettings().subscribe({ next: settings => this.settings = settings, error: err => this.error = err.message });
-        this.workspace.getEscalationPolicies().subscribe({ next: policies => this.policyList = policies, error: err => this.error = err.message });
+        this.workspace.getAdminSettings().subscribe({
+            next: settings => { this.settings = settings; this.changeDetector.markForCheck(); },
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
+        });
+        this.workspace.getEscalationPolicies().subscribe({
+            next: policies => { this.policyList = policies; this.changeDetector.markForCheck(); },
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
+        });
     }
 
     openCreate(): void { this.resetForm(); this.view = 'create'; }
@@ -170,11 +182,13 @@ export class SelfServicePortalComponent implements OnInit {
                 if (this.active?.id !== ticket.id) return;
                 this.active.comments = comments;
                 this.loadingComments = false;
+                this.changeDetector.markForCheck();
             },
             error: err => {
                 if (this.active?.id !== ticket.id) return;
                 this.error = err.message;
                 this.loadingComments = false;
+                this.changeDetector.markForCheck();
             },
         });
     }
@@ -186,7 +200,7 @@ export class SelfServicePortalComponent implements OnInit {
         if (!this.active) return;
         this.chatApi.downloadTicketAttachment(this.active.id, attachment).subscribe({
             next: blob => saveTicketAttachment(blob, attachment.fileName),
-            error: err => this.error = err.message,
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
         });
     }
 
@@ -208,10 +222,12 @@ export class SelfServicePortalComponent implements OnInit {
                 this.view = 'detail';
                 this.notice = `Заявка ${ticket.id} зарегистрирована.`; this.openTicket(ticket);
                 this.isSubmitting = false;
+                this.changeDetector.markForCheck();
             },
             error: err => {
                 this.error = err.message;
                 this.isSubmitting = false;
+                this.changeDetector.markForCheck();
             },
         });
     }
@@ -229,21 +245,39 @@ export class SelfServicePortalComponent implements OnInit {
                     if (this.commentFileInput) this.commentFileInput.value = '';
                 }
                 this.isSendingComment = false;
+                this.changeDetector.markForCheck();
             },
             error: err => {
                 this.error = err.message;
                 this.isSendingComment = false;
+                this.changeDetector.markForCheck();
             },
         });
     }
 
     review(accepted: boolean): void {
         if (!this.active) return;
-        this.workspace.reviewPortalTicket(this.active.id, accepted).subscribe({ next: ticket => { this.active = ticket; this.tickets = this.tickets.map(item => item.id === ticket.id ? ticket : item); this.notice = accepted ? 'Заявка закрыта.' : 'Заявка возвращена в работу.'; }, error: err => this.error = err.message });
+        this.workspace.reviewPortalTicket(this.active.id, accepted).subscribe({
+            next: ticket => {
+                this.active = ticket;
+                this.tickets = this.tickets.map(item => item.id === ticket.id ? ticket : item);
+                this.notice = accepted ? 'Заявка закрыта.' : 'Заявка возвращена в работу.';
+                this.changeDetector.markForCheck();
+            },
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
+        });
     }
 
     escalate(): void {
         if (!this.active) return;
-        this.workspace.escalateTicket(this.active.id, 'Автор заявки').subscribe({ next: result => { this.active!.priority = result.newPriority; this.active!.history = [{ id: result.createdAt, event: `Эскалация ${result.previousPriority} → ${result.newPriority}`, actor: result.initiator, createdAt: result.createdAt }, ...(this.active!.history ?? [])]; this.notice = `Руководитель уведомлен: ${result.recipients.join(', ')}.`; }, error: err => this.error = err.message });
+        this.workspace.escalateTicket(this.active.id, 'Автор заявки').subscribe({
+            next: result => {
+                this.active!.priority = result.newPriority;
+                this.active!.history = [{ id: result.createdAt, event: `Эскалация ${result.previousPriority} → ${result.newPriority}`, actor: result.initiator, createdAt: result.createdAt }, ...(this.active!.history ?? [])];
+                this.notice = `Руководитель уведомлен: ${result.recipients.join(', ')}.`;
+                this.changeDetector.markForCheck();
+            },
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
+        });
     }
 }
