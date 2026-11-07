@@ -71,6 +71,27 @@ describe('HttpWorkspaceApiService backend contract', () => {
         }]);
     });
 
+    it('loads ticket history and maps backend identifiers to strings', () => {
+        let history: unknown;
+        service.getTicketHistory('42').subscribe(result => history = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/history`);
+        expect(request.request.method).toBe('GET');
+        request.flush([{
+            id: 8,
+            event: 'Заявка создана',
+            actor: 'Agent',
+            createdAt: '2026-11-07T08:00:00Z',
+        }]);
+
+        expect(history).toEqual([{
+            id: '8',
+            event: 'Заявка создана',
+            actor: 'Agent',
+            createdAt: '2026-11-07T08:00:00Z',
+        }]);
+    });
+
     it('posts a ticket message with backend field names', () => {
         service.addTicketComment('42', {
             author: 'Agent',

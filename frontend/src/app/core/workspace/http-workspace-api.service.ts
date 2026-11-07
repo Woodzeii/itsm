@@ -26,6 +26,7 @@ import {
     RepairCloseRequest,
     ReportSummary,
     TicketComment,
+    TicketHistory,
     TicketAttachment,
     TicketFormDefinition,
     Ticket,
@@ -137,6 +138,15 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     getTicketComments(ticketId: string) {
         return this.http.get<BackendTicketMessage[]>(`${this.baseUrl}/tickets/${ticketId}/messages`)
             .pipe(map(messages => messages.map(toTicketComment)));
+    }
+    getTicketHistory(ticketId: string) {
+        return this.http.get<BackendTicketHistory[]>(`${this.baseUrl}/tickets/${ticketId}/history`)
+            .pipe(map(history => history.map(item => ({
+                id: String(item.id),
+                event: item.event,
+                actor: item.actor,
+                createdAt: item.createdAt,
+            }))));
     }
     addTicketComment(
         ticketId: string,
@@ -410,6 +420,13 @@ interface BackendTicketMessage {
     isInternal?: boolean;
     attachments?: { id?: number; fileName?: string }[];
     createdAt?: string;
+}
+
+interface BackendTicketHistory {
+    id: number;
+    event: string;
+    actor: string;
+    createdAt: string;
 }
 
 interface BackendTicketEscalation {

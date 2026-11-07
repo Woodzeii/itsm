@@ -61,7 +61,7 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType,TicketAttachment, 
             @if (selected.type === 'Тикет на ремонт' && selected.status !== 'Закрыта') {
               <form class="repair-close" (ngSubmit)="closeRepair()"><label>Результат ремонта<select name="result" [(ngModel)]="repairResult"><option value="В эксплуатацию">Вернуть в эксплуатацию</option><option value="На склад">Перевести на склад</option><option value="Списать">Списать</option></select></label><label>Что ремонтировалось и что менялось<textarea name="work" [(ngModel)]="repairDescription" required></textarea></label><button class="primary" type="submit" [disabled]="!repairDescription.trim()">Закрыть ремонт</button></form>
             }
-            <section class="history"><h3>История заявки</h3>@for (item of selected.history ?? []; track item.id) { <article><strong>{{ item.event }}</strong><small>{{ item.createdAt }} · {{ item.actor }}</small></article> }</section>
+            <section class="history"><h3>История заявки</h3>@if (loadingHistory) { <p class="empty">Загрузка истории...</p> } @else if (selected.history?.length) { @for (item of selected.history; track item.id) { <article><strong>{{ item.event }}</strong><small>{{ item.createdAt }} · {{ item.actor }}</small></article> } } @else { <p class="empty">История изменений пока пуста.</p> }</section>
             <section class="comments"><h3>Переписка</h3>@if (loadingComments) { <p class="empty">Загрузка сообщений...</p> } @for (comment of visibleComments; track comment.id) { <article [class.internal]="comment.internal"><strong>{{ comment.author }} @if (comment.internal) { <span>Внутренний комментарий</span> }</strong><p>{{ comment.message }}</p><small>{{ comment.createdAt }}</small>@if (comment.attachmentRecords?.length) { @for (attachment of comment.attachmentRecords; track attachment.id) { <button class="attachment" type="button" (click)="downloadAttachment(attachment)">📎 {{ attachment.fileName }}</button> } } @else { @for (file of comment.attachments; track file) { <small class="attachment">📎 {{ file }}</small> } }</article> }
               <form (ngSubmit)="addComment()"><textarea name="message" [(ngModel)]="commentText" placeholder="Сообщение по заявке" required></textarea><label class="file-picker">Прикрепить файлы<input type="file" multiple (change)="pickAttachments($event)" /></label>@if (canUseInternalComments) { <label class="internal-toggle"><input type="checkbox" name="internal" [(ngModel)]="internalComment" /> Внутренний комментарий</label> }<button class="primary" type="submit" [disabled]="isSendingComment || !commentText.trim()">Отправить</button></form>
             </section>
@@ -136,6 +136,7 @@ export class TicketQueueComponent implements OnInit {
     isEngineer = false;
     canUseInternalComments = false;
     loadingComments = false;
+    loadingHistory = false;
     query = '';
     typeFilter = '';
     assigneeFilter = '';
@@ -262,11 +263,12 @@ export class TicketQueueComponent implements OnInit {
     }
 
     select(ticket: Ticket): void {
-        this.selected = { ...ticket, comments: [] };
+        this.selected = { ...ticket, comments: [], history: [] };
         this.repairDescription = '';
         this.assigneeDraft = '';
         this.priorityDraft = ticket.priority;
         this.loadingComments = true;
+        this.loadHistory(ticket.id);
         this.ticketsApi.getTicketComments(ticket.id).subscribe({
             next: comments => {
                 if (this.selected?.id === ticket.id) {
@@ -345,6 +347,33 @@ export class TicketQueueComponent implements OnInit {
         this.ticketsApi.closeRepairTicket(this.selected.id, { result: this.repairResult, workDescription: this.repairDescription }).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = 'Тикет на ремонт закрыт.'; this.changeDetector.markForCheck(); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } });
     }
 
-    private updateTicket(ticket: Ticket): void { this.tickets = this.tickets.map(item => item.id === ticket.id ? ticket : item); this.selected = ticket; }
+    private updateTicket(ticket: Ticket): void {
+        this.tickets = this.tickets.map(item => item.id === ticket.id ? ticket : item);
+        this.selected = {
+            ...ticket,
+            comments: this.selected?.comments ?? [],
+            history: this.selected?.history ?? [],
+        };
+        this.loadHistory(ticket.id);
+    }
     private load(resetSelection = true): void { this.ticketsApi.getTickets().subscribe({ next: tickets => { this.tickets = tickets; if (resetSelection) this.selected = null; this.changeDetector.markForCheck(); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } }); }
+    private loadHistory(ticketId: string): void {
+        this.loadingHistory = true;
+        this.ticketsApi.getTicketHistory(ticketId).subscribe({
+            next: history => {
+                if (this.selected?.id === ticketId) {
+                    this.selected.history = history;
+                    this.loadingHistory = false;
+                    this.changeDetector.markForCheck();
+                }
+            },
+            error: err => {
+                if (this.selected?.id === ticketId) {
+                    this.error = err.message;
+                    this.loadingHistory = false;
+                    this.changeDetector.markForCheck();
+                }
+            },
+        });
+    }
 }

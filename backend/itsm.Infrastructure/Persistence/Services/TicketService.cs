@@ -546,6 +546,33 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         return messages.Select(ToMessageResponse).ToArray();
     }
 
+    public async Task<IReadOnlyList<TicketHistoryResponse>?> GetHistoryAsync(
+        int id,
+        int userId,
+        bool isStaff,
+        CancellationToken ct = default)
+    {
+        var ticket = await db.Tickets
+            .Where(item => item.Id == id && (isStaff || item.CreatorId == userId))
+            .Select(item => new { item.Id, item.TenantId })
+            .FirstOrDefaultAsync(ct);
+        if (ticket is null)
+            return null;
+
+        var auditLogs = await db.TicketAuditLogs
+            .Where(log => log.TicketId == id && log.Ticket.TenantId == ticket.TenantId)
+            .Include(log => log.User)
+            .OrderByDescending(log => log.ChangedAt)
+            .ThenByDescending(log => log.Id)
+            .ToListAsync(ct);
+
+        return auditLogs.Select(log => new TicketHistoryResponse(
+            log.Id,
+            FormatAuditEvent(log),
+            log.User.FullName,
+            log.ChangedAt)).ToArray();
+    }
+
     public async Task<TicketMessageResponse?> CreateMessageAsync(
         int id,
         CreateTicketMessageRequest request,
@@ -802,6 +829,25 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             NewValue = newValue,
             ChangedAt = DateTimeOffset.UtcNow
         });
+    }
+
+    private static string FormatAuditEvent(TicketAuditLog log)
+    {
+        if (log.FieldName == "created")
+            return "Заявка создана";
+
+        var fieldName = log.FieldName switch
+        {
+            "priority" => "Приоритет",
+            "statusId" => "Статус",
+            "assigneeId" => "Исполнитель",
+            "criticalityLevelId" => "Критичность",
+            _ => log.FieldName
+        };
+        var change = log.OldValue is null
+            ? log.NewValue
+            : $"{log.OldValue} → {log.NewValue}";
+        return $"{fieldName} изменен: {change}";
     }
 
     private static TicketResponse ToResponse(Ticket ticket) => new(

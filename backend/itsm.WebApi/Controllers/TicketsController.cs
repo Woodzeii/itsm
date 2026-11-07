@@ -200,6 +200,19 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         return messages is null ? NotFound() : Ok(messages);
     }
 
+    [HttpGet("{id:int}/history")]
+    [EndpointSummary("Получить историю изменений заявки")]
+    [ProducesResponseType(typeof(IReadOnlyList<TicketHistoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<TicketHistoryResponse>>> GetHistory(int id, CancellationToken ct)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var history = await service.GetHistoryAsync(id, userId, IsStaff(), ct);
+        return history is null ? NotFound() : Ok(history);
+    }
+
     [HttpPost("{id:int}/messages")]
     [EndpointSummary("Добавить сообщение к заявке")]
     [ProducesResponseType(typeof(TicketMessageResponse), StatusCodes.Status201Created)]
