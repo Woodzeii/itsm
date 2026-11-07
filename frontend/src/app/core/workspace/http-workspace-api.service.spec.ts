@@ -194,6 +194,51 @@ describe('HttpWorkspaceApiService backend contract', () => {
         request.flush({ id: 42, title: 'Нет доступа к VPN' });
     });
 
+    it('loads the signed-in user tickets from the portal endpoint', () => {
+        let tickets: unknown;
+        service.getPortalTickets().subscribe(result => tickets = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/mine`);
+        expect(request.request.method).toBe('GET');
+        request.flush([{ id: 42, title: 'VPN', typeName: 'Инцидент', statusName: 'Новая' }]);
+
+        expect(tickets).toMatchObject([{ id: '42', title: 'VPN', type: 'Инцидент' }]);
+    });
+
+    it('loads available portal ticket types', () => {
+        let types: unknown;
+        service.getPortalTicketTypes().subscribe(result => types = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/portal-types`);
+        expect(request.request.method).toBe('GET');
+        request.flush([{ id: 1, name: 'Инцидент' }]);
+
+        expect(types).toEqual([{ id: 1, name: 'Инцидент' }]);
+    });
+
+    it('creates a portal ticket with its selected type and three built-in fields', () => {
+        service.createPortalTicket({
+            title: 'Нет доступа к VPN',
+            description: 'Не подключается',
+            requester: 'Иван',
+            type: 'Инцидент',
+            typeId: 1,
+            priority: 'Средний',
+        }).subscribe();
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets`);
+        expect(request.request.method).toBe('POST');
+        expect(request.request.body).toEqual({
+            title: 'Нет доступа к VPN',
+            description: 'Не подключается',
+            typeId: 1,
+            priority: 'Средний',
+            assetId: null,
+            customFieldsData: null,
+        });
+        request.flush({ id: 43, title: 'Нет доступа к VPN', typeName: 'Инцидент' });
+    });
+
     it('builds the overview from the real ticket queue', () => {
         let overview: { metrics: { label: string; value: string }[] } | undefined;
         service.getOverview().subscribe(result => overview = result);

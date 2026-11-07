@@ -6,7 +6,8 @@ import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 import { downloadTicketAttachment as saveTicketAttachment } from '../../core/workspace/download-ticket-attachment';
-import { AdminSettings, Ticket, TicketAttachment } from '../../core/workspace/workspace.models';
+import { AdminSettings, PortalTicketRequest, PortalTicketType,TicketAttachment, Ticket } from '../../core/workspace/workspace.models';
+
 
 @Component({
     selector: 'app-ticket-queue',
@@ -14,9 +15,23 @@ import { AdminSettings, Ticket, TicketAttachment } from '../../core/workspace/wo
     imports: [CommonModule, FormsModule, RouterLink],
     template: `
     <section class="page">
-      <header class="heading"><div><p class="eyebrow">Service Desk / единая очередь</p><h1>Заявки</h1></div><a class="secondary" routerLink="/admin/settings">Типы заявок и SLA</a></header>
+      <header class="heading"><div><p class="eyebrow">Service Desk / единая очередь</p><h1>Заявки</h1></div><div class="heading-actions"><button class="primary" type="button" (click)="openCreate()">+ Новая заявка</button><a class="secondary" routerLink="/admin/settings">Типы заявок и SLA</a></div></header>
       @if (error) { <p class="notice error">{{ error }}</p> }
       @if (notice) { <p class="notice success">{{ notice }}</p> }
+      @if (showCreateForm) {
+        <form class="panel create-form" (ngSubmit)="createTicket()">
+          <div class="create-heading"><div><p class="eyebrow">Новая заявка</p><h2>Заполните основные данные</h2></div><button class="icon-button" type="button" aria-label="Закрыть форму" (click)="showCreateForm = false">×</button></div>
+          @if (loadingTypes) { <p class="empty">Загружаем доступные типы заявок...</p> }
+          @else {
+            <label>Тип заявки<select name="newTicketType" required [(ngModel)]="newTicketTypeId"><option value="">Выберите тип заявки</option>@for (type of ticketTypes; track type.id) { <option [value]="type.id">{{ type.name }}</option> }</select></label>
+            <label>Тема<input name="newTicketTitle" required maxlength="300" [(ngModel)]="newTicketTitle" placeholder="Кратко сформулируйте вопрос" /></label>
+            <label>Критичность<select name="newTicketPriority" required [(ngModel)]="newTicketPriority">@for (priority of criticalities; track priority) { <option [value]="priority">{{ priority }}</option> }</select></label>
+            <label class="wide">Описание<textarea name="newTicketDescription" required maxlength="10000" [(ngModel)]="newTicketDescription" placeholder="Подробно опишите ситуацию и ожидаемый результат"></textarea></label>
+            <footer class="create-actions"><button class="primary" type="submit" [disabled]="isSubmitting || !newTicketTypeId || !newTicketTitle.trim() || !newTicketDescription.trim()">Создать заявку</button><button class="secondary" type="button" (click)="showCreateForm = false">Отмена</button></footer>
+          }
+          @if (!loadingTypes && !ticketTypes.length) { <p class="notice error">Нет доступных типов заявок.</p> }
+        </form>
+      }
       <div class="queue-layout">
         <section class="panel queue">
           <div class="filters">
@@ -59,6 +74,14 @@ import { AdminSettings, Ticket, TicketAttachment } from '../../core/workspace/wo
       :host { display:block; color:#202734; } .page { max-width:1600px; margin:auto; padding:25px 26px 36px; }
       .heading,.detail-heading { display:flex; align-items:center; justify-content:space-between; gap:14px; }
       .heading { margin-bottom:17px; } h1 { margin:0; font-size:24px; } h2 { margin:0; font-size:15px; } h3 { margin:0 0 10px; font-size:12px; }
+      .heading-actions { display:flex; align-items:center; gap:8px; }
+      .create-form { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:14px; padding:16px; }
+      .create-heading,.wide,.create-actions { grid-column:1/-1; }
+      .create-heading { display:flex; align-items:center; justify-content:space-between; }
+      .create-form label { display:grid; gap:5px; color:#697586; font-size:10px; }
+      .create-form input,.create-form select,.create-form textarea { min-width:0; box-sizing:border-box; width:100%; min-height:36px; padding:7px 9px; border:1px solid #dfe4ea; border-radius:5px; background:#fff; font-size:10px; }
+      .create-form textarea { min-height:72px; resize:vertical; }
+      .create-actions { display:flex; gap:8px; padding-top:10px; border-top:1px solid #edf0f4; }
       .eyebrow { margin:0 0 5px; color:#8a94a2; font-size:10px; } .panel { min-width:0; border:1px solid #e1e6ec; border-radius:8px; background:#fff; }
       .queue-layout { display:grid; grid-template-columns:minmax(0,1fr) 360px; gap:14px; align-items:start; }
       .queue { overflow:hidden; } .filters { display:grid; grid-template-columns:minmax(160px,1.5fr) repeat(4,minmax(120px,1fr)); gap:8px; padding:12px; border-bottom:1px solid #edf0f4; }
@@ -97,7 +120,7 @@ import { AdminSettings, Ticket, TicketAttachment } from '../../core/workspace/wo
       .notice { padding:9px 12px; border-radius:5px; font-size:10px; } .error { background:#fff1ef; color:#a93232; } .success { background:#edf8f2; color:#176f52; }
       .secondary { color:#536173; text-decoration:none; display:inline-flex; align-items:center; }
       @media(max-width:1150px) { .queue-layout { grid-template-columns:1fr; } .ticket-detail { position:static; max-height:none; } .filters { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-      @media(max-width:600px) { .page { padding:20px 12px 28px; } .heading { align-items:flex-start; flex-direction:column; } .filters { grid-template-columns:1fr; } }
+      @media(max-width:600px) { .page { padding:20px 12px 28px; } .heading { align-items:flex-start; flex-direction:column; } .heading-actions { flex-wrap:wrap; } .create-form { grid-template-columns:1fr; } .create-heading,.wide,.create-actions { grid-column:auto; } .filters { grid-template-columns:1fr; } }
     `],
 })
 export class TicketQueueComponent implements OnInit {
@@ -126,6 +149,15 @@ export class TicketQueueComponent implements OnInit {
     repairResult: 'В эксплуатацию' | 'На склад' | 'Списать' = 'В эксплуатацию';
     assigneeDraft = '';
     priorityDraft = '';
+    ticketTypes: PortalTicketType[] = [];
+    criticalities = ['Низкий', 'Средний', 'Высокий'];
+    newTicketTypeId = '';
+    newTicketTitle = '';
+    newTicketDescription = '';
+    newTicketPriority = 'Средний';
+    showCreateForm = false;
+    loadingTypes = false;
+    isSubmitting = false;
     notice = '';
     error = '';
 
@@ -159,7 +191,65 @@ export class TicketQueueComponent implements OnInit {
         this.canUseInternalComments = this.auth.getRole() === 'admin' || this.auth.getRole() === 'agent';
         this.load();
       this.workspace.getAdminSettings().subscribe({ next: settings => this.settings = settings, error: err => this.error = err.message });
-        this.route.queryParamMap.subscribe(params => this.query = params.get('q') ?? '');
+        this.route.queryParamMap.subscribe(params => {
+            this.query = params.get('q') ?? '';
+            if (params.get('create') === 'true') this.openCreate();
+        });
+    }
+
+    openCreate(): void {
+        this.showCreateForm = true;
+        this.newTicketTitle = '';
+        this.newTicketDescription = '';
+        this.newTicketPriority = this.settings?.criticalities?.[1] ?? 'Средний';
+        this.error = '';
+        if (this.ticketTypes.length || this.loadingTypes) return;
+
+        this.loadingTypes = true;
+        this.ticketsApi.getPortalTicketTypes().subscribe({
+            next: types => {
+                this.ticketTypes = types;
+                this.newTicketTypeId = String(types[0]?.id ?? '');
+                this.loadingTypes = false;
+            },
+            error: err => {
+                this.error = err.message;
+                this.loadingTypes = false;
+            },
+        });
+    }
+
+    createTicket(): void {
+        const typeId = Number(this.newTicketTypeId);
+        const selectedType = this.ticketTypes.find(type => type.id === typeId);
+        if (!selectedType || !Number.isInteger(typeId) || !this.newTicketTitle.trim() || !this.newTicketDescription.trim()) {
+            this.error = 'Заполните тему, описание и выберите тип заявки.';
+            return;
+        }
+
+        const request: PortalTicketRequest = {
+            title: this.newTicketTitle.trim(),
+            description: this.newTicketDescription.trim(),
+            requester: this.auth.getLogin(),
+            type: selectedType.name,
+            typeId,
+            priority: this.newTicketPriority,
+        };
+        this.isSubmitting = true;
+        this.error = '';
+        this.ticketsApi.createPortalTicket(request).subscribe({
+            next: ticket => {
+                this.tickets = [ticket, ...this.tickets];
+                this.selected = ticket;
+                this.showCreateForm = false;
+                this.notice = `Заявка ${ticket.id} создана.`;
+                this.isSubmitting = false;
+            },
+            error: err => {
+                this.error = err.message;
+                this.isSubmitting = false;
+            },
+        });
     }
 
     select(ticket: Ticket): void {

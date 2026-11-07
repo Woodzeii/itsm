@@ -22,6 +22,24 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         return tickets.Select(ToResponse).ToArray();
     }
 
+    public async Task<IReadOnlyList<TicketResponse>> GetMyTicketsAsync(int userId, CancellationToken ct = default)
+    {
+        var tickets = await TicketQuery()
+            .Where(ticket => ticket.CreatorId == userId)
+            .OrderByDescending(ticket => ticket.CreatedAt)
+            .ToListAsync(ct);
+
+        return tickets.Select(ToResponse).ToArray();
+    }
+
+    public async Task<IReadOnlyList<PortalTicketTypeResponse>> GetPortalTicketTypesAsync(CancellationToken ct = default) =>
+        await db.TicketTypes
+            .AsNoTracking()
+            .Where(type => type.IsPortalAvailable && type.Code != RepairTypeCode)
+            .OrderBy(type => type.Id)
+            .Select(type => new PortalTicketTypeResponse(type.Id, type.Name))
+            .ToArrayAsync(ct);
+
     public async Task<TicketResponse?> GetByIdAsync(
         int id,
         int userId,

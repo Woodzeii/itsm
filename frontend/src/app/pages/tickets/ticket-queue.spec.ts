@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
-import { of } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
@@ -39,9 +39,13 @@ describe('TicketQueueComponent real queue', () => {
         assignTicket: ReturnType<typeof vi.fn>;
         getTicketComments: ReturnType<typeof vi.fn>;
         addTicketComment: ReturnType<typeof vi.fn>;
+        getPortalTicketTypes: ReturnType<typeof vi.fn>;
+        createPortalTicket: ReturnType<typeof vi.fn>;
     };
+    let queryParams: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
 
     beforeEach(async () => {
+        queryParams = new BehaviorSubject(convertToParamMap({}));
         api = {
             getTickets: vi.fn().mockReturnValue(of([openTicket, assignedTicket])),
             knownAssigneeNames: vi.fn().mockReturnValue(['Пётр Петров']),
@@ -58,6 +62,8 @@ describe('TicketQueueComponent real queue', () => {
                 internal: true,
                 attachments: [],
             } satisfies TicketComment)),
+            getPortalTicketTypes: vi.fn().mockReturnValue(of([{ id: 1, name: 'Инцидент' }])),
+            createPortalTicket: vi.fn().mockReturnValue(of({ ...openTicket, id: '44', title: 'Новая заявка' })),
         };
 
         await TestBed.configureTestingModule({
@@ -89,7 +95,7 @@ describe('TicketQueueComponent real queue', () => {
                 },
                 {
                     provide: ActivatedRoute,
-                    useValue: { queryParamMap: of(convertToParamMap({})) },
+                    useValue: { queryParamMap: queryParams.asObservable() },
                 },
             ],
         }).compileComponents();
@@ -168,5 +174,32 @@ describe('TicketQueueComponent real queue', () => {
         };
 
         expect(component.visibleComments.map(comment => comment.id)).toEqual(['m2']);
+    it('opens the creation form from the overview create query parameter', () => {
+        const component = createComponent();
+        queryParams.next(convertToParamMap({ create: 'true' }));
+
+        expect(component.showCreateForm).toBe(true);
+        expect(api.getPortalTicketTypes).toHaveBeenCalled();
+        expect(component.newTicketTypeId).toBe('1');
     });
-});
+
+    it('creates a ticket from the queue form and adds it to the queue', () => {
+        const component = createComponent();
+        component.openCreate();
+        component.newTicketTitle = 'Новая заявка';
+        component.newTicketDescription = 'Подробное описание';
+
+        component.createTicket();
+
+        expect(api.createPortalTicket).toHaveBeenCalledWith({
+            title: 'Новая заявка',
+            description: 'Подробное описание',
+            requester: 'agent',
+            type: 'Инцидент',
+            typeId: 1,
+            priority: 'Средний',
+        });
+        expect(component.tickets[0].id).toBe('44');
+        expect(component.showCreateForm).toBe(false);
+    });
+});})
