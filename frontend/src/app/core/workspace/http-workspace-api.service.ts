@@ -21,6 +21,7 @@ import {
     Escalation,
     FormFieldDefinition,
     OverviewData,
+    PortalTicketType,
     PortalTicketRequest,
     RepairCloseRequest,
     ReportSummary,
@@ -198,9 +199,16 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         // В контракте отчёты требуют reportType: /api/reports/{reportType}; текущий backend их не реализует.
         return this.unsupported<ReportSummary[]>('reports');
     }
-    getPortalTickets() { return this.unsupported<Ticket[]>('portal tickets'); }
-    createPortalTicket(_request: PortalTicketRequest) {
-        return this.unsupported<Ticket>('portal ticket creation');
+    getPortalTickets() {
+        return this.http.get<BackendTicket[]>(`${this.baseUrl}/tickets/mine`).pipe(
+            map(tickets => tickets.map(toTicket)),
+        );
+    }
+    getPortalTicketTypes() {
+        return this.http.get<PortalTicketType[]>(`${this.baseUrl}/tickets/portal-types`);
+    }
+    createPortalTicket(request: PortalTicketRequest) {
+        return this.createTicket(request);
     }
     addPortalComment(ticketId: string, message: string, attachments: File[]) {
         const uploads = attachments.length

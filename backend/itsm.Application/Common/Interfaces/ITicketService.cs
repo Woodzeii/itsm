@@ -5,6 +5,8 @@ namespace itsm.Application.Common.Interfaces;
 public interface ITicketService
 {
     Task<IReadOnlyList<TicketResponse>> GetQueueAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<TicketResponse>> GetMyTicketsAsync(int userId, CancellationToken ct = default);
+    Task<IReadOnlyList<PortalTicketTypeResponse>> GetPortalTicketTypesAsync(CancellationToken ct = default);
     Task<TicketResponse?> GetByIdAsync(int id, int userId, bool isStaff, CancellationToken ct = default);
     Task<TicketResponse> CreateAsync(CreateTicketRequest request, int creatorId, bool isStaff, bool isEngineer, CancellationToken ct = default);
     Task<TicketResponse?> UpdateAsync(int id, UpdateTicketRequest request, int actorId, CancellationToken ct = default);

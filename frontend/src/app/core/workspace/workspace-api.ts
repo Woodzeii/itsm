@@ -17,6 +17,7 @@ import {
     Escalation,
     FormFieldDefinition,
     OverviewData,
+    PortalTicketType,
     PortalTicketRequest,
     RepairCloseRequest,
     ReportSummary,
@@ -60,6 +61,7 @@ export abstract class WorkspaceApi {
     abstract saveAdminSettings(settings: AdminSettings): Observable<AdminSettings>;
     abstract getReports(from?: string, to?: string): Observable<ReportSummary[]>;
     abstract getPortalTickets(): Observable<Ticket[]>;
+    abstract getPortalTicketTypes(): Observable<PortalTicketType[]>;
     abstract createPortalTicket(request: PortalTicketRequest): Observable<Ticket>;
     abstract addPortalComment(ticketId: string, message: string, attachments: File[]): Observable<TicketComment>;
     abstract reviewPortalTicket(ticketId: string, accepted: boolean): Observable<Ticket>;

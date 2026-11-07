@@ -56,6 +56,11 @@ export interface TicketType {
     slaByCriticality?: Record<string, { reaction: string; resolution: string }>;
 }
 
+export interface PortalTicketType {
+    id: number;
+    name: string;
+}
+
 export interface AssetRecord {
     recordId?: string;
     id: string;

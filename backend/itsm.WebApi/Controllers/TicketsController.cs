@@ -20,6 +20,23 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     public async Task<ActionResult<IReadOnlyList<TicketResponse>>> GetQueue(CancellationToken ct)
         => Ok(await service.GetQueueAsync(ct));
 
+    [HttpGet("mine")]
+    [EndpointSummary("Получить заявки текущего пользователя")]
+    [ProducesResponseType(typeof(IReadOnlyList<TicketResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<TicketResponse>>> GetMyTickets(CancellationToken ct)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        return Ok(await service.GetMyTicketsAsync(userId, ct));
+    }
+
+    [HttpGet("portal-types")]
+    [EndpointSummary("Получить доступные на портале типы заявок")]
+    [ProducesResponseType(typeof(IReadOnlyList<PortalTicketTypeResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<PortalTicketTypeResponse>>> GetPortalTypes(CancellationToken ct)
+        => Ok(await service.GetPortalTicketTypesAsync(ct));
+
     [HttpGet("{id:int}")]
     [EndpointSummary("Получить заявку по идентификатору")]
     [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]

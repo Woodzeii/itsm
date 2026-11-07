@@ -24,6 +24,8 @@ public sealed record CreateTicketRequest
     public JsonElement? CustomFieldsData { get; init; }
 }
 
+public sealed record PortalTicketTypeResponse(int Id, string Name);
+
 /// <summary>Request payload for updating a ticket.</summary>
 public sealed record UpdateTicketRequest
 {
