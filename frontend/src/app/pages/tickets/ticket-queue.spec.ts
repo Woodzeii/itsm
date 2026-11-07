@@ -4,7 +4,7 @@ import { BehaviorSubject, of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { Ticket } from '../../core/workspace/workspace.models';
+import { Ticket, TicketComment } from '../../core/workspace/workspace.models';
 import { TicketQueueComponent } from './ticket-queue';
 
 describe('TicketQueueComponent real queue', () => {
@@ -37,6 +37,8 @@ describe('TicketQueueComponent real queue', () => {
         resolveAssigneeId: ReturnType<typeof vi.fn>;
         changeTicketStatus: ReturnType<typeof vi.fn>;
         assignTicket: ReturnType<typeof vi.fn>;
+        getTicketComments: ReturnType<typeof vi.fn>;
+        addTicketComment: ReturnType<typeof vi.fn>;
         getPortalTicketTypes: ReturnType<typeof vi.fn>;
         createPortalTicket: ReturnType<typeof vi.fn>;
     };
@@ -51,6 +53,15 @@ describe('TicketQueueComponent real queue', () => {
             resolveAssigneeId: vi.fn((name: string) => name === 'Пётр Петров' ? 5 : undefined),
             changeTicketStatus: vi.fn().mockReturnValue(of({ ...openTicket, status: 'В работе', statusId: 3 })),
             assignTicket: vi.fn().mockReturnValue(of({ ...openTicket, assignee: 'Пётр Петров', assigneeId: 5 })),
+            getTicketComments: vi.fn().mockReturnValue(of([])),
+            addTicketComment: vi.fn().mockReturnValue(of({
+                id: 'm3',
+                author: 'agent',
+                message: 'Проверяю',
+                createdAt: '2026-11-07T08:00:00Z',
+                internal: true,
+                attachments: [],
+            } satisfies TicketComment)),
             getPortalTicketTypes: vi.fn().mockReturnValue(of([{ id: 1, name: 'Инцидент' }])),
             createPortalTicket: vi.fn().mockReturnValue(of({ ...openTicket, id: '44', title: 'Новая заявка' })),
         };
@@ -80,7 +91,7 @@ describe('TicketQueueComponent real queue', () => {
                 },
                 {
                     provide: AuthService,
-                    useValue: { canRead: () => true, getLogin: () => 'agent' },
+                    useValue: { canRead: () => true, getLogin: () => 'agent', getRole: () => 'agent' },
                 },
                 {
                     provide: ActivatedRoute,
@@ -134,6 +145,35 @@ describe('TicketQueueComponent real queue', () => {
 
         expect(api.resolveAssigneeId).toHaveBeenCalledWith('Пётр Петров');
         expect(api.assignTicket).toHaveBeenCalledWith('42', 5);
+    });
+
+    it('loads the selected ticket conversation and retains internal message flags for staff', () => {
+        const messages: TicketComment[] = [
+            { id: 'm1', author: 'agent', message: 'Внутренняя заметка', createdAt: '', internal: true, attachments: [] },
+            { id: 'm2', author: 'Иван', message: 'Публичный ответ', createdAt: '', internal: false, attachments: [] },
+        ];
+        api.getTicketComments.mockReturnValue(of(messages));
+        const component = createComponent();
+
+        component.select(openTicket);
+
+        expect(api.getTicketComments).toHaveBeenCalledWith('42');
+        expect(component.visibleComments).toEqual(messages);
+    });
+
+    it('filters internal comments when the active user is not staff', () => {
+        const fixture = TestBed.createComponent(TicketQueueComponent);
+        const component = fixture.componentInstance;
+        component.canUseInternalComments = false;
+        component.selected = {
+            ...openTicket,
+            comments: [
+                { id: 'm1', author: 'agent', message: 'Внутренняя заметка', createdAt: '', internal: true, attachments: [] },
+                { id: 'm2', author: 'Иван', message: 'Публичный ответ', createdAt: '', internal: false, attachments: [] },
+            ],
+        };
+
+        expect(component.visibleComments.map(comment => comment.id)).toEqual(['m2']);
     });
 
     it('opens the creation form from the overview create query parameter', () => {

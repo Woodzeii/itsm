@@ -36,6 +36,12 @@ export interface TicketComment {
     createdAt: string;
     internal: boolean;
     attachments: string[];
+    attachmentRecords?: TicketAttachment[];
+}
+
+export interface TicketAttachment {
+    id: string;
+    fileName: string;
 }
 
 export interface TicketHistory {

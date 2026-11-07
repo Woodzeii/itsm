@@ -37,7 +37,9 @@ export class WorkspaceService {
     changeTicketStatus(ticketId: string, statusId: number) { return this.api.changeTicketStatus(ticketId, statusId); }
     assignTicket(ticketId: string, assigneeId: number) { return this.api.assignTicket(ticketId, assigneeId); }
     changeTicketPriority(ticketId: string, priority: string) { return this.api.changeTicketPriority(ticketId, priority); }
-    addTicketComment(ticketId: string, comment: Parameters<typeof this.api.addTicketComment>[1]) { return this.api.addTicketComment(ticketId, comment); }
+    getTicketComments(ticketId: string) { return this.api.getTicketComments(ticketId); }
+    addTicketComment(ticketId: string, comment: Parameters<typeof this.api.addTicketComment>[1], attachments: File[]) { return this.api.addTicketComment(ticketId, comment, attachments); }
+    downloadTicketAttachment(ticketId: string, attachment: Parameters<typeof this.api.downloadTicketAttachment>[1]) { return this.api.downloadTicketAttachment(ticketId, attachment); }
     escalateTicket(ticketId: string, initiator: string) { return this.api.escalateTicket(ticketId, initiator); }
     getAssetDetails(assetId: string) { return this.api.getAssetDetails(assetId); }
     createAsset(request: CreateAssetRequest) { return this.api.createAsset(request); }
