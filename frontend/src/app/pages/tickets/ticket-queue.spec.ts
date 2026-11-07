@@ -174,6 +174,8 @@ describe('TicketQueueComponent real queue', () => {
         };
 
         expect(component.visibleComments.map(comment => comment.id)).toEqual(['m2']);
+    });
+
     it('opens the creation form from the overview create query parameter', () => {
         const component = createComponent();
         queryParams.next(convertToParamMap({ create: 'true' }));
@@ -202,4 +204,4 @@ describe('TicketQueueComponent real queue', () => {
         expect(component.tickets[0].id).toBe('44');
         expect(component.showCreateForm).toBe(false);
     });
-});})
+});
