@@ -14,7 +14,10 @@ export interface Ticket {
     createdAt: string;
     slaRemaining: string;
     type?: string;
+    typeId?: number;
+    statusId?: number;
     assignee?: string;
+    assigneeId?: number;
     createdOn?: string;
     closedOn?: string;
     reactionSla?: string;

@@ -62,6 +62,25 @@ describe('jwtInterceptor', () => {
         expect(error).toBeTruthy();
     });
 
+    it('redirects to /login on 401 even when the token is already missing', () => {
+        auth.getToken.mockReturnValue(null);
+        const navigate = vi.spyOn(router, 'navigate').mockResolvedValue(true);
+        let error: unknown;
+
+        client.get('/api/tickets').subscribe({ error: err => error = err });
+
+        http.expectOne('/api/tickets').flush(
+            { message: 'Unauthorized' },
+            { status: 401, statusText: 'Unauthorized' },
+        );
+
+        expect(auth.logout).toHaveBeenCalledOnce();
+        expect(navigate).toHaveBeenCalledWith(['/login'], {
+            queryParams: { returnUrl: router.url },
+        });
+        expect(error).toBeTruthy();
+    });
+
     it('does not log out or redirect when the login request itself returns 401', () => {
         auth.getToken.mockReturnValue(null);
         const navigate = vi.spyOn(router, 'navigate');

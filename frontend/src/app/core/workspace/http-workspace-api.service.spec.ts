@@ -170,6 +170,25 @@ describe('HttpWorkspaceApiService backend contract', () => {
         }]);
     });
 
+    it('resolves real status and assignee ids from the loaded queue', () => {
+        service.getTickets().subscribe();
+
+        http.expectOne(`${environment.apiBaseUrl}/tickets`).flush([{
+            id: 42,
+            title: 'VPN',
+            statusId: 3,
+            statusName: 'В работе',
+            priority: 'Высокий',
+            assigneeId: 5,
+            assigneeName: 'Пётр Петров',
+        }]);
+
+        expect(service.resolveStatusId('В работе')).toBe(3);
+        expect(service.resolveStatusId('в работе')).toBe(3);
+        expect(service.resolveAssigneeId('Пётр Петров')).toBe(5);
+        expect(service.knownAssigneeNames()).toEqual(['Пётр Петров']);
+    });
+
     it('unwraps paged backend users response', () => {
         let users: unknown;
         service.getUsers().subscribe(result => users = result);

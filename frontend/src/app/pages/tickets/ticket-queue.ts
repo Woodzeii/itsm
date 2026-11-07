@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
+import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 import { AdminSettings, Ticket } from '../../core/workspace/workspace.models';
 
 @Component({
@@ -37,7 +38,7 @@ import { AdminSettings, Ticket } from '../../core/workspace/workspace.models';
           @if (selected) {
             <header class="detail-heading"><div><p class="eyebrow">{{ selected.id }} · {{ selected.type }}</p><h2>{{ selected.title }}</h2></div><button class="icon-button" type="button" aria-label="Закрыть карточку" (click)="selected = null">×</button></header>
             <div class="ticket-facts"><div><small>Автор</small><strong>{{ selected.requester }}</strong></div><div><small>Исполнитель</small><strong>{{ selected.assignee || 'Не назначен' }}</strong></div><div><small>Критичность</small><strong>{{ selected.priority }}</strong></div><div><small>Статус</small><strong>{{ selected.status }}</strong></div><div><small>Реакция</small><strong>{{ selected.reactionSla || '—' }}</strong></div><div><small>Решение</small><strong>{{ selected.resolutionSla || selected.slaRemaining }}</strong></div></div>
-            @if (settings?.assignmentMode === 'manual') { <div class="assignment"><label>Исполнитель<select name="assignee" [(ngModel)]="assigneeDraft"><option value="">Выбрать инженера</option>@for (engineer of settings?.engineers ?? []; track engineer; let i = $index) { <option [ngValue]="i + 1">{{ engineer }}</option> }</select></label><button class="secondary" type="button" [disabled]="!assigneeDraft" (click)="assign()">Назначить</button></div> }
+            @if (settings?.assignmentMode === 'manual') { <div class="assignment"><label>Исполнитель<select name="assignee" [(ngModel)]="assigneeDraft"><option value="">Выбрать инженера</option>@for (engineer of engineerOptions; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label><button class="secondary" type="button" [disabled]="!assigneeDraft" (click)="assign()">Назначить</button></div> }
             @if (isEngineer && selected.status !== 'Закрыта') { <div class="priority-edit"><label>Критичность<select name="priority" [(ngModel)]="priorityDraft">@for (priority of settings?.criticalities ?? []; track priority) { <option [value]="priority">{{ priority }}</option> }</select></label><button class="secondary" type="button" [disabled]="priorityDraft === selected.priority" (click)="changePriority()">Изменить</button></div> }
             @for (nextStatus of nextStatuses; track nextStatus) { <button class="primary transition" type="button" (click)="changeStatus(nextStatus.statusId)">Перевести в «{{ nextStatus.name }}»</button> }
             @if (isEngineer && selected.status !== 'Закрыта') { <button class="outline escalation-action" type="button" (click)="escalate()">Повысить критичность и эскалировать</button> }
@@ -100,6 +101,7 @@ import { AdminSettings, Ticket } from '../../core/workspace/workspace.models';
 })
 export class TicketQueueComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
+    private readonly ticketsApi = inject(HttpWorkspaceApiService);
     private readonly auth = inject(AuthService);
     private readonly route = inject(ActivatedRoute);
 
@@ -117,7 +119,7 @@ export class TicketQueueComponent implements OnInit {
     attachments: string[] = [];
     repairDescription = '';
     repairResult: 'В эксплуатацию' | 'На склад' | 'Списать' = 'В эксплуатацию';
-    assigneeDraft: number | null = null;
+    assigneeDraft = '';
     priorityDraft = '';
     notice = '';
     error = '';
@@ -126,6 +128,10 @@ export class TicketQueueComponent implements OnInit {
     get assignees(): string[] { return [...new Set(this.tickets.map(ticket => ticket.assignee).filter((value): value is string => !!value))]; }
     get statuses(): string[] { return [...new Set(this.tickets.map(ticket => ticket.status))]; }
     get priorities(): string[] { return [...new Set(this.tickets.map(ticket => ticket.priority))]; }
+    get engineerOptions(): string[] {
+        const known = this.ticketsApi.knownAssigneeNames();
+        return known.length ? known : this.settings?.engineers ?? [];
+    }
     get filteredTickets(): Ticket[] {
         const query = this.query.toLocaleLowerCase();
         return this.tickets.filter(ticket => (!this.typeFilter || ticket.type === this.typeFilter) && (!this.assigneeFilter || ticket.assignee === this.assigneeFilter) && (!this.statusFilter || ticket.status === this.statusFilter) && (!this.priorityFilter || ticket.priority === this.priorityFilter) && `${ticket.id} ${ticket.title} ${ticket.requester}`.toLocaleLowerCase().includes(query));
@@ -135,7 +141,8 @@ export class TicketQueueComponent implements OnInit {
             ? (this.settings?.statusTransitions[this.selected.status] ?? [])
                 .map(name => ({
                     name,
-                    statusId: (this.settings?.statuses.findIndex(status => status.name === name) ?? -1) + 1,
+                    statusId: this.ticketsApi.resolveStatusId(name)
+                        ?? (this.settings?.statuses.findIndex(status => status.name === name) ?? -1) + 1,
                 }))
                 .filter(item => item.statusId > 0)
             : [];
@@ -149,22 +156,27 @@ export class TicketQueueComponent implements OnInit {
         this.route.queryParamMap.subscribe(params => this.query = params.get('q') ?? '');
     }
 
-    select(ticket: Ticket): void { this.selected = ticket; this.repairDescription = ''; this.assigneeDraft = null; this.priorityDraft = ticket.priority; }
+    select(ticket: Ticket): void { this.selected = ticket; this.repairDescription = ''; this.assigneeDraft = ''; this.priorityDraft = ticket.priority; }
     assign(): void {
-      if (!this.selected || this.assigneeDraft === null) return;
-      this.workspace.assignTicket(this.selected.id, this.assigneeDraft).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Назначен исполнитель: ${ticket.assignee}.`; }, error: err => this.error = err.message });
+      if (!this.selected || !this.assigneeDraft) return;
+      const assigneeId = this.ticketsApi.resolveAssigneeId(this.assigneeDraft);
+      if (assigneeId == null) {
+        this.error = 'Не удалось определить ID исполнителя из очереди.';
+        return;
+      }
+      this.ticketsApi.assignTicket(this.selected.id, assigneeId).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Назначен исполнитель: ${ticket.assignee}.`; }, error: err => this.error = err.message });
     }
     changePriority(): void {
       if (!this.selected || !this.priorityDraft) return;
-      this.workspace.changeTicketPriority(this.selected.id, this.priorityDraft).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Критичность изменена на «${ticket.priority}».`; }, error: err => this.error = err.message });
+      this.ticketsApi.changeTicketPriority(this.selected.id, this.priorityDraft).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Критичность изменена на «${ticket.priority}».`; }, error: err => this.error = err.message });
     }
     changeStatus(statusId: number): void {
       if (!this.selected || !this.nextStatuses.some(status => status.statusId === statusId)) return;
-      this.workspace.changeTicketStatus(this.selected.id, statusId).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Статус изменен на «${ticket.status}».`; }, error: err => this.error = err.message });
+      this.ticketsApi.changeTicketStatus(this.selected.id, statusId).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Статус изменен на «${ticket.status}».`; }, error: err => this.error = err.message });
     }
     addComment(): void {
         if (!this.selected) return;
-        this.workspace.addTicketComment(this.selected.id, { author: this.auth.getLogin() || 'Инженер ТП', message: this.commentText.trim(), internal: this.internalComment, attachments: [...this.attachments] }).subscribe({
+        this.ticketsApi.addTicketComment(this.selected.id, { author: this.auth.getLogin() || 'Инженер ТП', message: this.commentText.trim(), internal: this.internalComment, attachments: [...this.attachments] }).subscribe({
             next: comment => { this.selected!.comments = [...(this.selected!.comments ?? []), comment]; this.selected!.history = [{ id: comment.id, event: comment.internal ? 'Внутренний комментарий добавлен' : 'Комментарий добавлен', actor: comment.author, createdAt: comment.createdAt }, ...(this.selected!.history ?? [])]; this.commentText = ''; this.attachments = []; this.internalComment = false; },
             error: err => this.error = err.message,
         });
@@ -172,13 +184,13 @@ export class TicketQueueComponent implements OnInit {
     pickAttachments(event: Event): void { this.attachments = Array.from((event.target as HTMLInputElement).files ?? []).map(file => file.name); }
     escalate(): void {
         if (!this.selected) return;
-        this.workspace.escalateTicket(this.selected.id, 'Инженер ТП').subscribe({ next: entry => { this.selected!.priority = entry.newPriority; this.selected!.status = 'В работе'; this.selected!.history = [{ id: entry.createdAt, event: `Эскалация ${entry.previousPriority} → ${entry.newPriority}; уведомлены ${entry.recipients.join(', ')}`, actor: entry.initiator, createdAt: entry.createdAt }, ...(this.selected!.history ?? [])]; this.notice = `Эскалация создана. Уведомление: ${entry.recipients.join(', ')}.`; this.load(false); }, error: err => this.error = err.message });
+        this.ticketsApi.escalateTicket(this.selected.id, 'Инженер ТП').subscribe({ next: entry => { this.selected!.priority = entry.newPriority; this.selected!.status = 'В работе'; this.selected!.history = [{ id: entry.createdAt, event: `Эскалация ${entry.previousPriority} → ${entry.newPriority}; уведомлены ${entry.recipients.join(', ')}`, actor: entry.initiator, createdAt: entry.createdAt }, ...(this.selected!.history ?? [])]; this.notice = `Эскалация создана. Уведомление: ${entry.recipients.join(', ')}.`; this.load(false); }, error: err => this.error = err.message });
     }
     closeRepair(): void {
         if (!this.selected) return;
-        this.workspace.closeRepairTicket(this.selected.id, { result: this.repairResult, workDescription: this.repairDescription }).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = 'Тикет на ремонт закрыт.'; }, error: err => this.error = err.message });
+        this.ticketsApi.closeRepairTicket(this.selected.id, { result: this.repairResult, workDescription: this.repairDescription }).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = 'Тикет на ремонт закрыт.'; }, error: err => this.error = err.message });
     }
 
     private updateTicket(ticket: Ticket): void { this.tickets = this.tickets.map(item => item.id === ticket.id ? ticket : item); this.selected = ticket; }
-    private load(resetSelection = true): void { this.workspace.getTickets().subscribe({ next: tickets => { this.tickets = tickets; if (resetSelection) this.selected = null; }, error: err => this.error = err.message }); }
+    private load(resetSelection = true): void { this.ticketsApi.getTickets().subscribe({ next: tickets => { this.tickets = tickets; if (resetSelection) this.selected = null; }, error: err => this.error = err.message }); }
 }
