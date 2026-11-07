@@ -38,6 +38,7 @@ describe('TicketQueueComponent real queue', () => {
         changeTicketStatus: ReturnType<typeof vi.fn>;
         assignTicket: ReturnType<typeof vi.fn>;
         getTicketComments: ReturnType<typeof vi.fn>;
+        getTicketHistory: ReturnType<typeof vi.fn>;
         addTicketComment: ReturnType<typeof vi.fn>;
         getPortalTicketTypes: ReturnType<typeof vi.fn>;
         createPortalTicket: ReturnType<typeof vi.fn>;
@@ -54,6 +55,7 @@ describe('TicketQueueComponent real queue', () => {
             changeTicketStatus: vi.fn().mockReturnValue(of({ ...openTicket, status: 'В работе', statusId: 3 })),
             assignTicket: vi.fn().mockReturnValue(of({ ...openTicket, assignee: 'Пётр Петров', assigneeId: 5 })),
             getTicketComments: vi.fn().mockReturnValue(of([])),
+            getTicketHistory: vi.fn().mockReturnValue(of([])),
             addTicketComment: vi.fn().mockReturnValue(of({
                 id: 'm3',
                 author: 'agent',

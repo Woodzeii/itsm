@@ -30,6 +30,7 @@ import {
     ReportSummary,
     TicketAttachment,
     TicketComment,
+    TicketHistory,
     TicketFormDefinition,
     Ticket,
     TicketType,
@@ -264,6 +265,10 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         return of((ticket.comments ?? [])
             .filter(comment => isStaff || !comment.internal)
             .map(comment => ({ ...comment, attachments: [...comment.attachments] })));
+    }
+
+    getTicketHistory(ticketId: string): Observable<TicketHistory[]> {
+        return of((this.findTicket(ticketId).history ?? []).map(entry => ({ ...entry })));
     }
 
     addTicketComment(

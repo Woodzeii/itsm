@@ -25,6 +25,7 @@ import {
     Ticket,
     TicketAttachment,
     TicketComment,
+    TicketHistory,
     TicketType,
     TenantRecord,
     CreateUserRequest,
@@ -45,6 +46,7 @@ export abstract class WorkspaceApi {
     abstract assignTicket(ticketId: string, assigneeId: number): Observable<Ticket>;
     abstract changeTicketPriority(ticketId: string, priority: string): Observable<Ticket>;
     abstract getTicketComments(ticketId: string): Observable<TicketComment[]>;
+    abstract getTicketHistory(ticketId: string): Observable<TicketHistory[]>;
     abstract addTicketComment(ticketId: string, comment: Omit<TicketComment, 'id' | 'createdAt' | 'attachments' | 'attachmentRecords'>, attachments: File[]): Observable<TicketComment>;
     abstract downloadTicketAttachment(ticketId: string, attachment: TicketAttachment): Observable<Blob>;
     abstract escalateTicket(ticketId: string, initiator: string): Observable<EscalationHistoryEntry>;
