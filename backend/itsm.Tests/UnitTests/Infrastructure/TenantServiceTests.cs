@@ -61,6 +61,24 @@ public class TenantServiceTests
     }
 
     [Fact]
+    public async Task UpdateSettings_AllowsOwnerToToggleAdminCreationPolicy()
+    {
+        var (service, _) = Create();
+
+        var settings = await service.UpdateSettingsAsync(1, new UpdateTenantSettingsRequest
+        {
+            AllowAdminsCreateAdmins = false
+        });
+
+        settings.Should().NotBeNull();
+        settings!.AllowAdminsCreateAdmins.Should().BeFalse();
+
+        var reloaded = await service.GetSettingsAsync(1);
+        reloaded.Should().NotBeNull();
+        reloaded!.AllowAdminsCreateAdmins.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Delete_RejectsUsersOutsideCurrentTenantFilter()
     {
         var (service, db) = Create();

@@ -212,6 +212,11 @@ export interface AdminSettings {
     allowAdminsCreateAdmins?: boolean;
 }
 
+export interface TenantAdminCreationPolicy {
+    tenantId: number;
+    allowAdminsCreateAdmins: boolean;
+}
+
 export interface ReportSummary {
     id: string;
     title: string;

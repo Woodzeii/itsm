@@ -5,7 +5,7 @@ import { Router } from '@angular/router';
 import { AdminService } from '../../core/admin/admin.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { CreateAdminUserRequest, RoleSummary, UserSummary } from '../../core/admin/admin.models';
-import { WorkspaceService } from '../../core/workspace/workspace.service';
+import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 
 @Component({
     selector: 'app-user-create',
@@ -164,7 +164,7 @@ import { WorkspaceService } from '../../core/workspace/workspace.service';
 export class UserCreateComponent implements OnInit {
     private readonly admin = inject(AdminService);
     private readonly auth = inject(AuthService);
-    private readonly workspace = inject(WorkspaceService);
+    private readonly tenantSettingsApi = inject(HttpWorkspaceApiService);
     private readonly router = inject(Router);
 
     managers: UserSummary[] = [];
@@ -189,12 +189,13 @@ export class UserCreateComponent implements OnInit {
     }
 
     ngOnInit(): void {
-        this.workspace.getAdminSettings().subscribe({
+        this.tenantSettingsApi.getTenantAdminCreationPolicy().subscribe({
             next: settings => {
-                this.allowAdminsCreateAdmins = settings.allowAdminsCreateAdmins ?? true;
+                this.allowAdminsCreateAdmins = settings.allowAdminsCreateAdmins;
             },
-            error: () => {
-                this.allowAdminsCreateAdmins = true;
+            error: err => {
+                this.allowAdminsCreateAdmins = false;
+                this.error = err.message || 'Не удалось загрузить настройки тенанта.';
             },
         });
         this.admin.getUsers().subscribe({

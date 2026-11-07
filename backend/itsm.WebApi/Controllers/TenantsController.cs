@@ -101,6 +101,50 @@ public class TenantsController : ControllerBase
         }
     }
 
+    /// <summary>Получить настройки текущего тенанта.</summary>
+    [HttpGet("settings")]
+    [Authorize(Roles = "admin,tenant_owner,manager,agent,portal_user")]
+    public async Task<IActionResult> GetTenantSettings(CancellationToken ct)
+    {
+        var tenantId = _tenantContext.GetCurrentTenantId();
+        if (tenantId <= 0)
+            return BadRequest(new { message = "Текущий тенант не определён" });
+
+        var settings = await _tenantService.GetSettingsAsync(tenantId, ct);
+        return settings is null ? NotFound(new { message = "Тенант не найден" }) : Ok(settings);
+    }
+
+    /// <summary>Изменить настройки текущего тенанта.</summary>
+    [HttpPut("settings")]
+    [Authorize(Roles = "tenant_owner")]
+    public async Task<IActionResult> UpdateTenantSettings([FromBody] UpdateTenantSettingsRequest request, CancellationToken ct)
+    {
+        var tenantId = _tenantContext.GetCurrentTenantId();
+        if (tenantId <= 0)
+            return BadRequest(new { message = "Текущий тенант не определён" });
+
+        var settings = await _tenantService.UpdateSettingsAsync(tenantId, request, ct);
+        return settings is null ? NotFound(new { message = "Тенант не найден" }) : Ok(settings);
+    }
+
+    /// <summary>Получить настройки указанного тенанта (глобальный администратор).</summary>
+    [HttpGet("{id:int}/settings")]
+    [Authorize(Roles = "tenant_admin")]
+    public async Task<IActionResult> GetTenantSettings(int id, CancellationToken ct)
+    {
+        var settings = await _tenantService.GetSettingsAsync(id, ct);
+        return settings is null ? NotFound(new { message = "Тенант не найден" }) : Ok(settings);
+    }
+
+    /// <summary>Изменить настройки указанного тенанта (глобальный администратор).</summary>
+    [HttpPut("{id:int}/settings")]
+    [Authorize(Roles = "tenant_admin")]
+    public async Task<IActionResult> UpdateTenantSettings(int id, [FromBody] UpdateTenantSettingsRequest request, CancellationToken ct)
+    {
+        var settings = await _tenantService.UpdateSettingsAsync(id, request, ct);
+        return settings is null ? NotFound(new { message = "Тенант не найден" }) : Ok(settings);
+    }
+
     /// <summary>Изменить статус активности тенанта (активен/неактивен).</summary>
     [HttpPatch("{id:int}/status")]
     [Authorize(Roles = "tenant_admin")]

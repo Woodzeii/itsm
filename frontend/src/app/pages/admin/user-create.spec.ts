@@ -4,7 +4,7 @@ import { of, throwError } from 'rxjs';
 import { AdminService } from '../../core/admin/admin.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { CreateAdminUserRequest, UserSummary } from '../../core/admin/admin.models';
-import { WorkspaceService } from '../../core/workspace/workspace.service';
+import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 import { UserCreateComponent } from './user-create';
 
 describe('UserCreateComponent', () => {
@@ -12,6 +12,9 @@ describe('UserCreateComponent', () => {
         getUsers: ReturnType<typeof vi.fn>;
         getRoles: ReturnType<typeof vi.fn>;
         createUser: ReturnType<typeof vi.fn>;
+    };
+    let tenantSettingsApi: {
+        getTenantAdminCreationPolicy: ReturnType<typeof vi.fn>;
     };
     let router: Router;
 
@@ -33,6 +36,12 @@ describe('UserCreateComponent', () => {
             getRoles: vi.fn().mockReturnValue(of([{ id: 3, code: 'agent', name: 'Инженер' }])),
             createUser: vi.fn().mockReturnValue(of(createdUser)),
         };
+        tenantSettingsApi = {
+            getTenantAdminCreationPolicy: vi.fn().mockReturnValue(of({
+                tenantId: 1,
+                allowAdminsCreateAdmins: true,
+            })),
+        };
 
         await TestBed.configureTestingModule({
             imports: [UserCreateComponent],
@@ -40,7 +49,7 @@ describe('UserCreateComponent', () => {
                 provideRouter([]),
                 { provide: AdminService, useValue: admin },
                 { provide: AuthService, useValue: { getTenantId: () => null, getRole: () => 'admin' } },
-                { provide: WorkspaceService, useValue: { getAdminSettings: () => of({ allowAdminsCreateAdmins: true }) } },
+                { provide: HttpWorkspaceApiService, useValue: tenantSettingsApi },
             ],
         }).compileComponents();
         router = TestBed.inject(Router);
@@ -96,5 +105,23 @@ describe('UserCreateComponent', () => {
         expect(component.error).toBe('Логин уже существует');
         expect(component.saving).toBe(false);
         expect(navigate).not.toHaveBeenCalled();
+    });
+
+    it('blocks admin role selection when the tenant policy disables it', () => {
+        admin.getRoles.mockReturnValue(of([
+            { id: 2, code: 'admin', name: 'Администратор' },
+            { id: 3, code: 'agent', name: 'Инженер ТП' },
+        ]));
+        tenantSettingsApi.getTenantAdminCreationPolicy.mockReturnValue(of({
+            tenantId: 1,
+            allowAdminsCreateAdmins: false,
+        }));
+
+        const fixture = TestBed.createComponent(UserCreateComponent);
+        fixture.detectChanges();
+
+        expect(fixture.componentInstance.isAdminRoleBlockedForCurrentUser).toBe(true);
+        expect(fixture.componentInstance.adminRoleBlockedMessage)
+            .toBe('Создание админа недоступно. Обратитесь к владельцу тенанта');
     });
 });

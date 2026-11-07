@@ -1932,6 +1932,155 @@
           }
         }
       },
+      "/api/tenants/settings": {
+        "get": {
+          "tags": [
+            "Tenants"
+          ],
+          "summary": "Получить настройки пользователей текущего тенанта",
+          "description": "Доступно авторизованным пользователям тенанта. Настройку создания администраторов может изменять только tenant_owner.",
+          "responses": {
+            "200": {
+              "description": "Настройки текущего тенанта",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TenantSettingsDto"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Текущий тенант не определён."
+            },
+            "404": {
+              "description": "Тенант не найден."
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "Tenants"
+          ],
+          "summary": "Изменить настройки пользователей текущего тенанта",
+          "description": "Доступно только tenant_owner. tenant_admin может изменять настройки конкретного тенанта через /api/tenants/{id}/settings.",
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateTenantSettingsRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Настройки обновлены",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TenantSettingsDto"
+                  }
+                }
+              }
+            },
+            "400": {
+              "description": "Текущий тенант не определён."
+            },
+            "403": {
+              "description": "Изменять настройки может только владелец тенанта."
+            },
+            "404": {
+              "description": "Тенант не найден."
+            }
+          }
+        }
+      },
+      "/api/tenants/{id}/settings": {
+        "get": {
+          "tags": [
+            "Tenants"
+          ],
+          "summary": "Получить настройки тенанта",
+          "description": "Доступно только tenant_admin.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Настройки тенанта",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TenantSettingsDto"
+                  }
+                }
+              }
+            },
+            "403": {
+              "description": "Операция доступна только tenant_admin."
+            },
+            "404": {
+              "description": "Тенант не найден."
+            }
+          }
+        },
+        "put": {
+          "tags": [
+            "Tenants"
+          ],
+          "summary": "Изменить настройки тенанта",
+          "description": "Доступно только tenant_admin.",
+          "parameters": [
+            {
+              "name": "id",
+              "in": "path",
+              "required": true,
+              "schema": {
+                "type": "integer",
+                "format": "int32"
+              }
+            }
+          ],
+          "requestBody": {
+            "required": true,
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UpdateTenantSettingsRequest"
+                }
+              }
+            }
+          },
+          "responses": {
+            "200": {
+              "description": "Настройки обновлены",
+              "content": {
+                "application/json": {
+                  "schema": {
+                    "$ref": "#/components/schemas/TenantSettingsDto"
+                  }
+                }
+              }
+            },
+            "403": {
+              "description": "Операция доступна только tenant_admin."
+            },
+            "404": {
+              "description": "Тенант не найден."
+            }
+          }
+        }
+      },
       "/api/tenants/{id}/status": {
         "patch": {
           "tags": [
@@ -4439,6 +4588,32 @@
             "type": "integer",
             "format": "int32",
             "minimum": 1
+          }
+        }
+      },
+      "TenantSettingsDto": {
+        "type": "object",
+        "required": [
+          "tenantId",
+          "allowAdminsCreateAdmins"
+        ],
+        "properties": {
+          "tenantId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "allowAdminsCreateAdmins": {
+            "type": "boolean",
+            "description": "Разрешает локальным администраторам создавать пользователей с ролью admin."
+          }
+        }
+      },
+      "UpdateTenantSettingsRequest": {
+        "type": "object",
+        "properties": {
+          "allowAdminsCreateAdmins": {
+            "type": "boolean",
+            "nullable": true
           }
         }
       },

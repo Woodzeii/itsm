@@ -9,6 +9,7 @@ import { AdminService } from '../../core/admin/admin.service';
 import { RoleSummary, UpdateAdminUserRequest, UserSummary } from '../../core/admin/admin.models';
 import { TenantUserQuotaService } from '../../core/workspace/tenant-user-quota.service';
 import { AuthService } from '../../core/auth/auth.service';
+import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 
 type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 
@@ -25,6 +26,29 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 
       @if (section === 'settings' && settings) {
         <form class="settings" (ngSubmit)="saveSettings()">
+          <section class="panel tenant-admin-policy">
+            <header><h2>Права администраторов</h2><p>Управление созданием новых учётных записей администраторами тенанта</p></header>
+            <div class="tenant-admin-policy-content">
+              @if (tenantPolicyLoading) {
+                <p class="field-note" role="status">Загружаем текущее значение настройки…</p>
+              } @else if (tenantPolicyError) {
+                <p class="field-note error" role="alert">{{ tenantPolicyError }}</p>
+              } @else {
+                <label class="tenant-admin-policy-toggle">
+                  <input type="checkbox" name="allowAdminsCreateAdmins" [checked]="allowAdminsCreateAdmins" (change)="onTenantPolicyToggle($event)" [disabled]="!canManageAdminCreationSetting || savingTenantPolicy" />
+                  <span><strong>Разрешить администраторам создавать администраторов</strong><small>Если выключено, создать пользователя с ролью «Администратор» сможет только владелец тенанта.</small></span>
+                </label>
+                @if (!canManageAdminCreationSetting) {
+                  <p class="field-note">Настройку может изменять только владелец тенанта.</p>
+                } @else {
+                  <button class="primary" type="button" [disabled]="savingTenantPolicy" (click)="saveTenantAdminCreationPolicy()">
+                    {{ savingTenantPolicy ? 'Сохранение…' : 'Сохранить настройку' }}
+                  </button>
+                }
+              }
+            </div>
+          </section>
+
           <section class="panel"><header><h2>Общие параметры</h2><p>Назначение, режим SLA и доступ портала</p></header><div class="field-grid">
             <label>Назначение исполнителя<select name="assignment" [(ngModel)]="settings.assignmentMode"><option value="automatic">Автоматическое: минимальная открытая очередь</option><option value="manual">Ручное</option></select></label>
             <label>Руководитель (инженер ТП)<select name="manager" [(ngModel)]="settings.manager">@for (engineer of settings.engineers ?? []; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label>
@@ -34,8 +58,6 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
             <label class="check"><input type="checkbox" name="slaEnabled" [(ngModel)]="settings.slaEnabled" /> SLA включён в системе</label>
             <label class="check"><input type="checkbox" name="reportAdmin" [checked]="settings.reportAccessRoles?.includes('admin')" (change)="toggleReportRole('admin',$event)" /> Отчёты доступны администратору</label>
             <label class="check"><input type="checkbox" name="reportManager" [checked]="settings.reportAccessRoles?.includes('manager')" (change)="toggleReportRole('manager',$event)" /> Отчёты доступны руководителю</label>
-            <label class="check"><input type="checkbox" name="allowAdminsCreateAdmins" [(ngModel)]="settings.allowAdminsCreateAdmins" [disabled]="!canManageAdminCreationSetting" /> Администраторы могут создавать администраторов</label>
-            @if (!canManageAdminCreationSetting) { <p class="field-note">Настройка доступна только владельцу тенанта.</p> }
           </div></section>
 
           <section class="panel"><header><h2>Критичность</h2><p>От 3 до 5 уровней; уровень задаёт автор, инженер может изменить</p></header>
@@ -295,6 +317,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 })
 export class AdminWorkspaceComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
+    private readonly tenantSettingsApi = inject(HttpWorkspaceApiService);
     private readonly admin = inject(AdminService);
     private readonly auth = inject(AuthService);
     private readonly quotaService = inject(TenantUserQuotaService);
@@ -323,6 +346,11 @@ export class AdminWorkspaceComponent implements OnInit {
     availableRoles: RoleSummary[] = [];
     editingUserId: number | null = null;
     editingUser: Partial<UpdateAdminUserRequest> | null = null;
+    savingTenantPolicy = false;
+    tenantPolicyLoading = false;
+    tenantPolicyLoaded = false;
+    tenantPolicyError = '';
+    allowAdminsCreateAdmins = false;
     error = '';
     notice = '';
     newCriticality = '';
@@ -341,7 +369,7 @@ export class AdminWorkspaceComponent implements OnInit {
     get canManageAdminCreationSetting(): boolean { return this.auth.isTenantOwner(); }
     get canCreateAdminRoleForCurrentUser(): boolean {
         if (this.auth.isTenantOwner() || this.auth.isTenantAdmin()) return true;
-        return this.auth.isAdmin() && (this.settings?.allowAdminsCreateAdmins ?? true);
+        return this.auth.isAdmin() && this.allowAdminsCreateAdmins;
     }
     get pageTitle(): string { return { settings: 'Настройки Service Desk', forms: 'Конструктор форм', escalations: 'Процесс эскалации', reports: 'Отчёты', users: 'Управление пользователями' }[this.section]; }
     get activeForm(): TicketFormDefinition | undefined { return this.forms.find(form => form.ticketTypeId === this.formId); }
@@ -388,8 +416,28 @@ export class AdminWorkspaceComponent implements OnInit {
                 this.notice = `Пользователь ${createdUser} успешно создан.`;
             }
         }
-        this.workspace.getAdminSettings().subscribe({ next: settings => this.settings = settings, error: err => this.error = err.message });
-        if (this.section === 'settings') this.workspace.getTicketTypes().subscribe({ next: types => this.ticketTypes = types, error: err => this.error = err.message });
+        this.workspace.getAdminSettings().subscribe({
+            next: settings => this.settings = settings,
+            error: err => this.error = err.message,
+        });
+        if (this.section === 'settings' || this.section === 'users') {
+            this.tenantPolicyLoading = true;
+            this.tenantPolicyError = '';
+            this.tenantSettingsApi.getTenantAdminCreationPolicy().subscribe({
+                next: policy => {
+                    this.allowAdminsCreateAdmins = policy.allowAdminsCreateAdmins;
+                    this.tenantPolicyLoaded = true;
+                    this.tenantPolicyLoading = false;
+                    this.changeDetector.markForCheck();
+                },
+                error: err => {
+                    this.tenantPolicyError = err.message || 'Не удалось загрузить настройки тенанта.';
+                    this.tenantPolicyLoading = false;
+                    this.changeDetector.markForCheck();
+                },
+            });
+        }
+        if (this.section === 'settings' && this.workspace.supportsTicketTypeConfiguration) this.workspace.getTicketTypes().subscribe({ next: types => this.ticketTypes = types, error: err => this.error = err.message });
         if (this.section === 'forms') this.workspace.getForms().subscribe({ next: forms => { this.forms = forms; this.formId = forms[0]?.ticketTypeId ?? ''; }, error: err => this.error = err.message });
         if (this.section === 'escalations') {
             this.workspace.getEscalationPolicies().subscribe({ next: policies => this.policies = policies, error: err => this.error = err.message });
@@ -418,10 +466,49 @@ export class AdminWorkspaceComponent implements OnInit {
     }
 
     saveSettings(): void {
-        if (!this.settings) return;
-        this.workspace.saveAdminSettings(this.settings).subscribe({ next: settings => { this.settings = settings; this.notice = 'Настройки сохранены.'; }, error: err => this.error = err.message });
-        this.workspace.saveTicketTypes(this.ticketTypes).subscribe({ next: types => this.ticketTypes = types, error: err => this.error = err.message });
+        const currentSettings = this.settings;
+        if (!currentSettings) return;
+        this.workspace.saveAdminSettings({
+            ...currentSettings,
+            allowAdminsCreateAdmins: this.allowAdminsCreateAdmins,
+        }).subscribe({
+            next: settings => {
+                this.settings = settings;
+                this.notice = 'Настройки сохранены.';
+            },
+            error: err => this.error = err.message,
+        });
+        if (this.workspace.supportsTicketTypeConfiguration) {
+            this.workspace.saveTicketTypes(this.ticketTypes).subscribe({
+                next: types => this.ticketTypes = types,
+                error: err => this.error = err.message,
+            });
+        }
     }
+
+    saveTenantAdminCreationPolicy(): void {
+        if (!this.tenantPolicyLoaded || !this.canManageAdminCreationSetting || this.savingTenantPolicy) return;
+        this.savingTenantPolicy = true;
+        this.tenantPolicyError = '';
+        this.tenantSettingsApi.saveTenantAdminCreationPolicy(this.allowAdminsCreateAdmins).subscribe({
+            next: policy => {
+                this.allowAdminsCreateAdmins = policy.allowAdminsCreateAdmins;
+                this.notice = 'Настройка прав администраторов сохранена.';
+                this.savingTenantPolicy = false;
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                this.tenantPolicyError = err.message || 'Не удалось сохранить настройку прав администраторов.';
+                this.savingTenantPolicy = false;
+                this.changeDetector.markForCheck();
+            },
+        });
+    }
+
+    onTenantPolicyToggle(event: Event): void {
+        this.allowAdminsCreateAdmins = (event.target as HTMLInputElement).checked;
+    }
+
     addCriticality(): void { if (!this.settings || this.settings.criticalities.length >= 5 || !this.newCriticality.trim()) return; this.settings.criticalities.push(this.newCriticality.trim()); this.newCriticality = ''; }
     removeCriticality(index: number): void { if (this.settings && this.settings.criticalities.length > 3) this.settings.criticalities.splice(index, 1); }
     addStatus(): void { if (!this.settings || !this.newStatus.trim()) return; const name = this.newStatus.trim(); this.settings.statuses.push({ name, pausesSla: false, immutable: false }); this.settings.statusTransitions[name] = []; this.newStatus = ''; }
@@ -507,7 +594,10 @@ export class AdminWorkspaceComponent implements OnInit {
         if (!this.canEditUser(user)) return;
         this.expandedUserId = user.id;
         this.editingUserId = user.id;
-        this.editingUser = { ...user, roleIds: [...user.roleIds] };
+        const roleIds = this.isTenantOwner(user)
+            ? [...user.roleIds]
+            : user.roleIds.filter(roleId => this.assignableRoles.some(role => role.id === roleId)).slice(0, 1);
+        this.editingUser = { ...user, roleIds };
     }
 
     toggleUserDetails(userId: number): void {

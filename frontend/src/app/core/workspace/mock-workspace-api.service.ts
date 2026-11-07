@@ -41,6 +41,8 @@ import {
 
 @Injectable()
 export class MockWorkspaceApiService extends WorkspaceApi {
+    readonly supportsTicketTypeConfiguration = true;
+
     private tickets: Ticket[] = [
         { id: 'INC-1048', title: 'Не подключается VPN после обновления', requester: 'Анна Белова', team: 'Сетевая команда', priority: 'Высокий', status: 'В работе', createdAt: '10:42', slaRemaining: '01:18', type: 'Инцидент', assignee: 'Иван Петров', reactionSla: '00:08 / 00:30', resolutionSla: '01:18 / 04:00', assetId: 'LT-00231', createdOn: '2026-10-10', history: [{ id: 'h1', event: 'Заявка создана', actor: 'Анна Белова', createdAt: '10:12' }, { id: 'h2', event: 'Назначен исполнитель Иван Петров', actor: 'Диспетчер', createdAt: '10:20' }], comments: [{ id: 'c1', author: 'Иван Петров', message: 'Проверяю параметры подключения.', createdAt: '10:42', internal: false, attachments: [] }] },
         { id: 'SR-1047', title: 'Выдать доступ к корпоративному диску', requester: 'Пользователь портала', team: 'Сервис-деск', priority: 'Средний', status: 'Открыта', createdAt: '10:19', slaRemaining: '03:42', type: 'Запрос на обслуживание', assignee: 'Иван Петров', requesterLogin: 'demo-user', reactionSla: '00:11 / 00:30', resolutionSla: '03:42 / 08:00', createdOn: '2026-10-10', history: [{ id: 'h3', event: 'Заявка создана', actor: 'Пользователь портала', createdAt: '10:19' }], comments: [] },

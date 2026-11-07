@@ -369,10 +369,26 @@ describe('HttpWorkspaceApiService backend contract', () => {
         request.flush({});
     });
 
-    it('reports endpoints missing in the backend explicitly', () => {
-        let error: Error | undefined;
-        service.getAdminSettings().subscribe({ error: err => error = err });
+    it('loads the persisted enabled tenant admin-creation policy from the backend', () => {
+        let policy: { tenantId: number; allowAdminsCreateAdmins: boolean } | undefined;
+        service.getTenantAdminCreationPolicy().subscribe(result => policy = result);
 
-        expect(error?.message).toContain('admin settings');
+        const request = http.expectOne(`${environment.apiBaseUrl}/tenants/settings`);
+        expect(request.request.method).toBe('GET');
+        request.flush({ tenantId: 1, allowAdminsCreateAdmins: true });
+
+        expect(policy).toEqual({ tenantId: 1, allowAdminsCreateAdmins: true });
+    });
+
+    it('saves the persisted tenant admin-creation policy without mock-only fields', () => {
+        let policy: { tenantId: number; allowAdminsCreateAdmins: boolean } | undefined;
+        service.saveTenantAdminCreationPolicy(false).subscribe(result => policy = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tenants/settings`);
+        expect(request.request.method).toBe('PUT');
+        expect(request.request.body).toEqual({ allowAdminsCreateAdmins: false });
+        request.flush({ tenantId: 1, allowAdminsCreateAdmins: false });
+
+        expect(policy).toEqual({ tenantId: 1, allowAdminsCreateAdmins: false });
     });
 });

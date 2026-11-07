@@ -1624,6 +1624,12 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AllowAdminsCreateAdmins")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("allow_admins_create_admins");
+
                     b.Property<string>("BlockReason")
                         .HasColumnType("text")
                         .HasColumnName("block_reason");
@@ -1711,6 +1717,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = 1,
+                            AllowAdminsCreateAdmins = true,
                             Code = "default",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CurrentAssetCount = 0,

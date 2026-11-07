@@ -12,7 +12,7 @@ public class UserAdminService : IUserAdminService
     private const string AdminRoleCode = "admin";
     private const string TenantOwnerRoleCode = "tenant_owner";
     private const string TenantAdminRoleCode = "tenant_admin";
-    private static readonly string[] AdminAssignableRoleCodes = { AdminRoleCode, "agent", "portal_user" };
+    private static readonly string[] AdminAssignableRoleCodes = { AdminRoleCode, "manager", "agent", "portal_user" };
 
     private readonly ItsmDbContext _db;
     private readonly IPasswordHasher _hasher;
@@ -103,7 +103,7 @@ public class UserAdminService : IUserAdminService
         var roleIds = request.RoleIds.Distinct().ToList();
         await EnsureRolesExistAsync(roleIds, ct);
         await EnsureTenantOwnerRoleChangeAllowedAsync(null, roleIds, isTenantAdmin, ct);
-        await EnsureAdminAssignableRolesAsync(null, roleIds, isTenantAdmin, ct);
+        await EnsureAdminAssignableRolesAsync(null, roleIds, isTenantAdmin, actorId, ct);
 
         var user = new User
         {
@@ -161,7 +161,7 @@ public class UserAdminService : IUserAdminService
         {
             await EnsureRolesExistAsync(roleIds, ct);
             await EnsureTenantOwnerRoleChangeAllowedAsync(user, roleIds, isTenantAdmin, ct);
-            await EnsureAdminAssignableRolesAsync(user, roleIds, isTenantAdmin, ct);
+            await EnsureAdminAssignableRolesAsync(user, roleIds, isTenantAdmin, actorId, ct);
         }
 
         if (request.IsActive == false && user.IsActive)
@@ -282,7 +282,7 @@ public class UserAdminService : IUserAdminService
         }
         await EnsureRolesExistAsync(newRoleIds, ct);
         await EnsureTenantOwnerRoleChangeAllowedAsync(user, newRoleIds, isTenantAdmin, ct);
-        await EnsureAdminAssignableRolesAsync(user, newRoleIds, isTenantAdmin, ct);
+        await EnsureAdminAssignableRolesAsync(user, newRoleIds, isTenantAdmin, actorId, ct);
 
         var adminRoleId = await _db.SystemRoles
             .Where(r => r.Code == AdminRoleCode).Select(r => (int?)r.Id).FirstOrDefaultAsync(ct);
@@ -444,7 +444,7 @@ public class UserAdminService : IUserAdminService
             throw new UserAdminException(UserAdminErrorKind.Forbidden, "Назначать или снимать роль владельца тенанта может только глобальный администратор");
     }
 
-    private async Task EnsureAdminAssignableRolesAsync(User? user, List<int> roleIds, bool isTenantAdmin, CancellationToken ct)
+    private async Task EnsureAdminAssignableRolesAsync(User? user, List<int> roleIds, bool isTenantAdmin, int actorId, CancellationToken ct)
     {
         if (isTenantAdmin)
             return;
@@ -458,8 +458,30 @@ public class UserAdminService : IUserAdminService
             .Where(role => addedRoleIds.Contains(role.Id))
             .Select(role => role.Code)
             .ToListAsync(ct);
+
         if (addedRoleCodes.Any(code => code is null || !AdminAssignableRoleCodes.Contains(code)))
-            throw new UserAdminException(UserAdminErrorKind.Forbidden, "Локальный администратор может назначать только роли администратора, инженера и пользователя портала");
+            throw new UserAdminException(UserAdminErrorKind.Forbidden, "Локальный администратор может назначать только роли администратора, руководителя, инженера и пользователя портала");
+
+        var adminRoleId = await _db.SystemRoles
+            .Where(role => role.Code == AdminRoleCode)
+            .Select(role => (int?)role.Id)
+            .FirstOrDefaultAsync(ct);
+        if (!adminRoleId.HasValue || !addedRoleIds.Contains(adminRoleId.Value))
+            return;
+
+        var actorIsTenantOwner = await _db.UserRoleMappings.AnyAsync(
+            mapping => mapping.UserId == actorId && mapping.Role.Code == TenantOwnerRoleCode,
+            ct);
+        if (actorIsTenantOwner)
+            return;
+
+        var tenantAllowsAdminCreation = await _db.Tenants
+            .Where(tenant => tenant.Id == _db.GetCurrentTenantId())
+            .Select(tenant => tenant.AllowAdminsCreateAdmins)
+            .FirstOrDefaultAsync(ct);
+
+        if (!tenantAllowsAdminCreation)
+            throw new UserAdminException(UserAdminErrorKind.Forbidden, "Создание администраторов недоступно. Обратитесь к владельцу тенанта");
     }
 
     private async Task EnsureRolesExistAsync(List<int> roleIds, CancellationToken ct)

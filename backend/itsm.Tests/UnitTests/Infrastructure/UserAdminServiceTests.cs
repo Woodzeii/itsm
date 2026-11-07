@@ -93,6 +93,46 @@ public class UserAdminServiceTests
     }
 
     [Fact]
+    public async Task Create_AdminRole_WhenTenantPolicyDisabled_ForbidsLocalAdmin()
+    {
+        var (svc, db) = Create();
+        var actor = AddUser(db, "actor", admin: true);
+        var tenant = await db.Tenants.SingleAsync(item => item.Id == 1);
+        tenant.AllowAdminsCreateAdmins = false;
+        await db.SaveChangesAsync();
+
+        var act = () => svc.CreateAsync(new CreateUserRequest
+        {
+            Username = "new.admin",
+            Email = "new.admin@x.local",
+            Password = "Passw0rdX",
+            RoleIds = { AdminRoleId }
+        }, actor.Id, null);
+
+        (await act.Should().ThrowAsync<UserAdminException>()).Which.Kind.Should().Be(UserAdminErrorKind.Forbidden);
+    }
+
+    [Fact]
+    public async Task Create_AdminRole_WhenTenantPolicyDisabled_AllowsTenantOwner()
+    {
+        var (svc, db) = Create();
+        var owner = AddTenantOwner(db, "owner");
+        var tenant = await db.Tenants.SingleAsync(item => item.Id == 1);
+        tenant.AllowAdminsCreateAdmins = false;
+        await db.SaveChangesAsync();
+
+        var created = await svc.CreateAsync(new CreateUserRequest
+        {
+            Username = "new.admin",
+            Email = "new.admin@x.local",
+            Password = "Passw0rdX",
+            RoleIds = { AdminRoleId }
+        }, owner.Id, null);
+
+        created.RoleCodes.Should().Contain("admin");
+    }
+
+    [Fact]
     public async Task Create_RejectsActiveUserWhenTenantQuotaIsFull()
     {
         var (svc, db) = Create();

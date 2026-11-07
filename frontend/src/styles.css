@@ -5,6 +5,7 @@
     --app-surface: #ffffff;
     --app-primary: #2563eb;
     --app-accent: #13a578;
+    --app-surface-2: #f1f5f9;
     --app-text: #111827;
     --app-muted: #778293;
     --app-border: #e2e6ed;
@@ -46,6 +47,56 @@ app-admin-workspace .owner-badge {
     white-space: nowrap;
 }
 
+app-admin-workspace .tenant-admin-policy {
+    border-color: var(--app-border);
+}
+
+app-admin-workspace .tenant-admin-policy > header {
+    background: var(--app-surface-2);
+}
+
+app-admin-workspace .tenant-admin-policy-content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    padding: 16px;
+}
+
+app-admin-workspace .tenant-admin-policy-toggle {
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    color: var(--app-text);
+    cursor: pointer;
+}
+
+app-admin-workspace .tenant-admin-policy-toggle input {
+    width: 17px;
+    height: 17px;
+    margin: 1px 0 0;
+    accent-color: #2563eb;
+}
+
+app-admin-workspace .tenant-admin-policy-toggle span {
+    display: grid;
+    gap: 5px;
+}
+
+app-admin-workspace .tenant-admin-policy-toggle strong {
+    font-size: 12px;
+}
+
+app-admin-workspace .tenant-admin-policy-toggle small,
+app-admin-workspace .tenant-admin-policy-content .field-note {
+    color: var(--app-muted);
+    font-size: 10px;
+}
+
+app-admin-workspace .tenant-admin-policy-content .field-note {
+    margin: 0;
+}
+
 button,
 input,
 select,
@@ -54,6 +105,11 @@ textarea {
 }
 
 @media (max-width: 650px) {
+    app-admin-workspace .tenant-admin-policy-content {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
     app-admin-workspace {
         display: block;
         min-width: 0;

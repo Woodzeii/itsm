@@ -12,9 +12,11 @@ public interface ITenantService
     Task<List<TenantDto>> GetAllAsync(CancellationToken ct = default);
     Task<TenantDto?> GetByIdAsync(int tenantId, CancellationToken ct = default);
     Task<TenantDto?> GetByCodeAsync(string code, CancellationToken ct = default);
+    Task<TenantSettingsDto?> GetSettingsAsync(int tenantId, CancellationToken ct = default);
     Task<TenantUserQuotaDto?> GetUserQuotaAsync(int tenantId, CancellationToken ct = default);
     Task<TenantDto> CreateAsync(CreateTenantRequest request, CancellationToken ct = default);
     Task<TenantDto?> UpdateAsync(int tenantId, UpdateTenantRequest request, CancellationToken ct = default);
+    Task<TenantSettingsDto?> UpdateSettingsAsync(int tenantId, UpdateTenantSettingsRequest request, CancellationToken ct = default);
     Task<TenantDto?> UpdateStatusAsync(int tenantId, bool isActive, CancellationToken ct = default);
     Task<TenantDto?> BlockAsync(int tenantId, BlockTenantRequest request, CancellationToken ct = default);
     Task<TenantDto?> UnblockAsync(int tenantId, CancellationToken ct = default);
@@ -61,6 +63,19 @@ public class TenantService : ITenantService
         var tenant = await _db.Tenants
             .FirstOrDefaultAsync(t => t.Code == code, ct);
         return tenant is null ? null : ToDto(tenant);
+    }
+
+    public async Task<TenantSettingsDto?> GetSettingsAsync(int tenantId, CancellationToken ct = default)
+    {
+        var tenant = await _db.Tenants
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == tenantId, ct);
+
+        return tenant is null ? null : new TenantSettingsDto
+        {
+            TenantId = tenant.Id,
+            AllowAdminsCreateAdmins = tenant.AllowAdminsCreateAdmins
+        };
     }
 
     public async Task<TenantUserQuotaDto?> GetUserQuotaAsync(int tenantId, CancellationToken ct = default)
@@ -129,6 +144,7 @@ public class TenantService : ITenantService
             MaxTickets = request.MaxTickets ?? 10000,
             MaxStorageBytes = request.MaxStorageBytes ?? 10_737_418_240, // 10 GB
             IsBlocked = false,
+            AllowAdminsCreateAdmins = true,
             CurrentUserCount = 1,
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -185,6 +201,23 @@ public class TenantService : ITenantService
 
         await _db.SaveChangesAsync(ct);
         return (await GetByIdAsync(tenant.Id, ct))!;
+    }
+
+    public async Task<TenantSettingsDto?> UpdateSettingsAsync(int tenantId, UpdateTenantSettingsRequest request, CancellationToken ct = default)
+    {
+        var tenant = await _db.Tenants.FindAsync(new object[] { tenantId }, cancellationToken: ct);
+        if (tenant is null)
+            return null;
+
+        if (request.AllowAdminsCreateAdmins.HasValue)
+            tenant.AllowAdminsCreateAdmins = request.AllowAdminsCreateAdmins.Value;
+
+        await _db.SaveChangesAsync(ct);
+        return new TenantSettingsDto
+        {
+            TenantId = tenant.Id,
+            AllowAdminsCreateAdmins = tenant.AllowAdminsCreateAdmins
+        };
     }
 
     public async Task<TenantDto?> UpdateStatusAsync(int tenantId, bool isActive, CancellationToken ct = default)

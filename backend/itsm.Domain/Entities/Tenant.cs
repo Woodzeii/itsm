@@ -21,6 +21,9 @@ public class Tenant
     public DateTimeOffset? BlockedAt { get; set; }
     public DateTimeOffset? BlockedUntil { get; set; }
 
+    // Настройки управления тенантом
+    public bool AllowAdminsCreateAdmins { get; set; } = true;
+
     // Статистика
     public int CurrentUserCount { get; set; } = 0;
     public int CurrentAssetCount { get; set; } = 0;

@@ -26,6 +26,7 @@ import {
 export class WorkspaceService {
     private readonly api = inject(WorkspaceApi);
 
+    get supportsTicketTypeConfiguration() { return this.api.supportsTicketTypeConfiguration; }
     getOverview() { return this.api.getOverview(); }
     getTickets() { return this.api.getTickets(); }
     getAssets() { return this.api.getAssets(); }

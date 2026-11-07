@@ -489,6 +489,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => x.Code).IsUnique();
             entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.AllowAdminsCreateAdmins).HasDefaultValue(true);
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
         });
 
@@ -556,7 +557,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
         var seedDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         modelBuilder.Entity<Tenant>().HasData(
-            new Tenant { Id = 1, Code = "default", Name = "Default Tenant", IsActive = true, CreatedAt = seedDate }
+            new Tenant { Id = 1, Code = "default", Name = "Default Tenant", IsActive = true, AllowAdminsCreateAdmins = true, CreatedAt = seedDate }
         );
 
         modelBuilder.Entity<SystemRole>().HasData(
