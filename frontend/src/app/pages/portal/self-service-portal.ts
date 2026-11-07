@@ -3,7 +3,7 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, Ticket, TicketFormDefinition,PortalTicketType TicketType } from '../../core/workspace/workspace.models';
+import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, Ticket, TicketAttachment, TicketFormDefinition, PortalTicketType, TicketType } from '../../core/workspace/workspace.models';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 import { downloadTicketAttachment as saveTicketAttachment } from '../../core/workspace/download-ticket-attachment';
 
