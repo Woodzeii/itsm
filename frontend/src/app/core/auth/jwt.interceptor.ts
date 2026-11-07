@@ -21,21 +21,18 @@ export const jwtInterceptor: HttpInterceptorFn = (request, next) => {
 
     return next(authenticatedRequest).pipe(
         catchError((error: unknown) => {
-            if (
-                error instanceof HttpErrorResponse
-                && error.status === 401
-                && token
-                && !isAuthRequest(request.url)
-            ) {
-                // Токен больше не принимается сервером — завершаем сессию и уводим на вход.
+            if (error instanceof HttpErrorResponse && error.status === 401 && !isAuthRequest(request.url)) {
+                // 401 означает, что сессия недействительна даже если токен ещё лежит в storage.
                 auth.logout();
 
-                const returnUrl = router.url;
-                void router.navigate(['/login'], {
-                    queryParams: returnUrl && returnUrl !== '/login'
-                        ? { returnUrl }
-                        : {},
-                });
+                if (!router.url.startsWith('/login')) {
+                    const returnUrl = router.url;
+                    void router.navigate(['/login'], {
+                        queryParams: returnUrl && returnUrl !== '/login'
+                            ? { returnUrl }
+                            : {},
+                    });
+                }
             }
 
             return throwError(() => error);

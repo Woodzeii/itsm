@@ -34,12 +34,14 @@ import {
     UserRecord,
 } from './workspace.models';
 
-@Injectable()
+@Injectable({ providedIn: 'root' })
 export class HttpWorkspaceApiService extends WorkspaceApi {
     private readonly http = inject(HttpClient);
     private readonly baseUrl = environment.apiBaseUrl;
     private readonly typeIds = new Map<string, number>();
     private readonly statusIds = new Map<string, number>();
+    private readonly assigneeIds = new Map<string, number>();
+    private readonly assigneeNames = new Map<string, string>();
 
     getOverview() {
         return this.getTickets().pipe(map(toOverview));
@@ -245,12 +247,38 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return this.http.put<UserRecord>(`${this.baseUrl}/users/${userId}/active`, { isActive });
     }
 
+    /** ID статуса по имени из уже загруженной очереди. */
+    resolveStatusId(name: string): number | undefined {
+        const key = name.trim().toLocaleLowerCase();
+        const exact = this.statusIds.get(key);
+        if (exact != null) return exact;
+
+        return [...this.statusIds.entries()]
+            .find(([statusName]) => statusName.includes(key) || key.includes(statusName))?.[1];
+    }
+
+    /** ID исполнителя по имени из уже загруженной очереди. */
+    resolveAssigneeId(value: string): number | undefined {
+        const numeric = Number(value);
+        if (Number.isInteger(numeric) && numeric > 0) return numeric;
+        return this.assigneeIds.get(value.trim().toLocaleLowerCase());
+    }
+
+    knownAssigneeNames(): string[] {
+        return [...this.assigneeNames.values()].sort((left, right) => left.localeCompare(right, 'ru'));
+    }
+
     private rememberLookups(ticket: BackendTicket): void {
         if (ticket.typeName && ticket.typeId != null) {
             this.typeIds.set(ticket.typeName.toLocaleLowerCase(), ticket.typeId);
         }
         if (ticket.statusName && ticket.statusId != null) {
             this.statusIds.set(ticket.statusName.toLocaleLowerCase(), ticket.statusId);
+        }
+        if (ticket.assigneeName && ticket.assigneeId != null) {
+            const key = ticket.assigneeName.toLocaleLowerCase();
+            this.assigneeIds.set(key, ticket.assigneeId);
+            this.assigneeNames.set(key, ticket.assigneeName);
         }
     }
 
@@ -389,7 +417,10 @@ function toTicket(ticket: BackendTicket): Ticket {
         createdAt: ticket.createdAt ?? '',
         slaRemaining: formatRemaining(ticket.slaResolutionDeadline),
         type: ticket.typeName,
+        typeId: ticket.typeId,
+        statusId: ticket.statusId,
         assignee: ticket.assigneeName ?? undefined,
+        assigneeId: ticket.assigneeId ?? undefined,
         createdOn: ticket.createdAt,
         closedOn: isClosed ? ticket.updatedAt : undefined,
         reactionSla: formatRemaining(ticket.slaReactionDeadline),
