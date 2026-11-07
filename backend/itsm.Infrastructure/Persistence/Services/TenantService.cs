@@ -26,6 +26,7 @@ public class TenantService : ITenantService
 {
     private static readonly TimeSpan UserLimitGracePeriod = TimeSpan.FromDays(7);
     private const string AdminRoleCode = "admin";
+    private const string TenantOwnerRoleCode = "tenant_owner";
     private const string TenantAdminRoleCode = "tenant_admin";
     private readonly ItsmDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
@@ -111,12 +112,12 @@ public class TenantService : ITenantService
                 ct))
             throw new InvalidOperationException("Логин или email первого администратора уже используется");
 
-        var adminRoleId = await _db.SystemRoles
-            .Where(role => role.Code == "admin")
+        var tenantOwnerRoleId = await _db.SystemRoles
+            .Where(role => role.Code == TenantOwnerRoleCode)
             .Select(role => (int?)role.Id)
             .FirstOrDefaultAsync(ct);
-        if (!adminRoleId.HasValue)
-            throw new InvalidOperationException("Системная роль admin не найдена");
+        if (!tenantOwnerRoleId.HasValue)
+            throw new InvalidOperationException("Системная роль tenant_owner не найдена");
 
         var tenant = new Tenant
         {
@@ -143,7 +144,7 @@ public class TenantService : ITenantService
             PasswordChangedAt = DateTimeOffset.UtcNow,
             CreatedAt = DateTimeOffset.UtcNow
         };
-        firstAdmin.RoleMappings.Add(new UserRoleMapping { RoleId = adminRoleId.Value });
+        firstAdmin.RoleMappings.Add(new UserRoleMapping { RoleId = tenantOwnerRoleId.Value });
         tenant.Users.Add(firstAdmin);
 
         _db.Tenants.Add(tenant);
@@ -381,7 +382,9 @@ public class TenantService : ITenantService
     private static bool IsProtectedFromQuotaDeactivation(User user)
     {
         return user.RoleMappings.Any(mapping =>
-            mapping.Role.Code == AdminRoleCode || mapping.Role.Code == TenantAdminRoleCode);
+            mapping.Role.Code == AdminRoleCode
+            || mapping.Role.Code == TenantOwnerRoleCode
+            || mapping.Role.Code == TenantAdminRoleCode);
     }
 
     private static void Shuffle<T>(IList<T> items)

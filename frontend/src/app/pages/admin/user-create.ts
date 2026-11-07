@@ -176,7 +176,7 @@ export class UserCreateComponent implements OnInit {
             error: err => this.error = err.message || 'Не удалось загрузить список пользователей.',
         });
         this.admin.getRoles().subscribe({
-            next: roles => this.roles = roles.filter(role => role.code !== 'tenant_admin' && role.code !== 'admin'),
+            next: roles => this.roles = roles.filter(role => ['admin', 'agent', 'portal_user'].includes(role.code)),
             error: err => this.error = err.message || 'Не удалось загрузить справочник ролей.',
         });
     }

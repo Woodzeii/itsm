@@ -8,7 +8,7 @@ namespace itsm.WebApi.Controllers;
 
 [ApiController]
 [Route("api/dictionaries")]
-[Authorize(Roles = "admin,agent")]
+[Authorize(Roles = "admin,tenant_owner,agent")]
 public class DictionariesController : ControllerBase
 {
     private readonly IDictionaryService _service;
@@ -32,7 +32,7 @@ public class DictionariesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> Create(
         [FromBody] CreateDictionaryRequest request,
         [FromServices] IValidator<CreateDictionaryRequest> validator,
@@ -54,7 +54,7 @@ public class DictionariesController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> Update(
         int id,
         [FromBody] UpdateDictionaryRequest request,
@@ -70,7 +70,7 @@ public class DictionariesController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
     {
         try
@@ -91,7 +91,7 @@ public class DictionariesController : ControllerBase
         => Ok(await _service.GetValuesAsync(id, includeArchived, ct));
 
     [HttpPost("{id:int}/values")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> CreateValue(
         int id,
         [FromBody] CreateDictionaryValueRequest request,
@@ -114,7 +114,7 @@ public class DictionariesController : ControllerBase
     }
 
     [HttpPut("{id:int}/values/{valueId:int}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> UpdateValue(
         int id,
         int valueId,
@@ -131,7 +131,7 @@ public class DictionariesController : ControllerBase
     }
 
     [HttpDelete("{id:int}/values/{valueId:int}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> DeleteValue(int id, int valueId, CancellationToken ct)
     {
         try
@@ -146,7 +146,7 @@ public class DictionariesController : ControllerBase
     }
 
     [HttpPost("{id:int}/values/{valueId:int}/archive")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> ArchiveValue(int id, int valueId, CancellationToken ct)
     {
         var archived = await _service.ArchiveValueAsync(id, valueId, ct);

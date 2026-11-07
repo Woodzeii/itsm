@@ -4,6 +4,7 @@ import { of, Subject } from 'rxjs';
 import { AdminService } from '../../core/admin/admin.service';
 import { UserSummary } from '../../core/admin/admin.models';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
+import { AuthService } from '../../core/auth/auth.service';
 import { AdminWorkspaceComponent } from './admin-workspace';
 
 describe('AdminWorkspaceComponent user list', () => {
@@ -39,6 +40,14 @@ describe('AdminWorkspaceComponent user list', () => {
                         getRoles: () => of([{ id: 3, code: 'agent', name: 'Инженер' }]),
                     },
                 },
+                {
+                    provide: AuthService,
+                    useValue: {
+                        isTenantAdmin: () => false,
+                        isTenantOwner: () => false,
+                        getLogin: () => 'admin',
+                    },
+                },
             ],
         }).compileComponents();
     });
@@ -59,6 +68,24 @@ describe('AdminWorkspaceComponent user list', () => {
                 cell => cell.getAttribute('data-label'),
             ),
         ).toEqual(['ФИО', 'Email', 'Username', 'Департамент', 'Руководитель', 'Статус', 'Роли', 'Действия']);
+    });
+
+    it('shows the owner badge and disables editing for a local admin', async () => {
+        const owner: UserSummary = { ...user, roleIds: [6], username: 'owner' };
+        TestBed.overrideProvider(AdminService, {
+            useValue: {
+                getUsers: () => of([owner]),
+                getRoles: () => of([{ id: 6, code: 'tenant_owner', name: 'Владелец тенанта' }]),
+            },
+        });
+
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(fixture.nativeElement.querySelector('.owner-badge')?.textContent).toContain('Владелец');
+        expect(fixture.nativeElement.querySelector('button[aria-label="Редактировать пользователя Тестовый Пользователь"]')?.disabled).toBe(true);
     });
 
     it('keeps field labels visible when editing a user on narrow screens', async () => {

@@ -1606,6 +1606,12 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Id = 5,
                             Code = "portal_user",
                             Name = "Пользователь портала"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Code = "tenant_owner",
+                            Name = "Владелец тенанта"
                         });
                 });
 

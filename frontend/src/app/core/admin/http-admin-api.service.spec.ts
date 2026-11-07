@@ -79,8 +79,8 @@ describe('HttpAdminApiService user methods', () => {
         });
 
         expect(result).toEqual([
-            user,
-            { ...user, id: 16, managerId: null, tenantId: null },
+            { ...user, roleCodes: ['agent'] },
+            { ...user, id: 16, managerId: null, tenantId: null, roleCodes: ['agent'] },
         ]);
     });
 

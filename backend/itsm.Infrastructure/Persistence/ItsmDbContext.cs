@@ -564,7 +564,8 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             new SystemRole { Id = 2, Code = "admin", Name = "Администратор" },
             new SystemRole { Id = 3, Code = "agent", Name = "Инженер ТП" },
             new SystemRole { Id = 4, Code = "manager", Name = "Руководитель" },
-            new SystemRole { Id = 5, Code = "portal_user", Name = "Пользователь портала" }
+            new SystemRole { Id = 5, Code = "portal_user", Name = "Пользователь портала" },
+            new SystemRole { Id = 6, Code = "tenant_owner", Name = "Владелец тенанта" }
         );
 
         modelBuilder.Entity<CriticalityLevel>().HasData(

@@ -8,6 +8,7 @@ import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefin
 import { AdminService } from '../../core/admin/admin.service';
 import { RoleSummary, UpdateAdminUserRequest, UserSummary } from '../../core/admin/admin.models';
 import { TenantUserQuotaService } from '../../core/workspace/tenant-user-quota.service';
+import { AuthService } from '../../core/auth/auth.service';
 
 type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 
@@ -168,8 +169,8 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
                       <td data-label="Username"><input name="username" [(ngModel)]="editingUser!.username" /></td>
                       <td data-label="Департамент"><input name="department" [(ngModel)]="editingUser!.department" /></td>
                       <td data-label="Руководитель"><select name="managerId" [(ngModel)]="editingUser!.managerId"><option [ngValue]="null">Не назначен</option>@for (manager of usersList.filter(u => u.id !== user.id && u.isActive); track manager.id) { <option [ngValue]="manager.id">{{ manager.fullName }}</option> }</select></td>
-                      <td data-label="Статус"><label class="check"><input type="checkbox" [(ngModel)]="editingUser!.isActive" /><span>Активен</span></label></td>
-                      <td class="roles-cell" data-label="Роли"><div class="roles-list">@for (role of availableRoles; track role.id) { <label class="role-check"><input type="checkbox" [checked]="(editingUser?.roleIds || []).includes(role.id)" (change)="toggleEditingUserRole(role.id, $event)" /><span>{{ role.name }}</span></label> }</div></td>
+                      <td data-label="Статус"><label class="check"><input type="checkbox" [(ngModel)]="editingUser!.isActive" [disabled]="isSelfTenantOwner(user)" /><span>Активен</span></label></td>
+                      <td class="roles-cell" data-label="Роли"><div class="roles-list">@for (role of assignableRoles; track role.id) { <label class="role-check"><input type="checkbox" [checked]="(editingUser?.roleIds || []).includes(role.id)" (change)="toggleEditingUserRole(role.id, $event)" /><span>{{ role.name }}</span></label> }</div></td>
                       <td class="actions" data-label="Действия"><button type="button" aria-label="Сохранить пользователя" (click)="saveUser(user.id)">✓</button><button type="button" aria-label="Отменить редактирование" (click)="cancelEdit()">✕</button></td>
                     </tr>
                   } @else {
@@ -190,8 +191,8 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
                       <td data-label="Департамент">{{ user.department }}</td>
                       <td data-label="Руководитель">{{ findUserName(user.managerId) || '—' }}</td>
                       <td data-label="Статус"><span class="status" [class.active]="user.isActive" [class.inactive]="!user.isActive">{{ user.isActive ? 'Активен' : 'Неактивен' }}</span></td>
-                      <td data-label="Роли">{{ user.roleIds.map(id => findRoleName(id)).filter(n => n).join(', ') || '—' }}</td>
-                      <td class="actions" data-label="Действия"><button type="button" [attr.aria-label]="'Редактировать пользователя ' + user.fullName" (click)="editUser(user)">✎</button></td>
+                      <td data-label="Роли"><span class="role-tags">@if (isTenantOwner(user)) { <span class="owner-badge">Владелец</span> }@for (role of getUserRoles(user); track role.id) { @if (role.code !== 'tenant_owner') { <span>{{ role.name }}</span> } }@if (!user.roleIds.length) { — }</span></td>
+                      <td class="actions" data-label="Действия"><button type="button" [disabled]="!canEditUser(user)" [title]="canEditUser(user) ? 'Редактировать пользователя' : 'Изменять владельца может только глобальный администратор'" [attr.aria-label]="'Редактировать пользователя ' + user.fullName" (click)="editUser(user)">✎</button></td>
                     </tr>
                   }
                 }
@@ -293,6 +294,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 export class AdminWorkspaceComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
     private readonly admin = inject(AdminService);
+    private readonly auth = inject(AuthService);
     private readonly quotaService = inject(TenantUserQuotaService);
     private readonly route = inject(ActivatedRoute);
     private readonly router = inject(Router);
@@ -333,6 +335,7 @@ export class AdminWorkspaceComponent implements OnInit {
     newHoliday = '';
     readonly weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
+    get assignableRoles(): RoleSummary[] { return this.availableRoles.filter(role => ['admin', 'agent', 'portal_user'].includes(role.code)); }
     get pageTitle(): string { return { settings: 'Настройки Service Desk', forms: 'Конструктор форм', escalations: 'Процесс эскалации', reports: 'Отчёты', users: 'Управление пользователями' }[this.section]; }
     get activeForm(): TicketFormDefinition | undefined { return this.forms.find(form => form.ticketTypeId === this.formId); }
     get userDepartments(): string[] {
@@ -403,7 +406,7 @@ export class AdminWorkspaceComponent implements OnInit {
                     this.changeDetector.markForCheck();
                 },
             });
-            this.admin.getRoles().subscribe({ next: roles => this.availableRoles = roles.filter(role => role.code !== 'tenant_admin' && role.code !== 'admin'), error: err => this.error = err.message });
+            this.admin.getRoles().subscribe({ next: roles => this.availableRoles = roles, error: err => this.error = err.message });
         }
     }
 
@@ -494,6 +497,7 @@ export class AdminWorkspaceComponent implements OnInit {
     ]; }
 
     editUser(user: UserSummary): void {
+        if (!this.canEditUser(user)) return;
         this.expandedUserId = user.id;
         this.editingUserId = user.id;
         this.editingUser = { ...user, roleIds: [...user.roleIds] };
@@ -512,6 +516,7 @@ export class AdminWorkspaceComponent implements OnInit {
 
     toggleEditingUserRole(roleId: number, event: Event): void {
         if (!this.editingUser) return;
+        if (this.availableRoles.find(role => role.id === roleId)?.code === 'tenant_owner') return;
         const checked = (event.target as HTMLInputElement).checked;
         this.editingUser.roleIds = checked
             ? [...new Set([...(this.editingUser.roleIds || []), roleId])]
@@ -519,6 +524,15 @@ export class AdminWorkspaceComponent implements OnInit {
     }
 
     saveUser(userId: number): void {
+        const target = this.usersList.find(user => user.id === userId);
+        if (target && !this.canEditUser(target)) {
+            this.error = 'Изменять учётную запись владельца может только глобальный администратор.';
+            return;
+        }
+        if (target && this.isSelfTenantOwner(target) && this.editingUser?.isActive === false) {
+            this.error = 'Владелец тенанта не может деактивировать собственную учётную запись.';
+            return;
+        }
         if (!this.editingUser || !this.editingUser.roleIds || this.editingUser.roleIds.length === 0) {
             this.error = 'Назначьте пользователю хотя бы одну роль.';
             return;
@@ -570,6 +584,26 @@ export class AdminWorkspaceComponent implements OnInit {
 
     findRoleName(roleId: number): string | undefined {
         return this.availableRoles.find(r => r.id === roleId)?.name;
+    }
+
+    getUserRoles(user: UserSummary): RoleSummary[] {
+        return user.roleIds
+            .map(id => this.availableRoles.find(role => role.id === id))
+            .filter((role): role is RoleSummary => role !== undefined);
+    }
+
+    isTenantOwner(user: UserSummary): boolean {
+        return user.roleCodes?.includes('tenant_owner') === true
+            || user.roleIds.some(id => this.availableRoles.find(role => role.id === id)?.code === 'tenant_owner');
+    }
+
+    canEditUser(user: UserSummary): boolean {
+        return !this.isTenantOwner(user) || this.auth.isTenantAdmin() || this.auth.isTenantOwner();
+    }
+
+    isSelfTenantOwner(user: UserSummary): boolean {
+        return this.isTenantOwner(user) && this.auth.isTenantOwner()
+            && user.username.toLocaleLowerCase() === this.auth.getLogin().toLocaleLowerCase();
     }
 
     clearUserFilters(): void {

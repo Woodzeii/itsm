@@ -359,6 +359,7 @@ export class AppLayoutComponent implements OnInit, OnDestroy {
     this.isMultiRole = this.authService.hasMultipleRoles();
     const roleLabels = {
       admin: 'Администратор',
+      tenant_owner: 'Владелец тенанта',
       agent: 'Инженер поддержки',
       manager: 'Руководитель',
       portal_user: 'Пользователь',

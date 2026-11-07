@@ -8,7 +8,7 @@ namespace itsm.WebApi.Controllers;
 
 [ApiController]
 [Route("api/users")]
-[Authorize(Roles = "admin,tenant_admin")]
+[Authorize(Roles = "admin,tenant_owner,tenant_admin")]
 public class UsersController : ControllerBase
 {
     private readonly IUserAdminService _service;
@@ -121,6 +121,7 @@ public class UsersController : ControllerBase
             {
                 UserAdminErrorKind.NotFound => NotFound(body),
                 UserAdminErrorKind.Conflict => Conflict(body),
+                UserAdminErrorKind.Forbidden => StatusCode(StatusCodes.Status403Forbidden, body),
                 _ => BadRequest(body)
             };
         }

@@ -25,11 +25,11 @@ import { TenantRecord } from '../../core/workspace/workspace.models';
       @if (error) { <p class="message error">{{ error }}</p> }
       @if (notice) { <p class="message success">{{ notice }}</p> }
       <form class="create" (ngSubmit)="create()">
-        <h2>Создать тенант и первого администратора</h2>
+        <h2>Создать тенант и владельца</h2>
         <label>Название организации<input name="name" [(ngModel)]="name" required maxlength="255" /></label>
-        <label>Логин администратора<input name="adminLogin" [(ngModel)]="adminLogin" required minlength="3" maxlength="64" /></label>
-        <label>Email администратора<input name="adminEmail" [(ngModel)]="adminEmail" type="email" required maxlength="255" /></label>
-        <label>ФИО администратора<input name="adminFullName" [(ngModel)]="adminFullName" required maxlength="255" /></label>
+        <label>Логин владельца<input name="adminLogin" [(ngModel)]="adminLogin" required minlength="3" maxlength="64" /></label>
+        <label>Email владельца<input name="adminEmail" [(ngModel)]="adminEmail" type="email" required maxlength="255" /></label>
+        <label>ФИО владельца<input name="adminFullName" [(ngModel)]="adminFullName" required maxlength="255" /></label>
         <label>Начальный пароль<input name="adminPassword" [(ngModel)]="adminPassword" type="password" required minlength="8" autocomplete="new-password" /></label>
         <button class="primary" type="submit" [disabled]="saving || !name.trim() || !adminLogin.trim() || !adminEmail.trim() || !adminFullName.trim() || adminPassword.length < 8">
           {{ saving ? 'Сохранение…' : 'Создать тенант' }}

@@ -14,6 +14,7 @@ public class UserAdminServiceTests
 {
     private const int AdminRoleId = 2;
     private const int AgentRoleId = 3;
+    private const int TenantOwnerRoleId = 6;
 
     private static (UserAdminService svc, ItsmDbContext db) Create()
     {
@@ -37,6 +38,22 @@ public class UserAdminServiceTests
         db.Users.Add(u);
         db.SaveChanges();
         return u;
+    }
+
+    private static User AddTenantOwner(ItsmDbContext db, string name)
+    {
+        var user = new User
+        {
+            Username = name,
+            Email = name + "@x.local",
+            FullName = name,
+            IsActive = true,
+            TenantId = 1
+        };
+        user.RoleMappings.Add(new UserRoleMapping { RoleId = TenantOwnerRoleId });
+        db.Users.Add(user);
+        db.SaveChanges();
+        return user;
     }
 
     [Fact]
@@ -215,6 +232,99 @@ public class UserAdminServiceTests
 
         var act = () => svc.SetRolesAsync(admin.Id, new SetUserRolesRequest(), actor.Id, null);
         (await act.Should().ThrowAsync<UserAdminException>()).Which.Kind.Should().Be(UserAdminErrorKind.Conflict);
+    }
+
+    [Fact]
+    public async Task LocalAdmin_CannotModifyOrDeactivateTenantOwner()
+    {
+        var (svc, db) = Create();
+        var actor = AddUser(db, "local.admin", admin: true);
+        var owner = AddTenantOwner(db, "owner");
+        var update = new UpdateUserRequest
+        {
+            Username = owner.Username,
+            Email = owner.Email,
+            FullName = "Changed Owner",
+            RoleIds = new List<int> { TenantOwnerRoleId }
+        };
+
+        var updateAct = () => svc.UpdateAsync(owner.Id, update, actor.Id, null);
+        (await updateAct.Should().ThrowAsync<UserAdminException>())
+            .Which.Kind.Should().Be(UserAdminErrorKind.Forbidden);
+
+        var activeAct = () => svc.SetActiveAsync(owner.Id, false, actor.Id, null);
+        (await activeAct.Should().ThrowAsync<UserAdminException>())
+            .Which.Kind.Should().Be(UserAdminErrorKind.Forbidden);
+
+        var deleteAct = () => svc.DeleteAsync(owner.Id, actor.Id, null);
+        (await deleteAct.Should().ThrowAsync<UserAdminException>())
+            .Which.Kind.Should().Be(UserAdminErrorKind.Forbidden);
+
+        var mfaAct = () => svc.ResetMfaAsync(owner.Id, actor.Id, null);
+        (await mfaAct.Should().ThrowAsync<UserAdminException>())
+            .Which.Kind.Should().Be(UserAdminErrorKind.Forbidden);
+    }
+
+    [Fact]
+    public async Task LocalAdmin_CannotAssignTenantOwnerRole()
+    {
+        var (svc, db) = Create();
+        var actor = AddUser(db, "local.admin", admin: true);
+        var target = AddUser(db, "target");
+        var ownerRoleId = await db.SystemRoles.Where(role => role.Code == "tenant_owner")
+            .Select(role => role.Id).SingleAsync();
+
+        var createAct = () => svc.CreateAsync(new CreateUserRequest
+        {
+            Username = "new.owner",
+            Email = "new.owner@x.local",
+            Password = "Passw0rdX",
+            RoleIds = { ownerRoleId }
+        }, actor.Id, null);
+        (await createAct.Should().ThrowAsync<UserAdminException>())
+            .Which.Kind.Should().Be(UserAdminErrorKind.Forbidden);
+
+        var rolesAct = () => svc.SetRolesAsync(target.Id, new SetUserRolesRequest
+        {
+            RoleIds = { ownerRoleId }
+        }, actor.Id, null);
+        (await rolesAct.Should().ThrowAsync<UserAdminException>())
+            .Which.Kind.Should().Be(UserAdminErrorKind.Forbidden);
+    }
+
+    [Fact]
+    public async Task TenantOwner_CannotDeactivateOrDeleteOwnAccount()
+    {
+        var (svc, db) = Create();
+        var owner = AddTenantOwner(db, "owner");
+
+        var deactivateAct = () => svc.SetActiveAsync(owner.Id, false, owner.Id, null);
+        (await deactivateAct.Should().ThrowAsync<UserAdminException>())
+            .Which.Kind.Should().Be(UserAdminErrorKind.Forbidden);
+
+        var deleteAct = () => svc.DeleteAsync(owner.Id, owner.Id, null);
+        (await deleteAct.Should().ThrowAsync<UserAdminException>())
+            .Which.Kind.Should().Be(UserAdminErrorKind.Forbidden);
+    }
+
+    [Fact]
+    public async Task TenantAdmin_CanTransferAndDeactivateTenantOwner()
+    {
+        var (svc, db) = Create();
+        var globalAdmin = new User { Username = "tenant.admin", Email = "tenant.admin@x.local" };
+        globalAdmin.RoleMappings.Add(new UserRoleMapping { RoleId = 1 });
+        var currentOwner = AddTenantOwner(db, "current.owner");
+        var nextOwner = AddUser(db, "next.owner");
+        db.Users.Add(globalAdmin);
+        await db.SaveChangesAsync();
+
+        await svc.SetRolesAsync(currentOwner.Id, new SetUserRolesRequest(), globalAdmin.Id, null);
+        var promoted = await svc.SetRolesAsync(nextOwner.Id,
+            new SetUserRolesRequest { RoleIds = { TenantOwnerRoleId } }, globalAdmin.Id, null);
+        var deactivated = await svc.SetActiveAsync(nextOwner.Id, false, globalAdmin.Id, null);
+
+        promoted.RoleCodes.Should().Contain("tenant_owner");
+        deactivated.IsActive.Should().BeFalse();
     }
 
     [Fact]

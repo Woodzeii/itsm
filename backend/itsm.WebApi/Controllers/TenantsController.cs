@@ -24,7 +24,7 @@ public class TenantsController : ControllerBase
 
     /// <summary>Получить квоту активных пользователей текущего тенанта.</summary>
     [HttpGet("me/user-quota")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     [ProducesResponseType(typeof(TenantUserQuotaDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetCurrentUserQuota(CancellationToken ct)
