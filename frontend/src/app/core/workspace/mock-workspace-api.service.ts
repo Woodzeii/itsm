@@ -24,6 +24,7 @@ import {
     Escalation,
     FormFieldDefinition,
     OverviewData,
+    PortalTicketType,
     PortalTicketRequest,
     RepairCloseRequest,
     ReportSummary,
@@ -440,6 +441,12 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     getPortalTickets(): Observable<Ticket[]> {
         const login = this.auth.getLogin();
         return of(this.tickets.filter(ticket => ticket.requesterLogin === login).map(ticket => ({ ...ticket })));
+    }
+
+    getPortalTicketTypes(): Observable<PortalTicketType[]> {
+        return of(this.ticketTypes
+            .filter(type => type.portalAvailable && !type.repair)
+            .map((type, index) => ({ id: index + 1, name: type.name })));
     }
 
     createPortalTicket(request: PortalTicketRequest): Observable<Ticket> {
