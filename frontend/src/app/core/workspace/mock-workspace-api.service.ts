@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { WorkspaceApi } from './workspace-api';
 import {
@@ -27,6 +27,7 @@ import {
     PortalTicketRequest,
     RepairCloseRequest,
     ReportSummary,
+    TicketAttachment,
     TicketComment,
     TicketFormDefinition,
     Ticket,
@@ -254,12 +255,37 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         return of(ticket);
     }
 
-    addTicketComment(ticketId: string, comment: Omit<TicketComment, 'id' | 'createdAt'>): Observable<TicketComment> {
+    getTicketComments(ticketId: string): Observable<TicketComment[]> {
         const ticket = this.findTicket(ticketId);
-        const added: TicketComment = { ...comment, id: this.id('comment'), createdAt: this.now() };
+        const isOwner = ticket.requesterLogin === this.auth.getLogin();
+        const isStaff = this.auth.getRole() === 'admin' || this.auth.getRole() === 'agent';
+        if (!isOwner && !isStaff) return this.fail('Доступны только собственные заявки.');
+        return of((ticket.comments ?? [])
+            .filter(comment => isStaff || !comment.internal)
+            .map(comment => ({ ...comment, attachments: [...comment.attachments] })));
+    }
+
+    addTicketComment(
+        ticketId: string,
+        comment: Omit<TicketComment, 'id' | 'createdAt' | 'attachments' | 'attachmentRecords'>,
+        attachments: File[],
+    ): Observable<TicketComment> {
+        const ticket = this.findTicket(ticketId);
+        const isStaff = this.auth.getRole() === 'admin' || this.auth.getRole() === 'agent';
+        if (comment.internal && !isStaff) return this.fail('Внутренние сообщения доступны только сотрудникам службы поддержки.');
+        const added: TicketComment = {
+            ...comment,
+            id: this.id('comment'),
+            createdAt: this.now(),
+            attachments: attachments.map(file => file.name),
+        };
         ticket.comments = [...(ticket.comments ?? []), added];
         this.recordTicketHistory(ticket, added.internal ? 'Добавлен внутренний комментарий' : 'Добавлен комментарий', added.author);
         return of(added);
+    }
+
+    downloadTicketAttachment(_ticketId: string, _attachment: TicketAttachment): Observable<Blob> {
+        return throwError(() => new Error('Скачивание вложений недоступно в демонстрационном режиме.'));
     }
 
     escalateTicket(ticketId: string, initiator: string): Observable<EscalationHistoryEntry> {
@@ -454,7 +480,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     addPortalComment(ticketId: string, message: string, attachments: File[]): Observable<TicketComment> {
         const ticket = this.findTicket(ticketId);
         if (ticket.requesterLogin !== this.auth.getLogin()) return this.fail('Доступны только собственные заявки.');
-        return this.addTicketComment(ticketId, { author: ticket.requester, message, internal: false, attachments: attachments.map(file => file.name) });
+        return this.addTicketComment(ticketId, { author: ticket.requester, message, internal: false }, attachments);
     }
 
     reviewPortalTicket(ticketId: string, accepted: boolean): Observable<Ticket> {

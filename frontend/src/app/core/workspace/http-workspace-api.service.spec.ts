@@ -45,22 +45,88 @@ describe('HttpWorkspaceApiService backend contract', () => {
         request.flush({});
     });
 
-    it('adds a ticket message under messages with backend field names', () => {
+    it('loads ticket messages and preserves internal flags and downloadable attachment ids', () => {
+        let comments: unknown;
+        service.getTicketComments('42').subscribe(result => comments = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/messages`);
+        expect(request.request.method).toBe('GET');
+        request.flush([{
+            id: 8,
+            authorName: 'Agent',
+            messageBody: 'Internal note',
+            isInternal: true,
+            attachments: [{ id: 13, fileName: 'log.txt' }],
+            createdAt: '2026-11-07T08:00:00Z',
+        }]);
+
+        expect(comments).toEqual([{
+            id: '8',
+            author: 'Agent',
+            message: 'Internal note',
+            createdAt: '2026-11-07T08:00:00Z',
+            internal: true,
+            attachments: ['log.txt'],
+            attachmentRecords: [{ id: '13', fileName: 'log.txt' }],
+        }]);
+    });
+
+    it('posts a ticket message with backend field names', () => {
         service.addTicketComment('42', {
             author: 'Agent',
             message: 'Test',
             internal: true,
-            attachments: ['file.txt'],
-        }).subscribe();
+        }, []).subscribe();
 
         const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/messages`);
         expect(request.request.method).toBe('POST');
         expect(request.request.body).toEqual({
             messageBody: 'Test',
             isInternal: true,
-            attachments: ['file.txt'],
+            attachments: [],
         });
         request.flush({});
+    });
+
+    it('uploads staff attachments before creating a message with upload tokens', () => {
+        const file = new File(['sample'], 'log.txt', { type: 'text/plain' });
+        service.addTicketComment('42', {
+            author: 'Agent',
+            message: 'Логи',
+            internal: false,
+        }, [file]).subscribe();
+
+        const upload = http.expectOne(`${environment.apiBaseUrl}/tickets/42/attachments`);
+        expect(upload.request.method).toBe('POST');
+        expect(upload.request.body instanceof FormData).toBe(true);
+        const uploadId = '00112233445566778899aabbccddeeff';
+        upload.flush({ id: uploadId, fileName: 'log.txt', sizeBytes: 6, expiresAt: '2026-11-08T08:00:00Z' });
+
+        const message = http.expectOne(`${environment.apiBaseUrl}/tickets/42/messages`);
+        expect(message.request.method).toBe('POST');
+        expect(message.request.body).toEqual({
+            messageBody: 'Логи',
+            isInternal: false,
+            attachments: [uploadId],
+        });
+        message.flush({
+            id: 9,
+            authorName: 'Agent',
+            messageBody: 'Логи',
+            isInternal: false,
+            attachments: [{ id: 14, fileName: 'log.txt' }],
+        });
+    });
+
+    it('downloads ticket attachment bytes through the authorized API client', () => {
+        let downloaded: Blob | undefined;
+        service.downloadTicketAttachment('42', { id: '13', fileName: 'log.txt' }).subscribe(blob => downloaded = blob);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/attachments/13`);
+        expect(request.request.method).toBe('GET');
+        request.flush(new Blob(['sample']));
+
+        expect(downloaded?.size).toBe(6);
     });
 
     it('escalates a ticket through POST /tickets/{id}/escalate without a client initiator', () => {
@@ -224,7 +290,7 @@ describe('HttpWorkspaceApiService backend contract', () => {
         request.flush({});
     });
 
-    it('posts portal messages as JSON to the ticket messages endpoint', () => {
+    it('posts portal messages as public JSON to the ticket messages endpoint', () => {
         service.addPortalComment('42', 'Здравствуйте', []).subscribe();
 
         const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/messages`);

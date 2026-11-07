@@ -3,7 +3,9 @@ import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, Ticket, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
+import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
+import { downloadTicketAttachment as saveTicketAttachment } from '../../core/workspace/download-ticket-attachment';
+import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, Ticket, TicketAttachment, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
 
 @Component({
     selector: 'app-self-service-portal',
@@ -66,8 +68,8 @@ import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, T
             <div class="ticket-meta"><span>Критичность <strong>{{ active.priority }}</strong></span><span>Исполнитель <strong>{{ active.assignee || 'Назначается' }}</strong></span></div>
             @if (settings?.portalSlaFields?.includes('Время реакции')) { <p class="sla-line">Время реакции: <strong>{{ active.reactionSla || 'ожидается' }}</strong></p> }
             @if (settings?.portalSlaFields?.includes('Время решения')) { <p class="sla-line">Время решения: <strong>{{ active.resolutionSla || active.slaRemaining }}</strong></p> }
-            <section class="conversation"><h3>Переписка</h3>@for (comment of publicComments; track comment.id) { <article><strong>{{ comment.author }}</strong><p>{{ comment.message }}</p><small>{{ comment.createdAt }}</small>@for (file of comment.attachments; track file) { <span class="attachment">{{ file }}</span> }</article> }
-              <form (ngSubmit)="sendComment()"><textarea name="reply" [(ngModel)]="reply" placeholder="Напишите сообщение" required></textarea><label class="file-label">Прикрепить файлы<input type="file" multiple (change)="pickCommentFiles($event)" /></label><button class="primary" type="submit" [disabled]="!reply.trim()">Отправить сообщение</button></form>
+            <section class="conversation"><h3>Переписка</h3>@if (loadingComments) { <p class="empty">Загрузка сообщений...</p> }@for (comment of publicComments; track comment.id) { <article><strong>{{ comment.author }}</strong><p>{{ comment.message }}</p><small>{{ comment.createdAt }}</small>@if (comment.attachmentRecords?.length) { @for (attachment of comment.attachmentRecords; track attachment.id) { <button class="attachment" type="button" (click)="downloadAttachment(attachment)">📎 {{ attachment.fileName }}</button> } }@else { @for (file of comment.attachments; track file) { <span class="attachment">📎 {{ file }}</span> } }</article> }
+              <form (ngSubmit)="sendComment()"><textarea name="reply" [(ngModel)]="reply" placeholder="Напишите сообщение" required></textarea><label class="file-label">Прикрепить файлы<input type="file" multiple (change)="pickCommentFiles($event)" /></label><button class="primary" type="submit" [disabled]="isSendingComment || !reply.trim()">Отправить сообщение</button></form>
             </section>
           </article>
           <aside class="actions-panel"><h3>Действия</h3>
@@ -109,7 +111,7 @@ import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, T
       .ticket-meta strong { display:block; margin-top:4px; color:#414c5a; } .sla-line { color:#667281; font-size:10px; }
       .conversation { margin-top:20px; } .conversation article { margin:9px 0; padding:11px; border-radius:6px; background:#f4f7fb; }
       .conversation article strong { font-size:10px; } .conversation article p { margin:5px 0; color:#586575; font-size:11px; white-space:pre-wrap; }
-      .conversation article small { color:#929baa; font-size:9px; } .attachment { display:block; margin-top:4px; color:#3475d1; font-size:9px; }
+      .conversation article small { color:#929baa; font-size:9px; } .attachment { display:block; margin-top:4px; padding:0; border:0; background:none; color:#3475d1; font-size:9px; text-align:left; cursor:pointer; }
       .conversation form { display:grid; gap:9px; margin-top:15px; } .conversation textarea { min-height:75px; }
       .file-label { font-weight:400; } .file-label input { font-size:9px; }
       .actions-panel p { color:#7b8694; font-size:10px; line-height:1.5; } .actions-panel button { margin-top:8px; }
@@ -119,6 +121,7 @@ import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, T
 })
 export class SelfServicePortalComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
+    private readonly chatApi = inject(HttpWorkspaceApiService);
     private readonly auth = inject(AuthService);
 
     view: 'list' | 'create' | 'detail' = 'list';
@@ -141,6 +144,9 @@ export class SelfServicePortalComponent implements OnInit {
     reply = '';
     error = '';
     notice = '';
+    loadingComments = false;
+    isSendingComment = false;
+    private commentFileInput?: HTMLInputElement;
 
     get login(): string { return this.auth.getLogin() || 'Пользователь портала'; }
     get loginInitial(): string { return this.login.charAt(0).toLocaleUpperCase(); }
@@ -171,12 +177,38 @@ export class SelfServicePortalComponent implements OnInit {
       this.error = '';
       for (const field of this.activeForm?.fields ?? []) if (field.defaultValue !== undefined) this.values[field.id] = field.defaultValue;
     }
-    openTicket(ticket: Ticket): void { this.active = ticket; this.view = 'detail'; }
+    openTicket(ticket: Ticket): void {
+        this.active = { ...ticket, comments: [] };
+        this.view = 'detail';
+        this.loadingComments = true;
+        this.chatApi.getTicketComments(ticket.id).subscribe({
+            next: comments => {
+                if (this.active?.id !== ticket.id) return;
+                this.active.comments = comments;
+                this.loadingComments = false;
+            },
+            error: err => {
+                if (this.active?.id !== ticket.id) return;
+                this.error = err.message;
+                this.loadingComments = false;
+            },
+        });
+    }
     pickFiles(event: Event, fieldId: string): void {
       this.fieldAttachments[fieldId] = [...(this.fieldAttachments[fieldId] ?? []), ...Array.from((event.target as HTMLInputElement).files ?? [])];
       this.attachments = Object.values(this.fieldAttachments).flat();
     }
-    pickCommentFiles(event: Event): void { this.commentFiles = Array.from((event.target as HTMLInputElement).files ?? []); }
+    pickCommentFiles(event: Event): void {
+        this.commentFileInput = event.target as HTMLInputElement;
+        this.commentFiles = Array.from(this.commentFileInput.files ?? []);
+    }
+    downloadAttachment(attachment: TicketAttachment): void {
+        if (!this.active) return;
+        this.chatApi.downloadTicketAttachment(this.active.id, attachment).subscribe({
+            next: blob => saveTicketAttachment(blob, attachment.fileName),
+            error: err => this.error = err.message,
+        });
+    }
 
     submitTicket(): void {
         const form = this.activeForm;
@@ -190,7 +222,7 @@ export class SelfServicePortalComponent implements OnInit {
             fields: { ...this.values }, attachments: [...this.attachments],
         };
         this.workspace.createPortalTicket(request).subscribe({
-            next: ticket => { this.tickets = [ticket, ...this.tickets]; this.active = ticket; this.view = 'detail'; this.notice = `Заявка ${ticket.id} зарегистрирована.`; },
+            next: ticket => { this.tickets = [ticket, ...this.tickets]; this.view = 'detail'; this.notice = `Заявка ${ticket.id} зарегистрирована.`; this.openTicket(ticket); },
             error: err => this.error = err.message,
         });
     }
@@ -225,10 +257,23 @@ export class SelfServicePortalComponent implements OnInit {
       }
 
     sendComment(): void {
-        if (!this.active) return;
-        this.workspace.addPortalComment(this.active.id, this.reply.trim(), this.commentFiles).subscribe({
-            next: comment => { this.active!.comments = [...(this.active!.comments ?? []), comment]; this.reply = ''; this.commentFiles = []; },
-            error: err => this.error = err.message,
+        if (!this.active || !this.reply.trim() || this.isSendingComment) return;
+        const ticketId = this.active.id;
+        this.isSendingComment = true;
+        this.chatApi.addPortalComment(ticketId, this.reply.trim(), this.commentFiles).subscribe({
+            next: comment => {
+                if (this.active?.id === ticketId) {
+                    this.active.comments = [...(this.active.comments ?? []), comment];
+                    this.reply = '';
+                    this.commentFiles = [];
+                    if (this.commentFileInput) this.commentFileInput.value = '';
+                }
+                this.isSendingComment = false;
+            },
+            error: err => {
+                this.error = err.message;
+                this.isSendingComment = false;
+            },
         });
     }
 

@@ -22,6 +22,7 @@ import {
     ReportSummary,
     TicketFormDefinition,
     Ticket,
+    TicketAttachment,
     TicketComment,
     TicketType,
     TenantRecord,
@@ -42,7 +43,9 @@ export abstract class WorkspaceApi {
     abstract changeTicketStatus(ticketId: string, statusId: number): Observable<Ticket>;
     abstract assignTicket(ticketId: string, assigneeId: number): Observable<Ticket>;
     abstract changeTicketPriority(ticketId: string, priority: string): Observable<Ticket>;
-    abstract addTicketComment(ticketId: string, comment: Omit<TicketComment, 'id' | 'createdAt'>): Observable<TicketComment>;
+    abstract getTicketComments(ticketId: string): Observable<TicketComment[]>;
+    abstract addTicketComment(ticketId: string, comment: Omit<TicketComment, 'id' | 'createdAt' | 'attachments' | 'attachmentRecords'>, attachments: File[]): Observable<TicketComment>;
+    abstract downloadTicketAttachment(ticketId: string, attachment: TicketAttachment): Observable<Blob>;
     abstract escalateTicket(ticketId: string, initiator: string): Observable<EscalationHistoryEntry>;
     abstract getAssetDetails(assetId: string): Observable<AssetDetails>;
     abstract createAsset(request: CreateAssetRequest): Observable<AssetDetails>;

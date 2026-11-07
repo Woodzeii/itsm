@@ -5,7 +5,8 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
-import { AdminSettings, Ticket } from '../../core/workspace/workspace.models';
+import { downloadTicketAttachment as saveTicketAttachment } from '../../core/workspace/download-ticket-attachment';
+import { AdminSettings, Ticket, TicketAttachment } from '../../core/workspace/workspace.models';
 
 @Component({
     selector: 'app-ticket-queue',
@@ -46,8 +47,8 @@ import { AdminSettings, Ticket } from '../../core/workspace/workspace.models';
               <form class="repair-close" (ngSubmit)="closeRepair()"><label>Результат ремонта<select name="result" [(ngModel)]="repairResult"><option value="В эксплуатацию">Вернуть в эксплуатацию</option><option value="На склад">Перевести на склад</option><option value="Списать">Списать</option></select></label><label>Что ремонтировалось и что менялось<textarea name="work" [(ngModel)]="repairDescription" required></textarea></label><button class="primary" type="submit" [disabled]="!repairDescription.trim()">Закрыть ремонт</button></form>
             }
             <section class="history"><h3>История заявки</h3>@for (item of selected.history ?? []; track item.id) { <article><strong>{{ item.event }}</strong><small>{{ item.createdAt }} · {{ item.actor }}</small></article> }</section>
-            <section class="comments"><h3>Переписка</h3>@for (comment of visibleComments; track comment.id) { <article [class.internal]="comment.internal"><strong>{{ comment.author }} @if (comment.internal) { <span>Внутренний комментарий</span> }</strong><p>{{ comment.message }}</p>@for (file of comment.attachments; track file) { <small class="attachment">📎 {{ file }}</small> }</article> }
-              <form (ngSubmit)="addComment()"><textarea name="message" [(ngModel)]="commentText" placeholder="Сообщение по заявке" required></textarea><label class="file-picker">Прикрепить файлы<input type="file" multiple (change)="pickAttachments($event)" /></label><label class="internal-toggle"><input type="checkbox" name="internal" [(ngModel)]="internalComment" /> Внутренний комментарий</label><button class="primary" type="submit" [disabled]="!commentText.trim()">Отправить</button></form>
+            <section class="comments"><h3>Переписка</h3>@if (loadingComments) { <p class="empty">Загрузка сообщений...</p> } @for (comment of visibleComments; track comment.id) { <article [class.internal]="comment.internal"><strong>{{ comment.author }} @if (comment.internal) { <span>Внутренний комментарий</span> }</strong><p>{{ comment.message }}</p><small>{{ comment.createdAt }}</small>@if (comment.attachmentRecords?.length) { @for (attachment of comment.attachmentRecords; track attachment.id) { <button class="attachment" type="button" (click)="downloadAttachment(attachment)">📎 {{ attachment.fileName }}</button> } } @else { @for (file of comment.attachments; track file) { <small class="attachment">📎 {{ file }}</small> } }</article> }
+              <form (ngSubmit)="addComment()"><textarea name="message" [(ngModel)]="commentText" placeholder="Сообщение по заявке" required></textarea><label class="file-picker">Прикрепить файлы<input type="file" multiple (change)="pickAttachments($event)" /></label>@if (canUseInternalComments) { <label class="internal-toggle"><input type="checkbox" name="internal" [(ngModel)]="internalComment" /> Внутренний комментарий</label> }<button class="primary" type="submit" [disabled]="isSendingComment || !commentText.trim()">Отправить</button></form>
             </section>
           } @else { <div class="empty-detail"><h2>Откройте заявку</h2><p>Выберите строку в общей очереди, чтобы увидеть SLA, историю и переписку.</p></div> }
         </aside>
@@ -89,7 +90,7 @@ import { AdminSettings, Ticket } from '../../core/workspace/workspace.models';
       .comments article { margin:8px 0; padding:9px; border-radius:6px; background:#f5f8fc; }
       .comments article.internal { background:#fff8eb; } .comments article strong span { margin-left:5px; color:#a77a27; font-weight:500; }
       .comments article p { margin:5px 0 0; color:#596474; font-size:10px; line-height:1.5; white-space:pre-wrap; }
-      .attachment { display:block; margin-top:5px; color:#5579af; font-size:9px; }
+      .attachment { display:block; margin-top:5px; padding:0; border:0; background:none; color:#5579af; font-size:9px; text-align:left; cursor:pointer; }
       .comments form { display:grid; gap:8px; } .comments form textarea { min-height:64px; }
       .file-picker input { font-size:9px; } .internal-toggle { display:flex; align-items:center; gap:5px; }
       .empty,.empty-detail { padding:25px 12px; color:#8a94a2; font-size:11px; } .empty-detail { padding:75px 18px; text-align:center; } .empty-detail p { color:#8a94a2; font-size:10px; line-height:1.5; }
@@ -109,6 +110,8 @@ export class TicketQueueComponent implements OnInit {
     settings: AdminSettings | null = null;
     selected: Ticket | null = null;
     isEngineer = false;
+    canUseInternalComments = false;
+    loadingComments = false;
     query = '';
     typeFilter = '';
     assigneeFilter = '';
@@ -116,7 +119,9 @@ export class TicketQueueComponent implements OnInit {
     priorityFilter = '';
     commentText = '';
     internalComment = false;
-    attachments: string[] = [];
+    attachments: File[] = [];
+    isSendingComment = false;
+    private attachmentInput?: HTMLInputElement;
     repairDescription = '';
     repairResult: 'В эксплуатацию' | 'На склад' | 'Списать' = 'В эксплуатацию';
     assigneeDraft = '';
@@ -147,16 +152,37 @@ export class TicketQueueComponent implements OnInit {
                 .filter(item => item.statusId > 0)
             : [];
     }
-    get visibleComments() { return (this.selected?.comments ?? []).filter(comment => !comment.internal || this.isEngineer); }
+    get visibleComments() { return (this.selected?.comments ?? []).filter(comment => !comment.internal || this.canUseInternalComments); }
 
     ngOnInit(): void {
         this.isEngineer = this.auth.canRead();
+        this.canUseInternalComments = this.auth.getRole() === 'admin' || this.auth.getRole() === 'agent';
         this.load();
       this.workspace.getAdminSettings().subscribe({ next: settings => this.settings = settings, error: err => this.error = err.message });
         this.route.queryParamMap.subscribe(params => this.query = params.get('q') ?? '');
     }
 
-    select(ticket: Ticket): void { this.selected = ticket; this.repairDescription = ''; this.assigneeDraft = ''; this.priorityDraft = ticket.priority; }
+    select(ticket: Ticket): void {
+        this.selected = { ...ticket, comments: [] };
+        this.repairDescription = '';
+        this.assigneeDraft = '';
+        this.priorityDraft = ticket.priority;
+        this.loadingComments = true;
+        this.ticketsApi.getTicketComments(ticket.id).subscribe({
+            next: comments => {
+                if (this.selected?.id === ticket.id) {
+                    this.selected.comments = comments;
+                    this.loadingComments = false;
+                }
+            },
+            error: err => {
+                if (this.selected?.id === ticket.id) {
+                    this.error = err.message;
+                    this.loadingComments = false;
+                }
+            },
+        });
+    }
     assign(): void {
       if (!this.selected || !this.assigneeDraft) return;
       const assigneeId = this.ticketsApi.resolveAssigneeId(this.assigneeDraft);
@@ -175,13 +201,38 @@ export class TicketQueueComponent implements OnInit {
       this.ticketsApi.changeTicketStatus(this.selected.id, statusId).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Статус изменен на «${ticket.status}».`; }, error: err => this.error = err.message });
     }
     addComment(): void {
+        if (!this.selected || !this.commentText.trim() || this.isSendingComment) return;
+        const ticketId = this.selected.id;
+        this.isSendingComment = true;
+        this.ticketsApi.addTicketComment(ticketId, { author: this.auth.getLogin() || 'Инженер ТП', message: this.commentText.trim(), internal: this.internalComment }, [...this.attachments]).subscribe({
+            next: comment => {
+                if (this.selected?.id === ticketId) {
+                    this.selected.comments = [...(this.selected.comments ?? []), comment];
+                    this.selected.history = [{ id: comment.id, event: comment.internal ? 'Внутренний комментарий добавлен' : 'Комментарий добавлен', actor: comment.author, createdAt: comment.createdAt }, ...(this.selected.history ?? [])];
+                    this.commentText = '';
+                    this.attachments = [];
+                    this.internalComment = false;
+                    if (this.attachmentInput) this.attachmentInput.value = '';
+                }
+                this.isSendingComment = false;
+            },
+            error: err => {
+                this.error = err.message;
+                this.isSendingComment = false;
+            },
+        });
+    }
+    pickAttachments(event: Event): void {
+        this.attachmentInput = event.target as HTMLInputElement;
+        this.attachments = Array.from(this.attachmentInput.files ?? []);
+    }
+    downloadAttachment(attachment: TicketAttachment): void {
         if (!this.selected) return;
-        this.ticketsApi.addTicketComment(this.selected.id, { author: this.auth.getLogin() || 'Инженер ТП', message: this.commentText.trim(), internal: this.internalComment, attachments: [...this.attachments] }).subscribe({
-            next: comment => { this.selected!.comments = [...(this.selected!.comments ?? []), comment]; this.selected!.history = [{ id: comment.id, event: comment.internal ? 'Внутренний комментарий добавлен' : 'Комментарий добавлен', actor: comment.author, createdAt: comment.createdAt }, ...(this.selected!.history ?? [])]; this.commentText = ''; this.attachments = []; this.internalComment = false; },
+        this.ticketsApi.downloadTicketAttachment(this.selected.id, attachment).subscribe({
+            next: blob => saveTicketAttachment(blob, attachment.fileName),
             error: err => this.error = err.message,
         });
     }
-    pickAttachments(event: Event): void { this.attachments = Array.from((event.target as HTMLInputElement).files ?? []).map(file => file.name); }
     escalate(): void {
         if (!this.selected) return;
         this.ticketsApi.escalateTicket(this.selected.id, 'Инженер ТП').subscribe({ next: entry => { this.selected!.priority = entry.newPriority; this.selected!.status = 'В работе'; this.selected!.history = [{ id: entry.createdAt, event: `Эскалация ${entry.previousPriority} → ${entry.newPriority}; уведомлены ${entry.recipients.join(', ')}`, actor: entry.initiator, createdAt: entry.createdAt }, ...(this.selected!.history ?? [])]; this.notice = `Эскалация создана. Уведомление: ${entry.recipients.join(', ')}.`; this.load(false); }, error: err => this.error = err.message });

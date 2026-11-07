@@ -25,6 +25,7 @@ import {
     RepairCloseRequest,
     ReportSummary,
     TicketComment,
+    TicketAttachment,
     TicketFormDefinition,
     Ticket,
     TicketType,
@@ -132,14 +133,21 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             .put<BackendTicket>(`${this.baseUrl}/tickets/${ticketId}`, { priority })
             .pipe(map(toTicket));
     }
-    addTicketComment(ticketId: string, comment: Omit<TicketComment, 'id' | 'createdAt'>) {
-        return this.http
-            .post<BackendTicketMessage>(`${this.baseUrl}/tickets/${ticketId}/messages`, {
-                messageBody: comment.message,
-                isInternal: comment.internal,
-                attachments: comment.attachments,
-            })
-            .pipe(map(toTicketComment));
+    getTicketComments(ticketId: string) {
+        return this.http.get<BackendTicketMessage[]>(`${this.baseUrl}/tickets/${ticketId}/messages`)
+            .pipe(map(messages => messages.map(toTicketComment)));
+    }
+    addTicketComment(
+        ticketId: string,
+        comment: Omit<TicketComment, 'id' | 'createdAt' | 'attachments' | 'attachmentRecords'>,
+        attachments: File[],
+    ) {
+        return this.postTicketComment(ticketId, comment.message, comment.internal, attachments);
+    }
+    downloadTicketAttachment(ticketId: string, attachment: TicketAttachment) {
+        return this.http.get(`${this.baseUrl}/tickets/${ticketId}/attachments/${attachment.id}`, {
+            responseType: 'blob',
+        });
     }
     escalateTicket(ticketId: string, initiator: string) {
         return this.http
@@ -203,6 +211,10 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return this.unsupported<Ticket>('portal ticket creation');
     }
     addPortalComment(ticketId: string, message: string, attachments: File[]) {
+        return this.postTicketComment(ticketId, message, false, attachments);
+    }
+
+    private postTicketComment(ticketId: string, message: string, internal: boolean, attachments: File[]) {
         const uploads = attachments.length
             ? forkJoin(attachments.map(file => this.uploadAttachment(ticketId, file)))
             : of([] as string[]);
@@ -210,7 +222,7 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return uploads.pipe(
             switchMap(attachmentIds => this.http.post<BackendTicketMessage>(
                 `${this.baseUrl}/tickets/${ticketId}/messages`,
-                { messageBody: message, isInternal: false, attachments: attachmentIds },
+                { messageBody: message, isInternal: internal, attachments: attachmentIds },
             )),
             map(toTicketComment),
         );
@@ -440,6 +452,11 @@ function toTicketComment(message: BackendTicketMessage): TicketComment {
         attachments: (message.attachments ?? [])
             .map(attachment => attachment.fileName ?? String(attachment.id ?? ''))
             .filter(Boolean),
+        attachmentRecords: (message.attachments ?? [])
+            .filter((attachment): attachment is { id: number; fileName: string } =>
+                attachment.id != null && !!attachment.fileName,
+            )
+            .map(attachment => ({ id: String(attachment.id), fileName: attachment.fileName })),
     };
 }
 
