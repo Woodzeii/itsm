@@ -119,6 +119,12 @@ public sealed record TicketMessageResponse(
     IReadOnlyList<TicketAttachmentResponse> Attachments,
     DateTimeOffset CreatedAt);
 
+public sealed record TicketHistoryResponse(
+    int Id,
+    string Event,
+    string Actor,
+    DateTimeOffset CreatedAt);
+
 /// <summary>Attachment metadata returned for a ticket message.</summary>
 public sealed record TicketAttachmentResponse(
     int Id,

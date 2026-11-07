@@ -34,6 +34,28 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
     }
 
     [Fact]
+    public async Task GetHistoryReturnsTicketAuditAndRestrictsOtherUsers()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var otherUser = await CreateUserAsync(scope.Db);
+        var ticket = await service.CreateAsync(
+            NewTicketRequest(),
+            creator.Id,
+            isStaff: false,
+            isEngineer: false);
+
+        var history = await service.GetHistoryAsync(ticket.Id, creator.Id, isStaff: false);
+        var unauthorizedHistory = await service.GetHistoryAsync(ticket.Id, otherUser.Id, isStaff: false);
+
+        var entry = Assert.Single(history!);
+        Assert.Equal("Заявка создана", entry.Event);
+        Assert.Equal(creator.FullName, entry.Actor);
+        Assert.Null(unauthorizedHistory);
+    }
+
+    [Fact]
     public async Task TicketRequestsAreRestrictedToTheCurrentTenant()
     {
         await using var scope = await fixture.CreateScopeAsync();

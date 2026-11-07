@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
@@ -61,7 +61,7 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType,TicketAttachment, 
             @if (selected.type === 'Тикет на ремонт' && selected.status !== 'Закрыта') {
               <form class="repair-close" (ngSubmit)="closeRepair()"><label>Результат ремонта<select name="result" [(ngModel)]="repairResult"><option value="В эксплуатацию">Вернуть в эксплуатацию</option><option value="На склад">Перевести на склад</option><option value="Списать">Списать</option></select></label><label>Что ремонтировалось и что менялось<textarea name="work" [(ngModel)]="repairDescription" required></textarea></label><button class="primary" type="submit" [disabled]="!repairDescription.trim()">Закрыть ремонт</button></form>
             }
-            <section class="history"><h3>История заявки</h3>@for (item of selected.history ?? []; track item.id) { <article><strong>{{ item.event }}</strong><small>{{ item.createdAt }} · {{ item.actor }}</small></article> }</section>
+            <section class="history"><h3>История заявки</h3>@if (loadingHistory) { <p class="empty">Загрузка истории...</p> } @else if (selected.history?.length) { @for (item of selected.history; track item.id) { <article><strong>{{ item.event }}</strong><small>{{ item.createdAt }} · {{ item.actor }}</small></article> } } @else { <p class="empty">История изменений пока пуста.</p> }</section>
             <section class="comments"><h3>Переписка</h3>@if (loadingComments) { <p class="empty">Загрузка сообщений...</p> } @for (comment of visibleComments; track comment.id) { <article [class.internal]="comment.internal"><strong>{{ comment.author }} @if (comment.internal) { <span>Внутренний комментарий</span> }</strong><p>{{ comment.message }}</p><small>{{ comment.createdAt }}</small>@if (comment.attachmentRecords?.length) { @for (attachment of comment.attachmentRecords; track attachment.id) { <button class="attachment" type="button" (click)="downloadAttachment(attachment)">📎 {{ attachment.fileName }}</button> } } @else { @for (file of comment.attachments; track file) { <small class="attachment">📎 {{ file }}</small> } }</article> }
               <form (ngSubmit)="addComment()"><textarea name="message" [(ngModel)]="commentText" placeholder="Сообщение по заявке" required></textarea><label class="file-picker">Прикрепить файлы<input type="file" multiple (change)="pickAttachments($event)" /></label>@if (canUseInternalComments) { <label class="internal-toggle"><input type="checkbox" name="internal" [(ngModel)]="internalComment" /> Внутренний комментарий</label> }<button class="primary" type="submit" [disabled]="isSendingComment || !commentText.trim()">Отправить</button></form>
             </section>
@@ -127,6 +127,7 @@ export class TicketQueueComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
     private readonly ticketsApi = inject(HttpWorkspaceApiService);
     private readonly auth = inject(AuthService);
+    private readonly changeDetector = inject(ChangeDetectorRef);
     private readonly route = inject(ActivatedRoute);
 
     tickets: Ticket[] = [];
@@ -135,6 +136,7 @@ export class TicketQueueComponent implements OnInit {
     isEngineer = false;
     canUseInternalComments = false;
     loadingComments = false;
+    loadingHistory = false;
     query = '';
     typeFilter = '';
     assigneeFilter = '';
@@ -190,10 +192,14 @@ export class TicketQueueComponent implements OnInit {
         this.isEngineer = this.auth.canRead();
         this.canUseInternalComments = this.auth.getRole() === 'admin' || this.auth.getRole() === 'agent';
         this.load();
-      this.workspace.getAdminSettings().subscribe({ next: settings => this.settings = settings, error: err => this.error = err.message });
+      this.workspace.getAdminSettings().subscribe({
+          next: settings => { this.settings = settings; this.changeDetector.markForCheck(); },
+          error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
+      });
         this.route.queryParamMap.subscribe(params => {
             this.query = params.get('q') ?? '';
             if (params.get('create') === 'true') this.openCreate();
+            this.changeDetector.markForCheck();
         });
     }
 
@@ -211,10 +217,12 @@ export class TicketQueueComponent implements OnInit {
                 this.ticketTypes = types;
                 this.newTicketTypeId = String(types[0]?.id ?? '');
                 this.loadingTypes = false;
+                this.changeDetector.markForCheck();
             },
             error: err => {
                 this.error = err.message;
                 this.loadingTypes = false;
+                this.changeDetector.markForCheck();
             },
         });
     }
@@ -244,31 +252,36 @@ export class TicketQueueComponent implements OnInit {
                 this.showCreateForm = false;
                 this.notice = `Заявка ${ticket.id} создана.`;
                 this.isSubmitting = false;
+                this.changeDetector.markForCheck();
             },
             error: err => {
                 this.error = err.message;
                 this.isSubmitting = false;
+                this.changeDetector.markForCheck();
             },
         });
     }
 
     select(ticket: Ticket): void {
-        this.selected = { ...ticket, comments: [] };
+        this.selected = { ...ticket, comments: [], history: [] };
         this.repairDescription = '';
         this.assigneeDraft = '';
         this.priorityDraft = ticket.priority;
         this.loadingComments = true;
+        this.loadHistory(ticket.id);
         this.ticketsApi.getTicketComments(ticket.id).subscribe({
             next: comments => {
                 if (this.selected?.id === ticket.id) {
                     this.selected.comments = comments;
                     this.loadingComments = false;
+                    this.changeDetector.markForCheck();
                 }
             },
             error: err => {
                 if (this.selected?.id === ticket.id) {
                     this.error = err.message;
                     this.loadingComments = false;
+                    this.changeDetector.markForCheck();
                 }
             },
         });
@@ -280,15 +293,15 @@ export class TicketQueueComponent implements OnInit {
         this.error = 'Не удалось определить ID исполнителя из очереди.';
         return;
       }
-      this.ticketsApi.assignTicket(this.selected.id, assigneeId).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Назначен исполнитель: ${ticket.assignee}.`; }, error: err => this.error = err.message });
+      this.ticketsApi.assignTicket(this.selected.id, assigneeId).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Назначен исполнитель: ${ticket.assignee}.`; this.changeDetector.markForCheck(); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } });
     }
     changePriority(): void {
       if (!this.selected || !this.priorityDraft) return;
-      this.ticketsApi.changeTicketPriority(this.selected.id, this.priorityDraft).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Критичность изменена на «${ticket.priority}».`; }, error: err => this.error = err.message });
+      this.ticketsApi.changeTicketPriority(this.selected.id, this.priorityDraft).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Критичность изменена на «${ticket.priority}».`; this.changeDetector.markForCheck(); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } });
     }
     changeStatus(statusId: number): void {
       if (!this.selected || !this.nextStatuses.some(status => status.statusId === statusId)) return;
-      this.ticketsApi.changeTicketStatus(this.selected.id, statusId).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Статус изменен на «${ticket.status}».`; }, error: err => this.error = err.message });
+      this.ticketsApi.changeTicketStatus(this.selected.id, statusId).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = `Статус изменен на «${ticket.status}».`; this.changeDetector.markForCheck(); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } });
     }
     addComment(): void {
         if (!this.selected || !this.commentText.trim() || this.isSendingComment) return;
@@ -305,10 +318,12 @@ export class TicketQueueComponent implements OnInit {
                     if (this.attachmentInput) this.attachmentInput.value = '';
                 }
                 this.isSendingComment = false;
+                this.changeDetector.markForCheck();
             },
             error: err => {
                 this.error = err.message;
                 this.isSendingComment = false;
+                this.changeDetector.markForCheck();
             },
         });
     }
@@ -320,18 +335,45 @@ export class TicketQueueComponent implements OnInit {
         if (!this.selected) return;
         this.ticketsApi.downloadTicketAttachment(this.selected.id, attachment).subscribe({
             next: blob => saveTicketAttachment(blob, attachment.fileName),
-            error: err => this.error = err.message,
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
         });
     }
     escalate(): void {
         if (!this.selected) return;
-        this.ticketsApi.escalateTicket(this.selected.id, 'Инженер ТП').subscribe({ next: entry => { this.selected!.priority = entry.newPriority; this.selected!.status = 'В работе'; this.selected!.history = [{ id: entry.createdAt, event: `Эскалация ${entry.previousPriority} → ${entry.newPriority}; уведомлены ${entry.recipients.join(', ')}`, actor: entry.initiator, createdAt: entry.createdAt }, ...(this.selected!.history ?? [])]; this.notice = `Эскалация создана. Уведомление: ${entry.recipients.join(', ')}.`; this.load(false); }, error: err => this.error = err.message });
+        this.ticketsApi.escalateTicket(this.selected.id, 'Инженер ТП').subscribe({ next: entry => { this.selected!.priority = entry.newPriority; this.selected!.status = 'В работе'; this.selected!.history = [{ id: entry.createdAt, event: `Эскалация ${entry.previousPriority} → ${entry.newPriority}; уведомлены ${entry.recipients.join(', ')}`, actor: entry.initiator, createdAt: entry.createdAt }, ...(this.selected!.history ?? [])]; this.notice = `Эскалация создана. Уведомление: ${entry.recipients.join(', ')}.`; this.changeDetector.markForCheck(); this.load(false); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } });
     }
     closeRepair(): void {
         if (!this.selected) return;
-        this.ticketsApi.closeRepairTicket(this.selected.id, { result: this.repairResult, workDescription: this.repairDescription }).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = 'Тикет на ремонт закрыт.'; }, error: err => this.error = err.message });
+        this.ticketsApi.closeRepairTicket(this.selected.id, { result: this.repairResult, workDescription: this.repairDescription }).subscribe({ next: ticket => { this.updateTicket(ticket); this.notice = 'Тикет на ремонт закрыт.'; this.changeDetector.markForCheck(); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } });
     }
 
-    private updateTicket(ticket: Ticket): void { this.tickets = this.tickets.map(item => item.id === ticket.id ? ticket : item); this.selected = ticket; }
-    private load(resetSelection = true): void { this.ticketsApi.getTickets().subscribe({ next: tickets => { this.tickets = tickets; if (resetSelection) this.selected = null; }, error: err => this.error = err.message }); }
+    private updateTicket(ticket: Ticket): void {
+        this.tickets = this.tickets.map(item => item.id === ticket.id ? ticket : item);
+        this.selected = {
+            ...ticket,
+            comments: this.selected?.comments ?? [],
+            history: this.selected?.history ?? [],
+        };
+        this.loadHistory(ticket.id);
+    }
+    private load(resetSelection = true): void { this.ticketsApi.getTickets().subscribe({ next: tickets => { this.tickets = tickets; if (resetSelection) this.selected = null; this.changeDetector.markForCheck(); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } }); }
+    private loadHistory(ticketId: string): void {
+        this.loadingHistory = true;
+        this.ticketsApi.getTicketHistory(ticketId).subscribe({
+            next: history => {
+                if (this.selected?.id === ticketId) {
+                    this.selected.history = history;
+                    this.loadingHistory = false;
+                    this.changeDetector.markForCheck();
+                }
+            },
+            error: err => {
+                if (this.selected?.id === ticketId) {
+                    this.error = err.message;
+                    this.loadingHistory = false;
+                    this.changeDetector.markForCheck();
+                }
+            },
+        });
+    }
 }
