@@ -10,6 +10,9 @@ namespace itsm.Infrastructure.Persistence.Services;
 public class UserAdminService : IUserAdminService
 {
     private const string AdminRoleCode = "admin";
+    private const string TenantOwnerRoleCode = "tenant_owner";
+    private const string TenantAdminRoleCode = "tenant_admin";
+    private static readonly string[] AdminAssignableRoleCodes = { AdminRoleCode, "manager", "agent", "portal_user" };
 
     private readonly ItsmDbContext _db;
     private readonly IPasswordHasher _hasher;
@@ -99,6 +102,8 @@ public class UserAdminService : IUserAdminService
             await EnsureUserQuotaAvailableAsync(tenantId, ct);
         var roleIds = request.RoleIds.Distinct().ToList();
         await EnsureRolesExistAsync(roleIds, ct);
+        await EnsureTenantOwnerRoleChangeAllowedAsync(null, roleIds, isTenantAdmin, ct);
+        await EnsureAdminAssignableRolesAsync(null, roleIds, isTenantAdmin, actorId, ct);
 
         var user = new User
         {
@@ -131,6 +136,8 @@ public class UserAdminService : IUserAdminService
     public async Task<UserAdminDto> UpdateAsync(int id, UpdateUserRequest request, int actorId, string? ip, CancellationToken ct = default)
     {
         var user = await LoadAsync(id, ct);
+        var isTenantAdmin = await IsTenantAdminAsync(actorId, ct);
+        await EnsureCanManageTenantOwnerAsync(user, actorId, isTenantAdmin, ct);
         var username = request.Username.Trim();
         var email = request.Email.Trim();
 
@@ -140,7 +147,6 @@ public class UserAdminService : IUserAdminService
             throw new UserAdminException(UserAdminErrorKind.Conflict, "Пользователь с таким email уже существует");
 
         await EnsureManagerExistsAsync(request.ManagerId, id, ct);
-        var isTenantAdmin = await IsTenantAdminAsync(actorId, ct);
         var tenantId = isTenantAdmin
             ? request.TenantId ?? user.TenantId
             : _db.GetCurrentTenantId();
@@ -152,7 +158,11 @@ public class UserAdminService : IUserAdminService
 
         var roleIds = request.RoleIds?.Distinct().ToList();
         if (roleIds is not null)
+        {
             await EnsureRolesExistAsync(roleIds, ct);
+            await EnsureTenantOwnerRoleChangeAllowedAsync(user, roleIds, isTenantAdmin, ct);
+            await EnsureAdminAssignableRolesAsync(user, roleIds, isTenantAdmin, actorId, ct);
+        }
 
         if (request.IsActive == false && user.IsActive)
             await EnsureCanDeactivateAsync(user, actorId, ct);
@@ -228,6 +238,7 @@ public class UserAdminService : IUserAdminService
     public async Task DeleteAsync(int id, int actorId, string? ip, CancellationToken ct = default)
     {
         var user = await LoadAsync(id, ct);
+        await EnsureCanManageTenantOwnerAsync(user, actorId, await IsTenantAdminAsync(actorId, ct), ct);
         await EnsureCanDeactivateAsync(user, actorId, ct);
 
         var old = new { user.IsActive, user.Status };
@@ -239,6 +250,7 @@ public class UserAdminService : IUserAdminService
     public async Task<UserAdminDto> SetActiveAsync(int id, bool isActive, int actorId, string? ip, CancellationToken ct = default)
     {
         var user = await LoadAsync(id, ct);
+        await EnsureCanManageTenantOwnerAsync(user, actorId, await IsTenantAdminAsync(actorId, ct), ct);
         if (!isActive)
             await EnsureCanDeactivateAsync(user, actorId, ct);
         else if (!user.IsActive && user.TenantId.HasValue)
@@ -255,6 +267,8 @@ public class UserAdminService : IUserAdminService
     public async Task<UserAdminDto> SetRolesAsync(int id, SetUserRolesRequest request, int actorId, string? ip, CancellationToken ct = default)
     {
         var user = await LoadAsync(id, ct);
+        var isTenantAdmin = await IsTenantAdminAsync(actorId, ct);
+        await EnsureCanManageTenantOwnerAsync(user, actorId, isTenantAdmin, ct);
         var newRoleIds = request.RoleIds.Distinct().ToList();
         var roleCodes = (request.RoleCodes ?? new()).Where(c => !string.IsNullOrWhiteSpace(c)).Select(c => c.Trim()).Distinct().ToList();
         if (newRoleIds.Count == 0 && roleCodes.Count > 0)
@@ -267,6 +281,8 @@ public class UserAdminService : IUserAdminService
             newRoleIds = found;
         }
         await EnsureRolesExistAsync(newRoleIds, ct);
+        await EnsureTenantOwnerRoleChangeAllowedAsync(user, newRoleIds, isTenantAdmin, ct);
+        await EnsureAdminAssignableRolesAsync(user, newRoleIds, isTenantAdmin, actorId, ct);
 
         var adminRoleId = await _db.SystemRoles
             .Where(r => r.Code == AdminRoleCode).Select(r => (int?)r.Id).FirstOrDefaultAsync(ct);
@@ -302,6 +318,7 @@ public class UserAdminService : IUserAdminService
     public async Task<UserAdminDto> ResetMfaAsync(int id, int actorId, string? ip, CancellationToken ct = default)
     {
         var user = await LoadAsync(id, ct);
+        await EnsureCanManageTenantOwnerAsync(user, actorId, await IsTenantAdminAsync(actorId, ct), ct);
 
         var old = new { user.IsTwoFactorEnabled };
         user.IsTwoFactorEnabled = false;
@@ -317,6 +334,7 @@ public class UserAdminService : IUserAdminService
     public async Task<UserAdminDto> UnlockAsync(int id, int actorId, string? ip, CancellationToken ct = default)
     {
         var user = await LoadAsync(id, ct);
+        await EnsureCanManageTenantOwnerAsync(user, actorId, await IsTenantAdminAsync(actorId, ct), ct);
 
         var old = new { user.FailedLoginAttempts, user.LockedUntil };
         user.FailedLoginAttempts = 0;
@@ -338,6 +356,8 @@ public class UserAdminService : IUserAdminService
 
     private async Task EnsureCanDeactivateAsync(User user, int actorId, CancellationToken ct)
     {
+        if (user.Id == actorId && user.RoleMappings.Any(mapping => mapping.Role.Code == TenantOwnerRoleCode))
+            throw new UserAdminException(UserAdminErrorKind.Forbidden, "Владелец тенанта не может деактивировать или удалить собственную учётную запись");
         if (user.Id == actorId)
             throw new UserAdminException(UserAdminErrorKind.Conflict, "Нельзя деактивировать или удалить собственную учётную запись");
         if (user.IsActive && await IsLastActiveAdminAsync(user.Id, ct))
@@ -351,7 +371,8 @@ public class UserAdminService : IUserAdminService
         if (!isAdmin) return false;
 
         var otherActiveAdmins = await _db.Users.CountAsync(u =>
-            u.Id != userId && u.IsActive && u.RoleMappings.Any(m => m.Role.Code == AdminRoleCode), ct);
+            u.Id != userId && u.IsActive && u.RoleMappings.Any(m =>
+                m.Role.Code == AdminRoleCode || m.Role.Code == TenantOwnerRoleCode), ct);
         return otherActiveAdmins == 0;
     }
 
@@ -390,8 +411,78 @@ public class UserAdminService : IUserAdminService
 
     private Task<bool> IsTenantAdminAsync(int actorId, CancellationToken ct)
         => _db.UserRoleMappings.AnyAsync(
-            mapping => mapping.UserId == actorId && mapping.Role.Code == "tenant_admin",
+            mapping => mapping.UserId == actorId && mapping.Role.Code == TenantAdminRoleCode,
             ct);
+
+    private async Task EnsureCanManageTenantOwnerAsync(User target, int actorId, bool isTenantAdmin, CancellationToken ct)
+    {
+        if (isTenantAdmin || !target.RoleMappings.Any(mapping => mapping.Role.Code == TenantOwnerRoleCode))
+            return;
+
+        var actorIsTenantOwner = await _db.UserRoleMappings.AnyAsync(
+            mapping => mapping.UserId == actorId && mapping.Role.Code == TenantOwnerRoleCode,
+            ct);
+        if (!actorIsTenantOwner)
+            throw new UserAdminException(UserAdminErrorKind.Forbidden, "Изменять учётную запись владельца тенанта может только владелец или глобальный администратор");
+    }
+
+    private async Task EnsureTenantOwnerRoleChangeAllowedAsync(User? user, List<int> roleIds, bool isTenantAdmin, CancellationToken ct)
+    {
+        if (isTenantAdmin)
+            return;
+
+        var ownerRoleId = await _db.SystemRoles
+            .Where(role => role.Code == TenantOwnerRoleCode)
+            .Select(role => (int?)role.Id)
+            .FirstOrDefaultAsync(ct);
+        if (!ownerRoleId.HasValue)
+            return;
+
+        var alreadyOwner = user?.RoleMappings.Any(mapping => mapping.RoleId == ownerRoleId.Value) == true;
+        var willBeOwner = roleIds.Contains(ownerRoleId.Value);
+        if (alreadyOwner != willBeOwner)
+            throw new UserAdminException(UserAdminErrorKind.Forbidden, "Назначать или снимать роль владельца тенанта может только глобальный администратор");
+    }
+
+    private async Task EnsureAdminAssignableRolesAsync(User? user, List<int> roleIds, bool isTenantAdmin, int actorId, CancellationToken ct)
+    {
+        if (isTenantAdmin)
+            return;
+
+        var existingRoleIds = user?.RoleMappings.Select(mapping => mapping.RoleId).ToHashSet() ?? new HashSet<int>();
+        var addedRoleIds = roleIds.Where(roleId => !existingRoleIds.Contains(roleId)).ToList();
+        if (addedRoleIds.Count == 0)
+            return;
+
+        var addedRoleCodes = await _db.SystemRoles
+            .Where(role => addedRoleIds.Contains(role.Id))
+            .Select(role => role.Code)
+            .ToListAsync(ct);
+
+        if (addedRoleCodes.Any(code => code is null || !AdminAssignableRoleCodes.Contains(code)))
+            throw new UserAdminException(UserAdminErrorKind.Forbidden, "Локальный администратор может назначать только роли администратора, руководителя, инженера и пользователя портала");
+
+        var adminRoleId = await _db.SystemRoles
+            .Where(role => role.Code == AdminRoleCode)
+            .Select(role => (int?)role.Id)
+            .FirstOrDefaultAsync(ct);
+        if (!adminRoleId.HasValue || !addedRoleIds.Contains(adminRoleId.Value))
+            return;
+
+        var actorIsTenantOwner = await _db.UserRoleMappings.AnyAsync(
+            mapping => mapping.UserId == actorId && mapping.Role.Code == TenantOwnerRoleCode,
+            ct);
+        if (actorIsTenantOwner)
+            return;
+
+        var tenantAllowsAdminCreation = await _db.Tenants
+            .Where(tenant => tenant.Id == _db.GetCurrentTenantId())
+            .Select(tenant => tenant.AllowAdminsCreateAdmins)
+            .FirstOrDefaultAsync(ct);
+
+        if (!tenantAllowsAdminCreation)
+            throw new UserAdminException(UserAdminErrorKind.Forbidden, "Создание администраторов недоступно. Обратитесь к владельцу тенанта");
+    }
 
     private async Task EnsureRolesExistAsync(List<int> roleIds, CancellationToken ct)
     {

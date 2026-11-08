@@ -383,7 +383,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             throw new InvalidOperationException("Руководитель службы поддержки больше не является инженером.");
 
         var notifiedUserIds = await db.UserRoleMappings
-            .Where(mapping => mapping.Role.Code == "admin" && mapping.User.IsActive)
+            .Where(mapping => (mapping.Role.Code == "admin" || mapping.Role.Code == "tenant_owner")
+                              && mapping.User.IsActive)
             .Select(mapping => mapping.UserId)
             .Distinct()
             .OrderBy(userId => userId)

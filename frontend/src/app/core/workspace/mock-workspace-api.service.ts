@@ -41,6 +41,8 @@ import {
 
 @Injectable()
 export class MockWorkspaceApiService extends WorkspaceApi {
+    readonly supportsTicketTypeConfiguration = true;
+
     private tickets: Ticket[] = [
         { id: 'INC-1048', title: 'Не подключается VPN после обновления', requester: 'Анна Белова', team: 'Сетевая команда', priority: 'Высокий', status: 'В работе', createdAt: '10:42', slaRemaining: '01:18', type: 'Инцидент', assignee: 'Иван Петров', reactionSla: '00:08 / 00:30', resolutionSla: '01:18 / 04:00', assetId: 'LT-00231', createdOn: '2026-10-10', history: [{ id: 'h1', event: 'Заявка создана', actor: 'Анна Белова', createdAt: '10:12' }, { id: 'h2', event: 'Назначен исполнитель Иван Петров', actor: 'Диспетчер', createdAt: '10:20' }], comments: [{ id: 'c1', author: 'Иван Петров', message: 'Проверяю параметры подключения.', createdAt: '10:42', internal: false, attachments: [] }] },
         { id: 'SR-1047', title: 'Выдать доступ к корпоративному диску', requester: 'Пользователь портала', team: 'Сервис-деск', priority: 'Средний', status: 'Открыта', createdAt: '10:19', slaRemaining: '03:42', type: 'Запрос на обслуживание', assignee: 'Иван Петров', requesterLogin: 'demo-user', reactionSla: '00:11 / 00:30', resolutionSla: '03:42 / 08:00', createdOn: '2026-10-10', history: [{ id: 'h3', event: 'Заявка создана', actor: 'Пользователь портала', createdAt: '10:19' }], comments: [] },
@@ -143,6 +145,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         tenantMode: 'saas',
         passwordPolicy: { minLength: 12, requireUppercase: true, requireSpecial: true, expiryDays: 90, maxFailedAttempts: 5, lockoutMinutes: 15 },
         reportAccessRoles: ['admin', 'manager'],
+        allowAdminsCreateAdmins: true,
     };
 
     private forms: TicketFormDefinition[] = this.ticketTypes.map(type => ({
@@ -439,8 +442,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     getEscalationPolicies(): Observable<EscalationPolicy[]> { return of(this.policies.map(policy => ({ ...policy }))); }
     saveEscalationPolicies(policies: EscalationPolicy[]): Observable<EscalationPolicy[]> { this.policies = policies.map(policy => ({ ...policy })); return of(this.policies); }
     getEscalationHistory(): Observable<EscalationHistoryEntry[]> { return of(this.escalationHistory.map(entry => ({ ...entry, recipients: [...entry.recipients] }))); }
-    getAdminSettings(): Observable<AdminSettings> { return of({ ...this.settings, criticalities: [...this.settings.criticalities], statuses: this.settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(this.settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...this.settings.workingDays], holidays: [...this.settings.holidays], portalSlaFields: [...this.settings.portalSlaFields], portalAccounts: [...(this.settings.portalAccounts ?? [])], engineers: [...(this.settings.engineers ?? [])], passwordPolicy: this.settings.passwordPolicy ? { ...this.settings.passwordPolicy } : undefined, reportAccessRoles: [...(this.settings.reportAccessRoles ?? [])] }); }
-
+    getAdminSettings(): Observable<AdminSettings> { return of({ ...this.settings, criticalities: [...this.settings.criticalities], statuses: this.settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(this.settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...this.settings.workingDays], holidays: [...this.settings.holidays],     portalSlaFields: [...this.settings.portalSlaFields], portalAccounts: [...(this.settings.portalAccounts ?? [])], engineers: [...(this.settings.engineers ?? [])], passwordPolicy: this.settings.passwordPolicy ? { ...this.settings.passwordPolicy } : undefined, reportAccessRoles: [...(this.settings.reportAccessRoles ?? [])], allowAdminsCreateAdmins: this.settings.allowAdminsCreateAdmins ?? true }); }
     saveAdminSettings(settings: AdminSettings): Observable<AdminSettings> {
         if (settings.criticalities.length < 3 || settings.criticalities.length > 5) return this.fail('Шкала критичности должна содержать от 3 до 5 уровней.');
         if (settings.slaMode === 'working-hours' && !settings.workingDays.length) return this.fail('Выберите хотя бы один рабочий день.');
@@ -450,7 +452,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         if ((settings.statusTransitions['Закрыта'] ?? []).length) return this.fail('Из закрытого статуса нельзя повторно открыть заявку.');
         const statusNames = new Set(settings.statuses.map(status => status.name));
         if (Object.entries(settings.statusTransitions).some(([source, targets]) => !statusNames.has(source) || targets.some(target => !statusNames.has(target) || target === 'Открыта' || target === source))) return this.fail('Переходы должны ссылаться на существующие статусы и не открывать закрытые заявки заново.');
-        this.settings = { ...settings, criticalities: [...settings.criticalities], statuses: settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...settings.workingDays], holidays: [...settings.holidays], portalSlaFields: [...settings.portalSlaFields], portalAccounts: [...(settings.portalAccounts ?? [])], engineers: [...(settings.engineers ?? [])], passwordPolicy: settings.passwordPolicy ? { ...settings.passwordPolicy } : undefined, reportAccessRoles: [...(settings.reportAccessRoles ?? [])] };
+        this.settings = { ...settings, criticalities: [...settings.criticalities], statuses: settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...settings.workingDays], holidays: [...settings.holidays], portalSlaFields: [...settings.portalSlaFields], portalAccounts: [...(settings.portalAccounts ?? [])], engineers: [...(settings.engineers ?? [])], passwordPolicy: settings.passwordPolicy ? { ...settings.passwordPolicy } : undefined, reportAccessRoles: [...(settings.reportAccessRoles ?? [])], allowAdminsCreateAdmins: settings.allowAdminsCreateAdmins ?? true };
         return this.getAdminSettings();
     }
 

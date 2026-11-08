@@ -161,10 +161,19 @@ describe('AuthService multi-role session', () => {
 
     it('maps roles to their workspace entry points', () => {
         expect(service.homeUrlForRole('admin')).toBe('/admin');
+        expect(service.homeUrlForRole('tenant_owner')).toBe('/admin');
         expect(service.homeUrlForRole('tenant_admin')).toBe('/admin/tenants');
         expect(service.homeUrlForRole('portal_user')).toBe('/portal');
         expect(service.homeUrlForRole('agent')).toBe('/dashboard');
         expect(service.homeUrlForRole('manager')).toBe('/dashboard');
+    });
+
+    it('treats a tenant owner as a local administrator', () => {
+        localStorage.setItem('itsm_user_role', 'tenant_owner');
+
+        expect(service.isTenantOwner()).toBe(true);
+        expect(service.isAdmin()).toBe(true);
+        expect(service.canRead()).toBe(true);
     });
 
     it('clears the active role on logout', () => {

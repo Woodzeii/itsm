@@ -34,6 +34,7 @@ import {
 } from './workspace.models';
 
 export abstract class WorkspaceApi {
+    abstract readonly supportsTicketTypeConfiguration: boolean;
     abstract getOverview(): Observable<OverviewData>;
     abstract getTickets(): Observable<Ticket[]>;
     abstract getAssets(): Observable<AssetRecord[]>;

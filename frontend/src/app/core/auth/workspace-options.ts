@@ -13,6 +13,7 @@ const ROLE_ORDER: readonly UserRole[] = [
     'agent',
     'manager',
     'admin',
+    'tenant_owner',
     'tenant_admin',
     'portal_user',
 ];
@@ -32,6 +33,11 @@ const ROLE_CATALOG: Record<UserRole, Omit<WorkspaceOption, 'role'>> = {
         title: 'Админка',
         description: 'Пользователи, настройки Service Desk, формы и правила эскалации.',
         icon: '⚙',
+    },
+    tenant_owner: {
+        title: 'Владелец тенанта',
+        description: 'Полный доступ к настройкам и пользователям своей организации.',
+        icon: '👑',
     },
     tenant_admin: {
         title: 'Админка организации',

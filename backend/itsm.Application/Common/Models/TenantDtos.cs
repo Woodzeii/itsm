@@ -65,6 +65,17 @@ public class UpdateTenantRequest
     public long? MaxStorageBytes { get; set; }
 }
 
+public class TenantSettingsDto
+{
+    public int TenantId { get; set; }
+    public bool AllowAdminsCreateAdmins { get; set; } = true;
+}
+
+public class UpdateTenantSettingsRequest
+{
+    public bool? AllowAdminsCreateAdmins { get; set; }
+}
+
 public class UpdateTenantStatusRequest
 {
     public bool IsActive { get; set; }

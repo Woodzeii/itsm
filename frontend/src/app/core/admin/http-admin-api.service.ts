@@ -84,6 +84,7 @@ function parseUserSummary(value: unknown): UserSummary {
     const managerId = value['managerId'] ?? value['ManagerId'] ?? null;
     const tenantId = value['tenantId'] ?? value['TenantId'] ?? null;
     const roleIds = value['roleIds'] ?? value['RoleIds'];
+    const roleCodes = value['roleCodes'] ?? value['RoleCodes'];
     const isActive = value['isActive'] ?? value['IsActive'];
 
     if (
@@ -96,12 +97,24 @@ function parseUserSummary(value: unknown): UserSummary {
         || (tenantId !== null && typeof tenantId !== 'number')
         || !Array.isArray(roleIds)
         || !roleIds.every(roleId => typeof roleId === 'number')
+        || (roleCodes !== undefined && (!Array.isArray(roleCodes) || !roleCodes.every(roleCode => typeof roleCode === 'string')))
         || typeof isActive !== 'boolean'
     ) {
         throw new Error('Сервер вернул пользователя в неожиданном формате.');
     }
 
-    return { id, username, email, fullName, department, managerId, tenantId, roleIds, isActive };
+    return {
+        id,
+        username,
+        email,
+        fullName,
+        department,
+        managerId,
+        tenantId,
+        roleIds,
+        ...(roleCodes === undefined ? {} : { roleCodes }),
+        isActive,
+    };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

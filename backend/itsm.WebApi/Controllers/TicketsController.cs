@@ -14,7 +14,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     private const long MaxAttachmentSizeBytes = 10 * 1024 * 1024;
 
     [HttpGet]
-    [Authorize(Roles = "admin,agent")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Получить очередь заявок")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<TicketResponse>>> GetQueue(CancellationToken ct)
@@ -81,7 +81,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "admin,agent")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Изменить заявку")]
     [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -105,7 +105,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     }
 
     [HttpPut("{id:int}/status")]
-    [Authorize(Roles = "admin,agent")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Изменить статус заявки")]
     [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -138,7 +138,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     }
 
     [HttpPost("{id:int}/assign")]
-    [Authorize(Roles = "admin,agent")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Назначить исполнителя заявки")]
     [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -299,7 +299,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     }
 
     [HttpGet("/api/assets/{id:int}/tickets")]
-    [Authorize(Roles = "admin,agent")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Получить историю заявок по активу")]
     [ProducesResponseType(typeof(IReadOnlyList<AssetTicketHistoryItem>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -329,7 +329,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         int.TryParse(User.FindFirstValue("Id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
 
     private bool IsStaff() =>
-        User.IsInRole("admin") || User.IsInRole("agent");
+        User.IsInRole("admin") || User.IsInRole("tenant_owner") || User.IsInRole("agent");
 
     private IReadOnlyCollection<string> UserRoles() =>
         User.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToArray();

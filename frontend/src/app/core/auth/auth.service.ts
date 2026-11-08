@@ -19,7 +19,7 @@ const ACTIVE_ROLE_KEY = 'itsm_active_role';
 const LOGIN_KEY = 'itsm_login';
 const TENANT_ID_KEY = 'itsm_tenant_id';
 
-export type UserRole = 'admin' | 'agent' | 'manager' | 'portal_user' | 'tenant_admin';
+export type UserRole = 'admin' | 'tenant_owner' | 'agent' | 'manager' | 'portal_user' | 'tenant_admin';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -252,6 +252,7 @@ export class AuthService {
     homeUrlForRole(role: UserRole | string | null | undefined): string {
         switch (role) {
             case 'admin':
+            case 'tenant_owner':
                 return '/admin';
             case 'tenant_admin':
                 return '/admin/tenants';
@@ -265,12 +266,13 @@ export class AuthService {
     }
 
     isAdmin(): boolean {
-        return this.getRole() === 'admin';
+        const role = this.getRole();
+        return role === 'admin' || role === 'tenant_owner';
     }
 
     canRead(): boolean {
         const role = this.getRole();
-        return role === 'admin' || role === 'agent' || role === 'manager';
+        return role === 'admin' || role === 'tenant_owner' || role === 'agent' || role === 'manager';
     }
 
     isPortalUser(): boolean {
@@ -290,6 +292,10 @@ export class AuthService {
 
     isTenantAdmin(): boolean {
         return this.getRole() === 'tenant_admin';
+    }
+
+    isTenantOwner(): boolean {
+        return this.getRole() === 'tenant_owner';
     }
 
     logout(): void {

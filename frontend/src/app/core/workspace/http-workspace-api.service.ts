@@ -32,6 +32,7 @@ import {
     Ticket,
     TicketType,
     TenantRecord,
+    TenantAdminCreationPolicy,
     CreateUserRequest,
     SystemRoleOption,
     UserRecord,
@@ -39,6 +40,8 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class HttpWorkspaceApiService extends WorkspaceApi {
+    readonly supportsTicketTypeConfiguration = false;
+
     private readonly http = inject(HttpClient);
     private readonly baseUrl = environment.apiBaseUrl;
     private readonly typeIds = new Map<string, number>();
@@ -211,8 +214,26 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         // Отдельного endpoint истории эскалаций в текущем backend нет.
         return of([] as EscalationHistoryEntry[]);
     }
-    getAdminSettings() { return this.unsupported<AdminSettings>('admin settings'); }
-    saveAdminSettings(_settings: AdminSettings) { return this.unsupported<AdminSettings>('admin settings'); }
+    getAdminSettings() {
+        return this.getTenantAdminCreationPolicy().pipe(
+            map(settings => toAdminSettings(settings)),
+        );
+    }
+    saveAdminSettings(settings: AdminSettings) {
+        return this.saveTenantAdminCreationPolicy(settings.allowAdminsCreateAdmins ?? true).pipe(
+            map(saved => toAdminSettings(saved)),
+        );
+    }
+    getTenantAdminCreationPolicy() {
+        return this.http.get<TenantAdminCreationPolicy>(`${this.baseUrl}/tenants/settings`).pipe(
+            map(normalizeTenantAdminCreationPolicy),
+        );
+    }
+    saveTenantAdminCreationPolicy(allowAdminsCreateAdmins: boolean) {
+        return this.http.put<TenantAdminCreationPolicy>(`${this.baseUrl}/tenants/settings`, {
+            allowAdminsCreateAdmins,
+        }).pipe(map(normalizeTenantAdminCreationPolicy));
+    }
     getReports(_from?: string, _to?: string) {
         // В контракте отчёты требуют reportType: /api/reports/{reportType}; текущий backend их не реализует.
         return this.unsupported<ReportSummary[]>('reports');
@@ -323,6 +344,68 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     }
 }
 
+function toAdminSettings(settings?: Partial<BackendTenantSettings> | null): AdminSettings {
+    const defaults: AdminSettings = {
+        assignmentMode: 'automatic',
+        manager: '',
+        slaEnabled: true,
+        slaMode: 'working-hours',
+        workingHours: '09:00-18:00',
+        workingDays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт'],
+        holidays: [],
+        criticalities: ['Критический', 'Высокий', 'Средний', 'Низкий'],
+        statuses: [
+            { name: 'Открыта', pausesSla: false, immutable: true },
+            { name: 'В работе', pausesSla: false, immutable: false },
+            { name: 'Проверка', pausesSla: false, immutable: false },
+            { name: 'Закрыта', pausesSla: false, immutable: true },
+        ],
+        statusTransitions: {
+            Открыта: ['В работе', 'Проверка', 'Закрыта'],
+            'В работе': ['Проверка', 'Закрыта'],
+            Проверка: ['В работе', 'Закрыта'],
+            Закрыта: [],
+        },
+        portalSlaFields: [],
+        portalAccounts: [],
+        engineers: [],
+        tenantMode: 'saas',
+        passwordPolicy: {
+            minLength: 12,
+            requireUppercase: true,
+            requireSpecial: true,
+            expiryDays: 90,
+            maxFailedAttempts: 5,
+            lockoutMinutes: 15,
+        },
+        reportAccessRoles: ['admin', 'manager'],
+        allowAdminsCreateAdmins: true,
+    };
+
+    return {
+        ...defaults,
+        ...settings,
+        workingDays: settings?.workingDays?.length ? [...settings.workingDays] : defaults.workingDays,
+        holidays: settings?.holidays?.length ? [...settings.holidays] : defaults.holidays,
+        criticalities: settings?.criticalities?.length ? [...settings.criticalities] : defaults.criticalities,
+        statuses: settings?.statuses?.length ? settings.statuses.map(status => ({ ...status })) : defaults.statuses,
+        statusTransitions: settings?.statusTransitions ? { ...settings.statusTransitions } : defaults.statusTransitions,
+        portalSlaFields: settings?.portalSlaFields?.length ? [...settings.portalSlaFields] : defaults.portalSlaFields,
+        portalAccounts: settings?.portalAccounts?.length ? [...settings.portalAccounts] : defaults.portalAccounts,
+        engineers: settings?.engineers?.length ? [...settings.engineers] : defaults.engineers,
+        reportAccessRoles: settings?.reportAccessRoles?.length ? [...settings.reportAccessRoles] : defaults.reportAccessRoles,
+        passwordPolicy: settings?.passwordPolicy ? { ...settings.passwordPolicy } : defaults.passwordPolicy,
+    };
+}
+
+function normalizeTenantAdminCreationPolicy(policy: TenantAdminCreationPolicy): TenantAdminCreationPolicy {
+    if (!Number.isInteger(policy.tenantId) || typeof policy.allowAdminsCreateAdmins !== 'boolean') {
+        throw new Error('Backend returned an invalid tenant admin-creation policy.');
+    }
+
+    return policy;
+}
+
 function toOverview(tickets: Ticket[]): OverviewData {
     const open = tickets.filter(ticket => !isClosedStatus(ticket.status));
     const critical = open.filter(ticket => {
@@ -388,6 +471,27 @@ function repairOutcome(result: RepairCloseRequest['result']): string {
         default:
             return 'ReturnToExploitation';
     }
+}
+
+interface BackendTenantSettings {
+    tenantId?: number;
+    allowAdminsCreateAdmins?: boolean;
+    assignmentMode?: AdminSettings['assignmentMode'];
+    manager?: string;
+    slaEnabled?: boolean;
+    slaMode?: AdminSettings['slaMode'];
+    workingHours?: string;
+    workingDays?: string[];
+    holidays?: string[];
+    criticalities?: string[];
+    statuses?: { name: string; pausesSla: boolean; immutable: boolean }[];
+    statusTransitions?: Record<string, string[]>;
+    portalSlaFields?: string[];
+    portalAccounts?: string[];
+    engineers?: string[];
+    tenantMode?: AdminSettings['tenantMode'];
+    passwordPolicy?: AdminSettings['passwordPolicy'];
+    reportAccessRoles?: string[];
 }
 
 interface BackendTicket {

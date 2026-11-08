@@ -489,6 +489,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => x.Code).IsUnique();
             entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.AllowAdminsCreateAdmins).HasDefaultValue(true);
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
         });
 
@@ -556,7 +557,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
         var seedDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         modelBuilder.Entity<Tenant>().HasData(
-            new Tenant { Id = 1, Code = "default", Name = "Default Tenant", IsActive = true, CreatedAt = seedDate }
+            new Tenant { Id = 1, Code = "default", Name = "Default Tenant", IsActive = true, AllowAdminsCreateAdmins = true, CreatedAt = seedDate }
         );
 
         modelBuilder.Entity<SystemRole>().HasData(
@@ -564,7 +565,8 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             new SystemRole { Id = 2, Code = "admin", Name = "Администратор" },
             new SystemRole { Id = 3, Code = "agent", Name = "Инженер ТП" },
             new SystemRole { Id = 4, Code = "manager", Name = "Руководитель" },
-            new SystemRole { Id = 5, Code = "portal_user", Name = "Пользователь портала" }
+            new SystemRole { Id = 5, Code = "portal_user", Name = "Пользователь портала" },
+            new SystemRole { Id = 6, Code = "tenant_owner", Name = "Владелец тенанта" }
         );
 
         modelBuilder.Entity<CriticalityLevel>().HasData(

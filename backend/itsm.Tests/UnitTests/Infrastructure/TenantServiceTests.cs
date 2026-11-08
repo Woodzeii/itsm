@@ -30,7 +30,7 @@ public class TenantServiceTests
     }
 
     [Fact]
-    public async Task Create_CreatesTenantAndVerifiedAdminWithHashedPassword()
+    public async Task Create_CreatesTenantAndVerifiedOwnerWithHashedPassword()
     {
         var (service, db) = Create();
 
@@ -56,7 +56,26 @@ public class TenantServiceTests
         admin.Status.Should().Be(UserStatuses.Verified);
         admin.IsActive.Should().BeTrue();
         admin.PasswordHash.Should().Be("hashed:Passw0rd1");
-        admin.RoleMappings.Select(mapping => mapping.Role.Code).Should().Contain("admin");
+        admin.RoleMappings.Select(mapping => mapping.Role.Code).Should().Contain("tenant_owner")
+            .And.NotContain("admin");
+    }
+
+    [Fact]
+    public async Task UpdateSettings_AllowsOwnerToToggleAdminCreationPolicy()
+    {
+        var (service, _) = Create();
+
+        var settings = await service.UpdateSettingsAsync(1, new UpdateTenantSettingsRequest
+        {
+            AllowAdminsCreateAdmins = false
+        });
+
+        settings.Should().NotBeNull();
+        settings!.AllowAdminsCreateAdmins.Should().BeFalse();
+
+        var reloaded = await service.GetSettingsAsync(1);
+        reloaded.Should().NotBeNull();
+        reloaded!.AllowAdminsCreateAdmins.Should().BeFalse();
     }
 
     [Fact]
@@ -214,7 +233,7 @@ public class TenantServiceTests
     }
 
     [Fact]
-    public async Task EnforceExpiredUserLimits_DeactivatesRandomUsersButProtectsAdministrators()
+    public async Task EnforceExpiredUserLimits_DeactivatesEligibleUsersButProtectsAdminAndOwner()
     {
         var (service, db) = Create();
         var tenant = await db.Tenants.SingleAsync(item => item.Id == 1);
@@ -235,7 +254,15 @@ public class TenantServiceTests
             IsActive = true
         };
         admin.RoleMappings.Add(new UserRoleMapping { RoleId = 2 });
-        db.Users.Add(admin);
+        var owner = new User
+        {
+            TenantId = tenant.Id,
+            Username = "quota.owner",
+            Email = "quota.owner@example.test",
+            IsActive = true
+        };
+        owner.RoleMappings.Add(new UserRoleMapping { RoleId = 6 });
+        db.Users.AddRange(admin, owner);
         await db.SaveChangesAsync();
 
         await service.EnforceExpiredUserLimitsAsync();
@@ -245,7 +272,8 @@ public class TenantServiceTests
             .ToListAsync();
         activeUsers.Should().HaveCount(2);
         activeUsers.Should().Contain(user => user.Id == admin.Id);
-        (await db.AuditLogs.CountAsync(log => log.Action == "user_auto_deactivated_quota")).Should().Be(2);
+        activeUsers.Should().Contain(user => user.Id == owner.Id);
+        (await db.AuditLogs.CountAsync(log => log.Action == "user_auto_deactivated_quota")).Should().Be(3);
         tenant.UserLimitGraceEndsAt.Should().BeNull();
     }
 }
