@@ -24,6 +24,8 @@ export interface Ticket {
     resolutionSla?: string;
     assetId?: string;
     requesterLogin?: string;
+    requesterId?: number;
+    creatorName?: string;
     comments?: TicketComment[];
     history?: TicketHistory[];
     fields?: Record<string, string | number | boolean | null>;
@@ -65,6 +67,14 @@ export interface TicketType {
 export interface PortalTicketType {
     id: number;
     name: string;
+}
+
+export interface RequesterOption {
+    id: number;
+    username: string;
+    fullName: string;
+    department: string | null;
+    email: string | null;
 }
 
 export interface AssetRecord {
@@ -151,6 +161,7 @@ export interface CreateTicketRequest {
     assetId?: string;
     fields?: Record<string, string | number | boolean | null>;
     requesterLogin?: string;
+    requesterId?: number;
 }
 
 export interface FormFieldDefinition {

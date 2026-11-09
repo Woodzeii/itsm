@@ -25,7 +25,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
     public async Task<IReadOnlyList<TicketResponse>> GetMyTicketsAsync(int userId, CancellationToken ct = default)
     {
         var tickets = await TicketQuery()
-            .Where(ticket => ticket.CreatorId == userId)
+            .Where(ticket => ticket.CreatorId == userId || ticket.RequesterId == userId)
             .OrderByDescending(ticket => ticket.CreatedAt)
             .ToListAsync(ct);
 
@@ -40,6 +40,20 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             .Select(type => new PortalTicketTypeResponse(type.Id, type.Name))
             .ToArrayAsync(ct);
 
+    public async Task<IReadOnlyList<RequesterOptionResponse>> GetRequesterOptionsAsync(CancellationToken ct = default) =>
+        await db.Users
+            .AsNoTracking()
+            .Where(user => user.IsActive)
+            .OrderBy(user => user.FullName)
+            .ThenBy(user => user.Username)
+            .Select(user => new RequesterOptionResponse(
+                user.Id,
+                user.Username,
+                user.FullName,
+                user.Department,
+                user.Email))
+            .ToArrayAsync(ct);
+
     public async Task<TicketResponse?> GetByIdAsync(
         int id,
         int userId,
@@ -49,7 +63,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         var ticket = await TicketQuery()
             .FirstOrDefaultAsync(ticket => ticket.Id == id, ct);
 
-        if (ticket is null || (!isStaff && ticket.CreatorId != userId))
+        if (ticket is null || (!isStaff && ticket.CreatorId != userId && ticket.RequesterId != userId))
             return null;
 
         return ToResponse(ticket);
@@ -90,6 +104,21 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             .FirstOrDefaultAsync(ct)
             ?? throw new InvalidOperationException("Не настроен начальный статус заявок.");
 
+        var requesterId = creatorId;
+        if (request.RequesterId is int requestedRequesterId)
+        {
+            if (!isStaff)
+                throw new UnauthorizedAccessException("Указывать заявителя может только сотрудник службы поддержки.");
+
+            var requester = await db.Users
+                .Where(user => user.Id == requestedRequesterId && user.IsActive)
+                .Select(user => new { user.Id })
+                .FirstOrDefaultAsync(ct)
+                ?? throw new ArgumentException("Заявитель не найден.");
+
+            requesterId = requester.Id;
+        }
+
         var now = DateTimeOffset.UtcNow;
         var ticket = new Ticket
         {
@@ -99,6 +128,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             StatusId = initialStatusId,
             Priority = request.Priority.Trim(),
             CreatorId = creatorId,
+            RequesterId = requesterId,
             TenantId = db.GetCurrentTenantId(),
             AssetId = request.AssetId,
             CustomFieldsData = CloneObject(request.CustomFieldsData),
@@ -147,6 +177,19 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             NewValue = ticket.StatusId.ToString(),
             ChangedAt = now
         });
+        if (requesterId != creatorId)
+        {
+            db.TicketAuditLogs.Add(new TicketAuditLog
+            {
+                TicketId = ticket.Id,
+                UserId = creatorId,
+                FieldName = "requesterId",
+                OldValue = null,
+                NewValue = requesterId.ToString(),
+                ChangedAt = now
+            });
+        }
+
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
@@ -451,7 +494,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
     {
         var ticket = await db.Tickets
             .FirstOrDefaultAsync(item => item.Id == ticketId, ct);
-        if (ticket is null || (!isStaff && ticket.CreatorId != userId))
+        if (ticket is null || (!isStaff && ticket.CreatorId != userId && ticket.RequesterId != userId))
             return null;
         if (sizeBytes is <= 0 or > MaxAttachmentSizeBytes)
             throw new ArgumentException("Размер вложения должен быть от 1 байта до 10 МБ.");
@@ -513,7 +556,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             .Where(item => item.Id == attachmentId
                 && item.TicketMessage.TicketId == ticketId
                 && item.TicketMessage.Ticket.TenantId == db.GetCurrentTenantId()
-                && (isStaff || (item.TicketMessage.Ticket.CreatorId == userId && item.TicketMessage.IsInternal != true)))
+                && (isStaff || ((item.TicketMessage.Ticket.CreatorId == userId || item.TicketMessage.Ticket.RequesterId == userId) && item.TicketMessage.IsInternal != true)))
             .Select(item => new { item.FileName, item.FilePath })
             .FirstOrDefaultAsync(ct);
         if (attachment is null)
@@ -529,11 +572,11 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         bool isStaff,
         CancellationToken ct = default)
     {
-        var ticketOwnerId = await db.Tickets
+        var ticketOwner = await db.Tickets
             .Where(ticket => ticket.Id == id)
-            .Select(ticket => (int?)ticket.CreatorId)
+            .Select(ticket => new { CreatorId = (int?)ticket.CreatorId, RequesterId = (int?)ticket.RequesterId })
             .FirstOrDefaultAsync(ct);
-        if (ticketOwnerId is null || (!isStaff && ticketOwnerId != userId))
+        if (ticketOwner is null || (!isStaff && ticketOwner.CreatorId != userId && ticketOwner.RequesterId != userId))
             return null;
 
         var messages = await db.TicketMessages
@@ -554,7 +597,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         CancellationToken ct = default)
     {
         var ticket = await db.Tickets
-            .Where(item => item.Id == id && (isStaff || item.CreatorId == userId))
+            .Where(item => item.Id == id && (isStaff || item.CreatorId == userId || item.RequesterId == userId))
             .Select(item => new { item.Id, item.TenantId })
             .FirstOrDefaultAsync(ct);
         if (ticket is null)
@@ -582,7 +625,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         CancellationToken ct = default)
     {
         var ticket = await db.Tickets.FirstOrDefaultAsync(item => item.Id == id, ct);
-        if (ticket is null || (!isStaff && ticket.CreatorId != authorId))
+        if (ticket is null || (!isStaff && ticket.CreatorId != authorId && ticket.RequesterId != authorId))
             return null;
 
         if (request.IsInternal && !isStaff)
@@ -686,6 +729,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             ticket.Title,
             ticket.CreatorId,
             ticket.Creator.FullName,
+            ticket.RequesterId,
+            ticket.Requester?.FullName,
             ticket.AssigneeId,
             ticket.Assignee?.FullName,
             ticket.StatusId,
@@ -795,6 +840,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             .Include(ticket => ticket.Type)
             .Include(ticket => ticket.Status)
             .Include(ticket => ticket.Creator)
+            .Include(ticket => ticket.Requester)
             .Include(ticket => ticket.Assignee)
             .Include(ticket => ticket.CriticalityLevel);
 
@@ -842,6 +888,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             "priority" => "Приоритет",
             "statusId" => "Статус",
             "assigneeId" => "Исполнитель",
+            "requesterId" => "Заявитель",
             "criticalityLevelId" => "Критичность",
             _ => log.FieldName
         };
@@ -864,6 +911,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         ticket.ServiceId,
         ticket.CreatorId,
         ticket.Creator.FullName,
+        ticket.RequesterId,
+        ticket.Requester?.FullName,
         ticket.AssigneeId,
         ticket.Assignee?.FullName,
         ticket.AssigneeGroupId,

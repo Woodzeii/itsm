@@ -210,6 +210,7 @@ describe('HttpWorkspaceApiService backend contract', () => {
             typeId: 2,
             priority: 'Высокий',
             assetId: 15,
+            requesterId: null,
             customFieldsData: { office: 'Москва' },
         });
         request.flush({ id: 42, title: 'Нет доступа к VPN' });
@@ -255,6 +256,7 @@ describe('HttpWorkspaceApiService backend contract', () => {
             typeId: 1,
             priority: 'Средний',
             assetId: null,
+            requesterId: null,
             customFieldsData: null,
         });
         request.flush({ id: 43, title: 'Нет доступа к VPN', typeName: 'Инцидент' });

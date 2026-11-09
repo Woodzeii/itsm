@@ -6,7 +6,7 @@ import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 import { downloadTicketAttachment as saveTicketAttachment } from '../../core/workspace/download-ticket-attachment';
-import { AdminSettings, PortalTicketRequest, PortalTicketType,TicketAttachment, Ticket } from '../../core/workspace/workspace.models';
+import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, TicketAttachment, Ticket } from '../../core/workspace/workspace.models';
 
 
 @Component({
@@ -24,6 +24,9 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType,TicketAttachment, 
           @if (loadingTypes) { <p class="empty">Загружаем доступные типы заявок...</p> }
           @else {
             <label>Тип заявки<select name="newTicketType" required [(ngModel)]="newTicketTypeId"><option value="">Выберите тип заявки</option>@for (type of ticketTypes; track type.id) { <option [value]="type.id">{{ type.name }}</option> }</select></label>
+            @if (canSelectRequester) {
+              <label>Заявитель<select name="newTicketRequester" [(ngModel)]="newTicketRequesterId"><option value="">Я — автор заявки</option>@for (requester of requesters; track requester.id) { <option [value]="requester.id">{{ requester.fullName }}@if (requester.department) { · {{ requester.department }} }</option> }</select></label>
+            }
             <label>Тема<input name="newTicketTitle" required maxlength="300" [(ngModel)]="newTicketTitle" placeholder="Кратко сформулируйте вопрос" /></label>
             <label>Критичность<select name="newTicketPriority" required [(ngModel)]="newTicketPriority">@for (priority of criticalities; track priority) { <option [value]="priority">{{ priority }}</option> }</select></label>
             <label class="wide">Описание<textarea name="newTicketDescription" required maxlength="10000" [(ngModel)]="newTicketDescription" placeholder="Подробно опишите ситуацию и ожидаемый результат"></textarea></label>
@@ -53,7 +56,7 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType,TicketAttachment, 
         <aside class="panel ticket-detail">
           @if (selected) {
             <header class="detail-heading"><div><p class="eyebrow">{{ selected.id }} · {{ selected.type }}</p><h2>{{ selected.title }}</h2></div><button class="icon-button" type="button" aria-label="Закрыть карточку" (click)="selected = null">×</button></header>
-            <div class="ticket-facts"><div><small>Автор</small><strong>{{ selected.requester }}</strong></div><div><small>Исполнитель</small><strong>{{ selected.assignee || 'Не назначен' }}</strong></div><div><small>Критичность</small><strong>{{ selected.priority }}</strong></div><div><small>Статус</small><strong>{{ selected.status }}</strong></div><div><small>Реакция</small><strong>{{ selected.reactionSla || '—' }}</strong></div><div><small>Решение</small><strong>{{ selected.resolutionSla || selected.slaRemaining }}</strong></div></div>
+            <div class="ticket-facts"><div><small>Автор</small><strong>{{ selected.creatorName || selected.requester }}</strong></div>@if (selected.creatorName) { <div><small>Заявитель</small><strong>{{ selected.requester }}</strong></div> }<div><small>Исполнитель</small><strong>{{ selected.assignee || 'Не назначен' }}</strong></div><div><small>Критичность</small><strong>{{ selected.priority }}</strong></div><div><small>Статус</small><strong>{{ selected.status }}</strong></div><div><small>Реакция</small><strong>{{ selected.reactionSla || '—' }}</strong></div><div><small>Решение</small><strong>{{ selected.resolutionSla || selected.slaRemaining }}</strong></div></div>
             @if (settings?.assignmentMode === 'manual') { <div class="assignment"><label>Исполнитель<select name="assignee" [(ngModel)]="assigneeDraft"><option value="">Выбрать инженера</option>@for (engineer of engineerOptions; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label><button class="secondary" type="button" [disabled]="!assigneeDraft" (click)="assign()">Назначить</button></div> }
             @if (isEngineer && selected.status !== 'Закрыта') { <div class="priority-edit"><label>Критичность<select name="priority" [(ngModel)]="priorityDraft">@for (priority of settings?.criticalities ?? []; track priority) { <option [value]="priority">{{ priority }}</option> }</select></label><button class="secondary" type="button" [disabled]="priorityDraft === selected.priority" (click)="changePriority()">Изменить</button></div> }
             @for (nextStatus of nextStatuses; track nextStatus) { <button class="primary transition" type="button" (click)="changeStatus(nextStatus.statusId)">Перевести в «{{ nextStatus.name }}»</button> }
@@ -152,6 +155,9 @@ export class TicketQueueComponent implements OnInit {
     assigneeDraft = '';
     priorityDraft = '';
     ticketTypes: PortalTicketType[] = [];
+    requesters: RequesterOption[] = [];
+    newTicketRequesterId = '';
+    loadingRequesters = false;
     criticalities = ['Низкий', 'Средний', 'Высокий'];
     newTicketTypeId = '';
     newTicketTitle = '';
@@ -187,6 +193,11 @@ export class TicketQueueComponent implements OnInit {
             : [];
     }
     get visibleComments() { return (this.selected?.comments ?? []).filter(comment => !comment.internal || this.canUseInternalComments); }
+    get canSelectRequester(): boolean {
+        if (!this.isEngineer) return false;
+        const activeRole = this.auth.getActiveRole?.();
+        return !activeRole || activeRole === 'admin' || activeRole === 'tenant_owner' || activeRole === 'agent' || activeRole === 'manager';
+    }
 
     ngOnInit(): void {
         this.isEngineer = this.auth.canRead();
@@ -207,8 +218,10 @@ export class TicketQueueComponent implements OnInit {
         this.showCreateForm = true;
         this.newTicketTitle = '';
         this.newTicketDescription = '';
+        this.newTicketRequesterId = '';
         this.newTicketPriority = this.settings?.criticalities?.[1] ?? 'Средний';
         this.error = '';
+        if (this.isEngineer && !this.requesters.length && !this.loadingRequesters) this.loadRequesters();
         if (this.ticketTypes.length || this.loadingTypes) return;
 
         this.loadingTypes = true;
@@ -222,6 +235,22 @@ export class TicketQueueComponent implements OnInit {
             error: err => {
                 this.error = err.message;
                 this.loadingTypes = false;
+                this.changeDetector.markForCheck();
+            },
+        });
+    }
+
+    private loadRequesters(): void {
+        this.loadingRequesters = true;
+        this.ticketsApi.getRequesters().subscribe({
+            next: requesters => {
+                this.requesters = requesters;
+                this.loadingRequesters = false;
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                this.error = err.message;
+                this.loadingRequesters = false;
                 this.changeDetector.markForCheck();
             },
         });
@@ -242,6 +271,7 @@ export class TicketQueueComponent implements OnInit {
             type: selectedType.name,
             typeId,
             priority: this.newTicketPriority,
+            ...(this.isEngineer && this.newTicketRequesterId ? { requesterId: Number(this.newTicketRequesterId) } : {}),
         };
         this.isSubmitting = true;
         this.error = '';

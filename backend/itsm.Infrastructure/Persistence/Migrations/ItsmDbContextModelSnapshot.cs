@@ -1821,6 +1821,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("priority");
 
+                    b.Property<int?>("RequesterId")
+                        .HasColumnType("integer")
+                        .HasColumnName("requester_id");
+
                     b.Property<int?>("ServiceCatalogId")
                         .HasColumnType("integer")
                         .HasColumnName("service_catalog_id");
@@ -1905,6 +1909,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CriticalityLevelId")
                         .HasDatabaseName("ix_tickets_criticality_level_id");
+
+                    b.HasIndex("RequesterId")
+                        .HasDatabaseName("ix_tickets_requester_id");
 
                     b.HasIndex("ServiceCatalogId")
                         .HasDatabaseName("ix_tickets_service_catalog_id");
@@ -3095,6 +3102,12 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_tickets_criticality_levels_criticality_level_id");
 
+                    b.HasOne("itsm.Domain.Entities.User", "Requester")
+                        .WithMany("RequestedTickets")
+                        .HasForeignKey("RequesterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_tickets_users_requester_id");
+
                     b.HasOne("itsm.Domain.Entities.ServiceCatalog", null)
                         .WithMany("Tickets")
                         .HasForeignKey("ServiceCatalogId")
@@ -3136,6 +3149,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("Creator");
 
                     b.Navigation("CriticalityLevel");
+
+                    b.Navigation("Requester");
 
                     b.Navigation("Service");
 
@@ -3460,6 +3475,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("NewAssetAssignments");
 
                     b.Navigation("PreviousAssetAssignments");
+
+                    b.Navigation("RequestedTickets");
 
                     b.Navigation("RoleMappings");
 

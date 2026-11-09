@@ -14,6 +14,7 @@ public class Ticket : IMultiTenant
     public int? CriticalityLevelId { get; set; }
     public int? ServiceId { get; set; }
     public int CreatorId { get; set; }
+    public int? RequesterId { get; set; }
     public int? AssigneeId { get; set; }
     public int? AssigneeGroupId { get; set; }
     public int? AssetId { get; set; }
@@ -42,6 +43,7 @@ public class Ticket : IMultiTenant
     public CriticalityLevel? CriticalityLevel { get; set; }
     public ServiceCatalog? Service { get; set; }
     public User Creator { get; set; } = null!;
+    public User? Requester { get; set; }
     public User? Assignee { get; set; }
     public AgentGroup? AssigneeGroup { get; set; }
     public SlaPolicy? SlaPolicy { get; set; }
