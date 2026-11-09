@@ -107,6 +107,15 @@ internal static class Program
         }
 
         var selectedScript = scripts[selection.Value - 1];
+        if (Path.GetFileName(selectedScript).Equals("auth-smoke-e2e.js", StringComparison.OrdinalIgnoreCase))
+        {
+            await RunProcess(
+                "npm",
+                ["run", "test:auth-smoke"],
+                scriptsDirectory);
+            return;
+        }
+
         IReadOnlyDictionary<string, string>? environment = null;
         if (Path.GetFileName(selectedScript).Contains("load", StringComparison.OrdinalIgnoreCase))
         {
