@@ -28,9 +28,67 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
 
         Assert.Equal("Открыта", ticket.StatusName);
         Assert.Equal(creator.Id, ticket.CreatorId);
+        Assert.Equal(creator.Id, ticket.RequesterId);
         Assert.Equal("High", ticket.Priority);
         Assert.True(await scope.Db.TicketAuditLogs.AnyAsync(log =>
             log.TicketId == ticket.Id && log.FieldName == "created"));
+    }
+
+    [Fact]
+    public async Task CreateTicketByStaffRecordsSeparateRequester()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var agent = await CreateUserAsync(scope.Db, "agent");
+        var requester = await CreateUserAsync(scope.Db);
+
+        var ticket = await service.CreateAsync(
+            NewTicketRequest(requesterId: requester.Id),
+            agent.Id,
+            isStaff: true,
+            isEngineer: false);
+
+        Assert.Equal(agent.Id, ticket.CreatorId);
+        Assert.Equal(requester.Id, ticket.RequesterId);
+        Assert.Equal(requester.FullName, ticket.RequesterName);
+        Assert.True(await scope.Db.TicketAuditLogs.AnyAsync(log =>
+            log.TicketId == ticket.Id && log.FieldName == "requesterId"));
+    }
+
+    [Fact]
+    public async Task CreateTicketRejectsRequesterSelectionForPortalUser()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var portalUser = await CreateUserAsync(scope.Db);
+        var otherUser = await CreateUserAsync(scope.Db);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.CreateAsync(
+            NewTicketRequest(requesterId: otherUser.Id),
+            portalUser.Id,
+            isStaff: false,
+            isEngineer: false));
+    }
+
+    [Fact]
+    public async Task RequesterCanReadOwnTicketCreatedByStaff()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var agent = await CreateUserAsync(scope.Db, "agent");
+        var requester = await CreateUserAsync(scope.Db);
+        var outsider = await CreateUserAsync(scope.Db);
+        var ticket = await service.CreateAsync(
+            NewTicketRequest(requesterId: requester.Id),
+            agent.Id,
+            isStaff: true,
+            isEngineer: false);
+
+        Assert.NotNull(await service.GetByIdAsync(ticket.Id, requester.Id, isStaff: false));
+        Assert.NotNull(await service.GetHistoryAsync(ticket.Id, requester.Id, isStaff: false));
+        Assert.NotNull(await service.GetMessagesAsync(ticket.Id, requester.Id, isStaff: false));
+        Assert.Null(await service.GetByIdAsync(ticket.Id, outsider.Id, isStaff: false));
+        Assert.Null(await service.GetMessagesAsync(ticket.Id, outsider.Id, isStaff: false));
     }
 
     [Fact]
@@ -738,7 +796,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         }
     }
 
-    private static CreateTicketRequest NewTicketRequest(int typeId = 1, int? assetId = null) =>
+    private static CreateTicketRequest NewTicketRequest(int typeId = 1, int? assetId = null, int? requesterId = null) =>
         new()
         {
             Title = "Integration test ticket",
@@ -746,6 +804,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
             TypeId = typeId,
             Priority = "High",
             AssetId = assetId,
+            RequesterId = requesterId,
             CustomFieldsData = JsonDocument.Parse("{\"source\":\"test\"}").RootElement.Clone()
         };
 }

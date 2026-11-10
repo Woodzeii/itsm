@@ -23,6 +23,7 @@ import {
     OverviewData,
     PortalTicketType,
     PortalTicketRequest,
+    RequesterOption,
     RepairCloseRequest,
     ReportSummary,
     TicketComment,
@@ -116,6 +117,7 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             typeId,
             priority: request.priority?.trim() || 'Средний',
             assetId: assetId !== null && Number.isFinite(assetId) ? assetId : null,
+            requesterId: request.requesterId ?? null,
             customFieldsData: request.fields ?? null,
         };
 
@@ -245,6 +247,9 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     }
     getPortalTicketTypes() {
         return this.http.get<PortalTicketType[]>(`${this.baseUrl}/tickets/portal-types`);
+    }
+    getRequesters() {
+        return this.http.get<RequesterOption[]>(`${this.baseUrl}/tickets/requesters`);
     }
     createPortalTicket(request: PortalTicketRequest) {
         return this.createTicket(request);
@@ -505,6 +510,8 @@ interface BackendTicket {
     priority?: string | null;
     creatorId?: number;
     creatorName?: string;
+    requesterId?: number | null;
+    requesterName?: string | null;
     assigneeId?: number | null;
     assigneeName?: string | null;
     assetId?: number | null;
@@ -551,7 +558,7 @@ function toTicket(ticket: BackendTicket): Ticket {
     return {
         id: String(ticket.id ?? ''),
         title: ticket.title ?? '',
-        requester: ticket.creatorName ?? '',
+        requester: ticket.requesterName ?? ticket.creatorName ?? '',
         team: '',
         priority: ticket.priority ?? '',
         status: ticket.statusName ?? '',
@@ -567,6 +574,8 @@ function toTicket(ticket: BackendTicket): Ticket {
         reactionSla: formatRemaining(ticket.slaReactionDeadline),
         resolutionSla: formatRemaining(ticket.slaResolutionDeadline),
         assetId: ticket.assetId != null ? String(ticket.assetId) : undefined,
+        requesterId: ticket.requesterId ?? undefined,
+        creatorName: ticket.creatorName,
         fields,
     };
 }

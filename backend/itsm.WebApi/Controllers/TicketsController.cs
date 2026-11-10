@@ -37,6 +37,13 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     public async Task<ActionResult<IReadOnlyList<PortalTicketTypeResponse>>> GetPortalTypes(CancellationToken ct)
         => Ok(await service.GetPortalTicketTypesAsync(ct));
 
+    [HttpGet("requesters")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
+    [EndpointSummary("Получить пользователей, доступных для выбора в качестве заявителя")]
+    [ProducesResponseType(typeof(IReadOnlyList<RequesterOptionResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<RequesterOptionResponse>>> GetRequesters(CancellationToken ct)
+        => Ok(await service.GetRequesterOptionsAsync(ct));
+
     [HttpGet("{id:int}")]
     [EndpointSummary("Получить заявку по идентификатору")]
     [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]

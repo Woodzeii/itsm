@@ -59,6 +59,7 @@ export class WorkspaceService {
     getReports(from?: string, to?: string) { return this.api.getReports(from, to); }
     getPortalTickets() { return this.api.getPortalTickets(); }
     getPortalTicketTypes() { return this.api.getPortalTicketTypes(); }
+    getRequesters() { return this.api.getRequesters(); }
     createPortalTicket(request: PortalTicketRequest) { return this.api.createPortalTicket(request); }
     addPortalComment(ticketId: string, message: string, attachments: File[]) { return this.api.addPortalComment(ticketId, message, attachments); }
     reviewPortalTicket(ticketId: string, accepted: boolean) { return this.api.reviewPortalTicket(ticketId, accepted); }
