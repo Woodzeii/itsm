@@ -109,20 +109,23 @@ internal static class Program
         var selectedScript = scripts[selection.Value - 1];
         if (Path.GetFileName(selectedScript).Equals("auth-smoke-e2e.js", StringComparison.OrdinalIgnoreCase))
         {
+            var authSmokeEnvironment = ReadAuthSmokeSettings();
             if (OperatingSystem.IsWindows())
             {
                 var commandProcessor = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
                 await RunProcess(
                     commandProcessor,
                     ["/d", "/c", "npm.cmd run test:auth-smoke"],
-                    scriptsDirectory);
+                    scriptsDirectory,
+                    authSmokeEnvironment);
             }
             else
             {
                 await RunProcess(
                     "npm",
                     ["run", "test:auth-smoke"],
-                    scriptsDirectory);
+                    scriptsDirectory,
+                    authSmokeEnvironment);
             }
 
             return;
@@ -139,6 +142,47 @@ internal static class Program
             ["run", selectedScript],
             repositoryRoot,
             environment);
+    }
+
+    private static Dictionary<string, string> ReadAuthSmokeSettings()
+    {
+        Console.WriteLine();
+        Console.WriteLine("Настройка smoke E2E авторизации");
+
+        return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["E2E_ADMIN_USERNAME"] = ReadRequiredValue(
+                "Логин тестового администратора",
+                Environment.GetEnvironmentVariable("E2E_ADMIN_USERNAME")),
+            ["E2E_ADMIN_PASSWORD"] = ReadRequiredValue(
+                "Пароль тестового администратора (ввод скрыт)",
+                Environment.GetEnvironmentVariable("E2E_ADMIN_PASSWORD"),
+                hideInput: true),
+            ["E2E_TOTP_SECRET"] = ReadRequiredValue(
+                "Секрет TOTP в формате Base32 (ввод скрыт)",
+                Environment.GetEnvironmentVariable("E2E_TOTP_SECRET"),
+                hideInput: true),
+        };
+    }
+
+    private static string ReadRequiredValue(string prompt, string? defaultValue, bool hideInput = false)
+    {
+        while (true)
+        {
+            var defaultHint = string.IsNullOrEmpty(defaultValue)
+                ? string.Empty
+                : hideInput ? " (Enter — использовать значение из окружения)" : $" [{defaultValue}]";
+            Console.Write($"{prompt}{defaultHint}: ");
+
+            var input = hideInput ? ReadSecret() : Console.ReadLine() ?? string.Empty;
+            var value = string.IsNullOrWhiteSpace(input) ? defaultValue : input.Trim();
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
+            Console.WriteLine("Значение обязательно. Введите его или задайте соответствующую переменную окружения.");
+        }
     }
 
     private static Dictionary<string, string> ReadLoadTestSettings()
