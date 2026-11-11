@@ -21,8 +21,21 @@ public sealed record CreateTicketRequest
 
     public int? AssetId { get; init; }
 
+    /// <summary>Пользователь, от лица которого создается заявка. По умолчанию — автор заявки.</summary>
+    public int? RequesterId { get; init; }
+
     public JsonElement? CustomFieldsData { get; init; }
 }
+
+public sealed record PortalTicketTypeResponse(int Id, string Name);
+
+/// <summary>Пользователь, которого можно указать заявителем при создании заявки.</summary>
+public sealed record RequesterOptionResponse(
+    int Id,
+    string Username,
+    string FullName,
+    string? Department,
+    string? Email);
 
 /// <summary>Request payload for updating a ticket.</summary>
 public sealed record UpdateTicketRequest
@@ -95,6 +108,8 @@ public sealed record TicketResponse(
     int? ServiceId,
     int CreatorId,
     string CreatorName,
+    int? RequesterId,
+    string? RequesterName,
     int? AssigneeId,
     string? AssigneeName,
     int? AssigneeGroupId,
@@ -115,6 +130,12 @@ public sealed record TicketMessageResponse(
     bool IsInternal,
     string? SourceType,
     IReadOnlyList<TicketAttachmentResponse> Attachments,
+    DateTimeOffset CreatedAt);
+
+public sealed record TicketHistoryResponse(
+    int Id,
+    string Event,
+    string Actor,
     DateTimeOffset CreatedAt);
 
 /// <summary>Attachment metadata returned for a ticket message.</summary>
@@ -170,6 +191,8 @@ public sealed record AssetTicketHistoryItem(
     string Title,
     int CreatorId,
     string CreatorName,
+    int? RequesterId,
+    string? RequesterName,
     int? AssigneeId,
     string? AssigneeName,
     int StatusId,

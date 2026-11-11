@@ -1,9 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, Ticket, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
+import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, Ticket, TicketAttachment, TicketFormDefinition, PortalTicketType, TicketType } from '../../core/workspace/workspace.models';
+import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
+import { downloadTicketAttachment as saveTicketAttachment } from '../../core/workspace/download-ticket-attachment';
 
 @Component({
     selector: 'app-self-service-portal',
@@ -30,30 +32,13 @@ import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, T
           <button class="back" type="button" (click)="view = 'list'">← Мои заявки</button>
           <form class="request-form" (ngSubmit)="submitTicket()">
             <div class="form-title"><p>Новая заявка</p><h2>Опишите, что случилось</h2></div>
-            <label>Тип заявки<select name="ticketType" [(ngModel)]="typeId" (ngModelChange)="resetForm()">@for (type of portalTypes; track type.id) { <option [value]="type.id">{{ type.name }}</option> }</select></label>
-            @if (activeForm; as form) {
-              @for (field of visibleFields(form); track field.id) {
-                @if (!['Тема', 'Описание', 'Критичность'].includes(field.name)) {
-                  <label [class.wide]="field.type === 'textarea' || field.type === 'file'">{{ field.name }}@if (field.required) { <span class="required">*</span> }
-                    @switch (field.type) {
-                      @case ('textarea') { <textarea [name]="field.id" [required]="field.required" [ngModel]="values[field.id]" (ngModelChange)="values[field.id] = $event" [placeholder]="field.hint || ''"></textarea> }
-                      @case ('number') { <input type="number" [name]="field.id" [required]="field.required" [ngModel]="values[field.id]" (ngModelChange)="values[field.id] = $event" [placeholder]="field.hint || ''" /> }
-                      @case ('date') { <input type="date" [name]="field.id" [required]="field.required" [ngModel]="values[field.id]" (ngModelChange)="values[field.id] = $event" /> }
-                      @case ('dictionary') { <select [name]="field.id" [required]="field.required" [ngModel]="values[field.id]" (ngModelChange)="values[field.id] = $event"><option value="">Выберите значение</option>@for (option of field.options ?? settings?.criticalities ?? []; track option) { <option [value]="option">{{ option }}</option> }</select> }
-                      @case ('asset') { <select [name]="field.id" [required]="field.required" [ngModel]="values[field.id]" (ngModelChange)="values[field.id] = $event"><option value="">Без привязки</option>@for (asset of assets; track asset.id) { <option [value]="asset.id">{{ asset.id }} · {{ asset.name }}</option> }</select> }
-                      @case ('file') { <input type="file" [name]="field.id" [required]="field.required" multiple (change)="pickFiles($event,field.id)" /> }
-                      @case ('boolean') { <span class="check"><input type="checkbox" [name]="field.id" [ngModel]="values[field.id]" (ngModelChange)="values[field.id] = $event" /> Да</span> }
-                      @default { <input type="text" [name]="field.id" [required]="field.required" [ngModel]="values[field.id]" (ngModelChange)="values[field.id] = $event" [placeholder]="field.hint || ''" /> }
-                    }
-                    @if (field.hint && field.type !== 'string' && field.type !== 'textarea') { <small>{{ field.hint }}</small> }
-                  </label>
-                }
-              }
-              <label>Тема <span class="required">*</span><input name="title" required [(ngModel)]="title" placeholder="Кратко сформулируйте вопрос" /></label>
-              <label>Критичность <span class="required">*</span><select name="priority" required [(ngModel)]="priority">@for (level of settings?.criticalities ?? []; track level) { <option [value]="level">{{ level }}</option> }</select></label>
-              <label class="wide">Описание <span class="required">*</span><textarea name="description" required [(ngModel)]="description" placeholder="Подробно опишите ситуацию и ожидаемый результат"></textarea></label>
-            }
-            <footer class="form-footer"><button class="primary" type="submit" [disabled]="!title.trim() || !description.trim()">Отправить заявку</button><button class="quiet" type="button" (click)="view = 'list'">Отмена</button></footer>
+            @if (isLoadingTypes) { <p class="empty wide">Загружаем доступные типы заявок...</p> }
+            @else if (!portalTypes.length) { <p class="feedback error wide">Нет доступных типов заявок.</p> }
+            <label>Тип заявки<select name="ticketType" required [(ngModel)]="typeId"><option value="">Выберите тип заявки</option>@for (type of portalTypes; track type.id) { <option [value]="type.id">{{ type.name }}</option> }</select></label>
+            <label>Тема <span class="required">*</span><input name="title" required [(ngModel)]="title" placeholder="Кратко сформулируйте вопрос" /></label>
+            <label>Критичность <span class="required">*</span><select name="priority" required [(ngModel)]="priority">@for (level of criticalities; track level) { <option [value]="level">{{ level }}</option> }</select></label>
+            <label class="wide">Описание <span class="required">*</span><textarea name="description" required [(ngModel)]="description" placeholder="Подробно опишите ситуацию и ожидаемый результат"></textarea></label>
+            <footer class="form-footer"><button class="primary" type="submit" [disabled]="isSubmitting || !typeId || !title.trim() || !description.trim()">Отправить заявку</button><button class="quiet" type="button" (click)="view = 'list'">Отмена</button></footer>
           </form>
         </section>
       }
@@ -66,8 +51,8 @@ import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, T
             <div class="ticket-meta"><span>Критичность <strong>{{ active.priority }}</strong></span><span>Исполнитель <strong>{{ active.assignee || 'Назначается' }}</strong></span></div>
             @if (settings?.portalSlaFields?.includes('Время реакции')) { <p class="sla-line">Время реакции: <strong>{{ active.reactionSla || 'ожидается' }}</strong></p> }
             @if (settings?.portalSlaFields?.includes('Время решения')) { <p class="sla-line">Время решения: <strong>{{ active.resolutionSla || active.slaRemaining }}</strong></p> }
-            <section class="conversation"><h3>Переписка</h3>@for (comment of publicComments; track comment.id) { <article><strong>{{ comment.author }}</strong><p>{{ comment.message }}</p><small>{{ comment.createdAt }}</small>@for (file of comment.attachments; track file) { <span class="attachment">{{ file }}</span> }</article> }
-              <form (ngSubmit)="sendComment()"><textarea name="reply" [(ngModel)]="reply" placeholder="Напишите сообщение" required></textarea><label class="file-label">Прикрепить файлы<input type="file" multiple (change)="pickCommentFiles($event)" /></label><button class="primary" type="submit" [disabled]="!reply.trim()">Отправить сообщение</button></form>
+            <section class="conversation"><h3>Переписка</h3>@if (loadingComments) { <p class="empty">Загрузка сообщений...</p> }@for (comment of publicComments; track comment.id) { <article><strong>{{ comment.author }}</strong><p>{{ comment.message }}</p><small>{{ comment.createdAt }}</small>@if (comment.attachmentRecords?.length) { @for (attachment of comment.attachmentRecords; track attachment.id) { <button class="attachment" type="button" (click)="downloadAttachment(attachment)">📎 {{ attachment.fileName }}</button> } }@else { @for (file of comment.attachments; track file) { <span class="attachment">📎 {{ file }}</span> } }</article> }
+              <form (ngSubmit)="sendComment()"><textarea name="reply" [(ngModel)]="reply" placeholder="Напишите сообщение" required></textarea><label class="file-label">Прикрепить файлы<input type="file" multiple (change)="pickCommentFiles($event)" /></label><button class="primary" type="submit" [disabled]="isSendingComment || !reply.trim()">Отправить сообщение</button></form>
             </section>
           </article>
           <aside class="actions-panel"><h3>Действия</h3>
@@ -109,7 +94,7 @@ import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, T
       .ticket-meta strong { display:block; margin-top:4px; color:#414c5a; } .sla-line { color:#667281; font-size:10px; }
       .conversation { margin-top:20px; } .conversation article { margin:9px 0; padding:11px; border-radius:6px; background:#f4f7fb; }
       .conversation article strong { font-size:10px; } .conversation article p { margin:5px 0; color:#586575; font-size:11px; white-space:pre-wrap; }
-      .conversation article small { color:#929baa; font-size:9px; } .attachment { display:block; margin-top:4px; color:#3475d1; font-size:9px; }
+      .conversation article small { color:#929baa; font-size:9px; } .attachment { display:block; margin-top:4px; padding:0; border:0; background:none; color:#3475d1; font-size:9px; text-align:left; cursor:pointer; }
       .conversation form { display:grid; gap:9px; margin-top:15px; } .conversation textarea { min-height:75px; }
       .file-label { font-weight:400; } .file-label input { font-size:9px; }
       .actions-panel p { color:#7b8694; font-size:10px; line-height:1.5; } .actions-panel button { margin-top:8px; }
@@ -119,14 +104,16 @@ import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, T
 })
 export class SelfServicePortalComponent implements OnInit {
     private readonly workspace = inject(WorkspaceService);
+    private readonly portalApi = inject(HttpWorkspaceApiService);
+    private readonly chatApi = inject(HttpWorkspaceApiService);
     private readonly auth = inject(AuthService);
+    private readonly changeDetector = inject(ChangeDetectorRef);
 
+    readonly criticalities = ['Низкий', 'Средний', 'Высокий'];
     view: 'list' | 'create' | 'detail' = 'list';
     tickets: Ticket[] = [];
     active: Ticket | null = null;
-    ticketTypes: TicketType[] = [];
-    forms: TicketFormDefinition[] = [];
-    assets: AssetRecord[] = [];
+    ticketTypes: PortalTicketType[] = [];
     settings: AdminSettings | null = null;
     policies = this.workspace.getEscalationPolicies();
     policyList = [] as import('../../core/workspace/workspace.models').EscalationPolicy[];
@@ -134,111 +121,163 @@ export class SelfServicePortalComponent implements OnInit {
     title = '';
     description = '';
     priority = '';
-    values: Record<string, string | number | boolean | null> = {};
-    attachments: File[] = [];
-    fieldAttachments: Record<string, File[]> = {};
     commentFiles: File[] = [];
     reply = '';
     error = '';
     notice = '';
+    isSubmitting = false;
+    isLoadingTypes = true;
+    loadingComments = false;
+    isSendingComment = false;
+    private commentFileInput?: HTMLInputElement;
 
     get login(): string { return this.auth.getLogin() || 'Пользователь портала'; }
     get loginInitial(): string { return this.login.charAt(0).toLocaleUpperCase(); }
-    get portalTypes(): TicketType[] { return this.ticketTypes.filter(type => type.portalAvailable && !type.repair); }
-    get activeForm(): TicketFormDefinition | undefined { return this.forms.find(form => form.ticketTypeId === this.typeId); }
+    get portalTypes(): PortalTicketType[] { return this.ticketTypes; }
     get publicComments() { return (this.active?.comments ?? []).filter(comment => !comment.internal); }
     get canEscalate(): boolean { return !!this.policyList.find(policy => policy.ticketTypeName === this.active?.type)?.allowManualByRequester; }
 
     ngOnInit(): void {
-        this.workspace.getPortalTickets().subscribe({ next: tickets => this.tickets = tickets, error: err => this.error = err.message });
-        this.workspace.getTicketTypes().subscribe({ next: types => { this.ticketTypes = types; this.typeId = this.portalTypes[0]?.id ?? ''; }, error: err => this.error = err.message });
-        this.workspace.getForms().subscribe({ next: forms => this.forms = forms, error: err => this.error = err.message });
-        this.workspace.getAssets().subscribe({ next: assets => this.assets = assets.filter(asset => asset.lifecycle !== 'Списан'), error: err => this.error = err.message });
-        this.workspace.getAdminSettings().subscribe({ next: settings => { this.settings = settings; this.priority = settings.criticalities[1] ?? ''; }, error: err => this.error = err.message });
-        this.workspace.getEscalationPolicies().subscribe({ next: policies => this.policyList = policies, error: err => this.error = err.message });
-    }
-
-    visibleFields(form: TicketFormDefinition): FormFieldDefinition[] {
-      return form.fields.filter(field => field.visibleToRequester && (!field.conditionFieldId || this.values[field.conditionFieldId] === field.conditionValue));
-    }
-    openCreate(): void { this.resetForm(); this.view = 'create'; }
-    resetForm(): void {
-      this.values = {};
-      this.fieldAttachments = {};
-      this.attachments = [];
-      this.title = '';
-      this.description = '';
-      this.error = '';
-      for (const field of this.activeForm?.fields ?? []) if (field.defaultValue !== undefined) this.values[field.id] = field.defaultValue;
-    }
-    openTicket(ticket: Ticket): void { this.active = ticket; this.view = 'detail'; }
-    pickFiles(event: Event, fieldId: string): void {
-      this.fieldAttachments[fieldId] = [...(this.fieldAttachments[fieldId] ?? []), ...Array.from((event.target as HTMLInputElement).files ?? [])];
-      this.attachments = Object.values(this.fieldAttachments).flat();
-    }
-    pickCommentFiles(event: Event): void { this.commentFiles = Array.from((event.target as HTMLInputElement).files ?? []); }
-
-    submitTicket(): void {
-        const form = this.activeForm;
-      if (!form) { this.error = 'Форма для выбранного типа заявки не найдена.'; return; }
-      if (!this.validateFields(form)) return;
-        const assetField = form?.fields.find(field => field.type === 'asset' && this.values[field.id]);
-        const request: PortalTicketRequest = {
-            title: this.title.trim(), description: this.description.trim(), requester: this.login,
-            type: this.portalTypes.find(type => type.id === this.typeId)?.name ?? '', priority: this.priority,
-            assetId: assetField ? String(this.values[assetField.id]) : undefined,
-            fields: { ...this.values }, attachments: [...this.attachments],
-        };
-        this.workspace.createPortalTicket(request).subscribe({
-            next: ticket => { this.tickets = [ticket, ...this.tickets]; this.active = ticket; this.view = 'detail'; this.notice = `Заявка ${ticket.id} зарегистрирована.`; },
-            error: err => this.error = err.message,
+        this.portalApi.getPortalTickets().subscribe({
+            next: tickets => { this.tickets = tickets; this.changeDetector.markForCheck(); },
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
+        });
+        this.portalApi.getPortalTicketTypes().subscribe({
+            next: types => {
+                this.ticketTypes = types;
+                this.typeId = String(types[0]?.id ?? '');
+                this.isLoadingTypes = false;
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                this.error = err.message;
+                this.isLoadingTypes = false;
+                this.changeDetector.markForCheck();
+            },
+        });
+        this.priority = 'Средний';
+        this.workspace.getAdminSettings().subscribe({
+            next: settings => { this.settings = settings; this.changeDetector.markForCheck(); },
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
+        });
+        this.workspace.getEscalationPolicies().subscribe({
+            next: policies => { this.policyList = policies; this.changeDetector.markForCheck(); },
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
         });
     }
 
-      private validateFields(form: TicketFormDefinition): boolean {
-        for (const field of this.visibleFields(form)) {
-          if (['Тема', 'Описание', 'Критичность'].includes(field.name)) continue;
-          const value = this.values[field.id];
-          const missing = field.type === 'file'
-            ? !this.fieldAttachments[field.id]?.length
-            : field.type === 'boolean'
-              ? value !== true
-              : value === undefined || value === null || value === '';
-          if (field.required && missing) {
-            this.error = `Заполните обязательное поле «${field.name}».`;
-            return false;
-          }
-          if (field.validation && value !== undefined && value !== null && value !== '') {
-            try {
-              if (!new RegExp(field.validation).test(String(value))) {
-                this.error = `Поле «${field.name}» не соответствует формату.`;
-                return false;
-              }
-            } catch {
-              this.error = `Для поля «${field.name}» задана некорректная проверка ввода.`;
-              return false;
-            }
-          }
+    openCreate(): void { this.resetForm(); this.view = 'create'; }
+    resetForm(): void {
+      this.title = '';
+      this.description = '';
+      this.priority = 'Средний';
+      this.error = '';
+    }
+    openTicket(ticket: Ticket): void {
+        this.active = { ...ticket, comments: [] };
+        this.view = 'detail';
+        this.loadingComments = true;
+        this.chatApi.getTicketComments(ticket.id).subscribe({
+            next: comments => {
+                if (this.active?.id !== ticket.id) return;
+                this.active.comments = comments;
+                this.loadingComments = false;
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                if (this.active?.id !== ticket.id) return;
+                this.error = err.message;
+                this.loadingComments = false;
+                this.changeDetector.markForCheck();
+            },
+        });
+    }
+    pickCommentFiles(event: Event): void {
+        this.commentFileInput = event.target as HTMLInputElement;
+        this.commentFiles = Array.from(this.commentFileInput.files ?? []);
+    }
+    downloadAttachment(attachment: TicketAttachment): void {
+        if (!this.active) return;
+        this.chatApi.downloadTicketAttachment(this.active.id, attachment).subscribe({
+            next: blob => saveTicketAttachment(blob, attachment.fileName),
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
+        });
+    }
+
+    submitTicket(): void {
+        const typeId = Number(this.typeId);
+        if (!Number.isInteger(typeId) || typeId < 1) {
+            this.error = 'Выберите тип заявки.';
+            return;
         }
-        this.error = '';
-        return true;
-      }
+        const request: PortalTicketRequest = {
+            title: this.title.trim(), description: this.description.trim(), requester: this.login,
+            type: this.portalTypes.find(type => type.id === typeId)?.name ?? '', typeId, priority: this.priority,
+        };
+        this.isSubmitting = true;
+        this.portalApi.createPortalTicket(request).subscribe({
+            next: ticket => {
+                this.tickets = [ticket, ...this.tickets];
+               
+                this.view = 'detail';
+                this.notice = `Заявка ${ticket.id} зарегистрирована.`; this.openTicket(ticket);
+                this.isSubmitting = false;
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                this.error = err.message;
+                this.isSubmitting = false;
+                this.changeDetector.markForCheck();
+            },
+        });
+    }
 
     sendComment(): void {
-        if (!this.active) return;
-        this.workspace.addPortalComment(this.active.id, this.reply.trim(), this.commentFiles).subscribe({
-            next: comment => { this.active!.comments = [...(this.active!.comments ?? []), comment]; this.reply = ''; this.commentFiles = []; },
-            error: err => this.error = err.message,
+        if (!this.active || !this.reply.trim() || this.isSendingComment) return;
+        const ticketId = this.active.id;
+        this.isSendingComment = true;
+        this.chatApi.addPortalComment(ticketId, this.reply.trim(), this.commentFiles).subscribe({
+            next: comment => {
+                if (this.active?.id === ticketId) {
+                    this.active.comments = [...(this.active.comments ?? []), comment];
+                    this.reply = '';
+                    this.commentFiles = [];
+                    if (this.commentFileInput) this.commentFileInput.value = '';
+                }
+                this.isSendingComment = false;
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                this.error = err.message;
+                this.isSendingComment = false;
+                this.changeDetector.markForCheck();
+            },
         });
     }
 
     review(accepted: boolean): void {
         if (!this.active) return;
-        this.workspace.reviewPortalTicket(this.active.id, accepted).subscribe({ next: ticket => { this.active = ticket; this.tickets = this.tickets.map(item => item.id === ticket.id ? ticket : item); this.notice = accepted ? 'Заявка закрыта.' : 'Заявка возвращена в работу.'; }, error: err => this.error = err.message });
+        this.workspace.reviewPortalTicket(this.active.id, accepted).subscribe({
+            next: ticket => {
+                this.active = ticket;
+                this.tickets = this.tickets.map(item => item.id === ticket.id ? ticket : item);
+                this.notice = accepted ? 'Заявка закрыта.' : 'Заявка возвращена в работу.';
+                this.changeDetector.markForCheck();
+            },
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
+        });
     }
 
     escalate(): void {
         if (!this.active) return;
-        this.workspace.escalateTicket(this.active.id, 'Автор заявки').subscribe({ next: result => { this.active!.priority = result.newPriority; this.active!.history = [{ id: result.createdAt, event: `Эскалация ${result.previousPriority} → ${result.newPriority}`, actor: result.initiator, createdAt: result.createdAt }, ...(this.active!.history ?? [])]; this.notice = `Руководитель уведомлен: ${result.recipients.join(', ')}.`; }, error: err => this.error = err.message });
+        this.workspace.escalateTicket(this.active.id, 'Автор заявки').subscribe({
+            next: result => {
+                this.active!.priority = result.newPriority;
+                this.active!.history = [{ id: result.createdAt, event: `Эскалация ${result.previousPriority} → ${result.newPriority}`, actor: result.initiator, createdAt: result.createdAt }, ...(this.active!.history ?? [])];
+                this.notice = `Руководитель уведомлен: ${result.recipients.join(', ')}.`;
+                this.changeDetector.markForCheck();
+            },
+            error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
+        });
     }
 }

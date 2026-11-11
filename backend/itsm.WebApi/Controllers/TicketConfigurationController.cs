@@ -7,7 +7,7 @@ namespace itsm.WebApi.Controllers;
 
 [ApiController]
 [Route("api/ticket-configuration/service-desk-head")]
-[Authorize(Roles = "admin")]
+[Authorize(Roles = "admin,tenant_owner")]
 public sealed class TicketConfigurationController(ITicketService service) : ControllerBase
 {
     [HttpGet]

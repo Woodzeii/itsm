@@ -25,6 +25,7 @@ export interface UserSummary {
     managerId: number | null;
     tenantId: number | null;
     roleIds: number[];
+    roleCodes?: string[];
     isActive: boolean;
 }
 

@@ -7,7 +7,7 @@ namespace itsm.WebApi.Controllers;
 
 [ApiController]
 [Route("api/escalation-rules")]
-[Authorize(Roles = "admin")]
+[Authorize(Roles = "admin,tenant_owner")]
 public sealed class EscalationRulesController(ITicketService service) : ControllerBase
 {
     [HttpGet]

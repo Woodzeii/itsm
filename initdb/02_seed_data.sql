@@ -1,5 +1,6 @@
 INSERT INTO system_roles (code, name) VALUES
   ('tenant_admin', 'Администратор тенантов'),
+  ('tenant_owner', 'Владелец тенанта'),
   ('admin',        'Администратор'),
   ('agent',        'Инженер ТП'),
   ('manager',      'Руководитель'),

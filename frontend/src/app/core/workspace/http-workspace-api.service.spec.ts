@@ -45,22 +45,109 @@ describe('HttpWorkspaceApiService backend contract', () => {
         request.flush({});
     });
 
-    it('adds a ticket message under messages with backend field names', () => {
+    it('loads ticket messages and preserves internal flags and downloadable attachment ids', () => {
+        let comments: unknown;
+        service.getTicketComments('42').subscribe(result => comments = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/messages`);
+        expect(request.request.method).toBe('GET');
+        request.flush([{
+            id: 8,
+            authorName: 'Agent',
+            messageBody: 'Internal note',
+            isInternal: true,
+            attachments: [{ id: 13, fileName: 'log.txt' }],
+            createdAt: '2026-11-07T08:00:00Z',
+        }]);
+
+        expect(comments).toEqual([{
+            id: '8',
+            author: 'Agent',
+            message: 'Internal note',
+            createdAt: '2026-11-07T08:00:00Z',
+            internal: true,
+            attachments: ['log.txt'],
+            attachmentRecords: [{ id: '13', fileName: 'log.txt' }],
+        }]);
+    });
+
+    it('loads ticket history and maps backend identifiers to strings', () => {
+        let history: unknown;
+        service.getTicketHistory('42').subscribe(result => history = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/history`);
+        expect(request.request.method).toBe('GET');
+        request.flush([{
+            id: 8,
+            event: 'Заявка создана',
+            actor: 'Agent',
+            createdAt: '2026-11-07T08:00:00Z',
+        }]);
+
+        expect(history).toEqual([{
+            id: '8',
+            event: 'Заявка создана',
+            actor: 'Agent',
+            createdAt: '2026-11-07T08:00:00Z',
+        }]);
+    });
+
+    it('posts a ticket message with backend field names', () => {
         service.addTicketComment('42', {
             author: 'Agent',
             message: 'Test',
             internal: true,
-            attachments: ['file.txt'],
-        }).subscribe();
+        }, []).subscribe();
 
         const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/messages`);
         expect(request.request.method).toBe('POST');
         expect(request.request.body).toEqual({
             messageBody: 'Test',
             isInternal: true,
-            attachments: ['file.txt'],
+            attachments: [],
         });
         request.flush({});
+    });
+
+    it('uploads staff attachments before creating a message with upload tokens', () => {
+        const file = new File(['sample'], 'log.txt', { type: 'text/plain' });
+        service.addTicketComment('42', {
+            author: 'Agent',
+            message: 'Логи',
+            internal: false,
+        }, [file]).subscribe();
+
+        const upload = http.expectOne(`${environment.apiBaseUrl}/tickets/42/attachments`);
+        expect(upload.request.method).toBe('POST');
+        expect(upload.request.body instanceof FormData).toBe(true);
+        const uploadId = '00112233445566778899aabbccddeeff';
+        upload.flush({ id: uploadId, fileName: 'log.txt', sizeBytes: 6, expiresAt: '2026-11-08T08:00:00Z' });
+
+        const message = http.expectOne(`${environment.apiBaseUrl}/tickets/42/messages`);
+        expect(message.request.method).toBe('POST');
+        expect(message.request.body).toEqual({
+            messageBody: 'Логи',
+            isInternal: false,
+            attachments: [uploadId],
+        });
+        message.flush({
+            id: 9,
+            authorName: 'Agent',
+            messageBody: 'Логи',
+            isInternal: false,
+            attachments: [{ id: 14, fileName: 'log.txt' }],
+        });
+    });
+
+    it('downloads ticket attachment bytes through the authorized API client', () => {
+        let downloaded: Blob | undefined;
+        service.downloadTicketAttachment('42', { id: '13', fileName: 'log.txt' }).subscribe(blob => downloaded = blob);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/attachments/13`);
+        expect(request.request.method).toBe('GET');
+        request.flush(new Blob(['sample']));
+
+        expect(downloaded?.size).toBe(6);
     });
 
     it('escalates a ticket through POST /tickets/{id}/escalate without a client initiator', () => {
@@ -123,9 +210,56 @@ describe('HttpWorkspaceApiService backend contract', () => {
             typeId: 2,
             priority: 'Высокий',
             assetId: 15,
+            requesterId: null,
             customFieldsData: { office: 'Москва' },
         });
         request.flush({ id: 42, title: 'Нет доступа к VPN' });
+    });
+
+    it('loads the signed-in user tickets from the portal endpoint', () => {
+        let tickets: unknown;
+        service.getPortalTickets().subscribe(result => tickets = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/mine`);
+        expect(request.request.method).toBe('GET');
+        request.flush([{ id: 42, title: 'VPN', typeName: 'Инцидент', statusName: 'Новая' }]);
+
+        expect(tickets).toMatchObject([{ id: '42', title: 'VPN', type: 'Инцидент' }]);
+    });
+
+    it('loads available portal ticket types', () => {
+        let types: unknown;
+        service.getPortalTicketTypes().subscribe(result => types = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/portal-types`);
+        expect(request.request.method).toBe('GET');
+        request.flush([{ id: 1, name: 'Инцидент' }]);
+
+        expect(types).toEqual([{ id: 1, name: 'Инцидент' }]);
+    });
+
+    it('creates a portal ticket with its selected type and three built-in fields', () => {
+        service.createPortalTicket({
+            title: 'Нет доступа к VPN',
+            description: 'Не подключается',
+            requester: 'Иван',
+            type: 'Инцидент',
+            typeId: 1,
+            priority: 'Средний',
+        }).subscribe();
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets`);
+        expect(request.request.method).toBe('POST');
+        expect(request.request.body).toEqual({
+            title: 'Нет доступа к VPN',
+            description: 'Не подключается',
+            typeId: 1,
+            priority: 'Средний',
+            assetId: null,
+            requesterId: null,
+            customFieldsData: null,
+        });
+        request.flush({ id: 43, title: 'Нет доступа к VPN', typeName: 'Инцидент' });
     });
 
     it('builds the overview from the real ticket queue', () => {
@@ -170,6 +304,25 @@ describe('HttpWorkspaceApiService backend contract', () => {
         }]);
     });
 
+    it('resolves real status and assignee ids from the loaded queue', () => {
+        service.getTickets().subscribe();
+
+        http.expectOne(`${environment.apiBaseUrl}/tickets`).flush([{
+            id: 42,
+            title: 'VPN',
+            statusId: 3,
+            statusName: 'В работе',
+            priority: 'Высокий',
+            assigneeId: 5,
+            assigneeName: 'Пётр Петров',
+        }]);
+
+        expect(service.resolveStatusId('В работе')).toBe(3);
+        expect(service.resolveStatusId('в работе')).toBe(3);
+        expect(service.resolveAssigneeId('Пётр Петров')).toBe(5);
+        expect(service.knownAssigneeNames()).toEqual(['Пётр Петров']);
+    });
+
     it('unwraps paged backend users response', () => {
         let users: unknown;
         service.getUsers().subscribe(result => users = result);
@@ -205,7 +358,7 @@ describe('HttpWorkspaceApiService backend contract', () => {
         request.flush({});
     });
 
-    it('posts portal messages as JSON to the ticket messages endpoint', () => {
+    it('posts portal messages as public JSON to the ticket messages endpoint', () => {
         service.addPortalComment('42', 'Здравствуйте', []).subscribe();
 
         const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/messages`);
@@ -218,10 +371,26 @@ describe('HttpWorkspaceApiService backend contract', () => {
         request.flush({});
     });
 
-    it('reports endpoints missing in the backend explicitly', () => {
-        let error: Error | undefined;
-        service.getAdminSettings().subscribe({ error: err => error = err });
+    it('loads the persisted enabled tenant admin-creation policy from the backend', () => {
+        let policy: { tenantId: number; allowAdminsCreateAdmins: boolean } | undefined;
+        service.getTenantAdminCreationPolicy().subscribe(result => policy = result);
 
-        expect(error?.message).toContain('admin settings');
+        const request = http.expectOne(`${environment.apiBaseUrl}/tenants/settings`);
+        expect(request.request.method).toBe('GET');
+        request.flush({ tenantId: 1, allowAdminsCreateAdmins: true });
+
+        expect(policy).toEqual({ tenantId: 1, allowAdminsCreateAdmins: true });
+    });
+
+    it('saves the persisted tenant admin-creation policy without mock-only fields', () => {
+        let policy: { tenantId: number; allowAdminsCreateAdmins: boolean } | undefined;
+        service.saveTenantAdminCreationPolicy(false).subscribe(result => policy = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tenants/settings`);
+        expect(request.request.method).toBe('PUT');
+        expect(request.request.body).toEqual({ allowAdminsCreateAdmins: false });
+        request.flush({ tenantId: 1, allowAdminsCreateAdmins: false });
+
+        expect(policy).toEqual({ tenantId: 1, allowAdminsCreateAdmins: false });
     });
 });

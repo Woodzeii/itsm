@@ -26,6 +26,7 @@ import {
 export class WorkspaceService {
     private readonly api = inject(WorkspaceApi);
 
+    get supportsTicketTypeConfiguration() { return this.api.supportsTicketTypeConfiguration; }
     getOverview() { return this.api.getOverview(); }
     getTickets() { return this.api.getTickets(); }
     getAssets() { return this.api.getAssets(); }
@@ -37,7 +38,9 @@ export class WorkspaceService {
     changeTicketStatus(ticketId: string, statusId: number) { return this.api.changeTicketStatus(ticketId, statusId); }
     assignTicket(ticketId: string, assigneeId: number) { return this.api.assignTicket(ticketId, assigneeId); }
     changeTicketPriority(ticketId: string, priority: string) { return this.api.changeTicketPriority(ticketId, priority); }
-    addTicketComment(ticketId: string, comment: Parameters<typeof this.api.addTicketComment>[1]) { return this.api.addTicketComment(ticketId, comment); }
+    getTicketComments(ticketId: string) { return this.api.getTicketComments(ticketId); }
+    addTicketComment(ticketId: string, comment: Parameters<typeof this.api.addTicketComment>[1], attachments: File[]) { return this.api.addTicketComment(ticketId, comment, attachments); }
+    downloadTicketAttachment(ticketId: string, attachment: Parameters<typeof this.api.downloadTicketAttachment>[1]) { return this.api.downloadTicketAttachment(ticketId, attachment); }
     escalateTicket(ticketId: string, initiator: string) { return this.api.escalateTicket(ticketId, initiator); }
     getAssetDetails(assetId: string) { return this.api.getAssetDetails(assetId); }
     createAsset(request: CreateAssetRequest) { return this.api.createAsset(request); }
@@ -55,6 +58,8 @@ export class WorkspaceService {
     saveAdminSettings(settings: AdminSettings) { return this.api.saveAdminSettings(settings); }
     getReports(from?: string, to?: string) { return this.api.getReports(from, to); }
     getPortalTickets() { return this.api.getPortalTickets(); }
+    getPortalTicketTypes() { return this.api.getPortalTicketTypes(); }
+    getRequesters() { return this.api.getRequesters(); }
     createPortalTicket(request: PortalTicketRequest) { return this.api.createPortalTicket(request); }
     addPortalComment(ticketId: string, message: string, attachments: File[]) { return this.api.addPortalComment(ticketId, message, attachments); }
     reviewPortalTicket(ticketId: string, accepted: boolean) { return this.api.reviewPortalTicket(ticketId, accepted); }

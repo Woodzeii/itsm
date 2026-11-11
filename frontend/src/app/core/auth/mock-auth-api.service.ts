@@ -153,7 +153,7 @@ export class MockAuthApiService extends AuthApi {
 function rolesFor(username: string): string[] {
     const normalizedLogin = username.toLocaleLowerCase();
     if (normalizedLogin === 'multi') return ['admin', 'agent'];
-    return [['admin', 'agent', 'manager', 'tenant_admin'].includes(normalizedLogin)
+    return [['admin', 'tenant_owner', 'agent', 'manager', 'tenant_admin'].includes(normalizedLogin)
         ? normalizedLogin
         : 'portal_user'];
 }

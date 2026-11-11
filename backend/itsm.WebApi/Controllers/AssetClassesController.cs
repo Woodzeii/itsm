@@ -8,7 +8,7 @@ namespace itsm.WebApi.Controllers;
 
 [ApiController]
 [Route("api/asset-classes")]
-[Authorize(Roles = "admin,agent")]
+[Authorize(Roles = "admin,tenant_owner,agent")]
 public class AssetClassesController : ControllerBase
 {
     private readonly IAssetClassService _service;
@@ -32,7 +32,7 @@ public class AssetClassesController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> Create(
         [FromBody] CreateAssetClassRequest request,
         [FromServices] IValidator<CreateAssetClassRequest> validator,
@@ -54,7 +54,7 @@ public class AssetClassesController : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> Update(
         int id,
         [FromBody] UpdateAssetClassRequest request,
@@ -70,7 +70,7 @@ public class AssetClassesController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> Delete(int id, CancellationToken ct)
     {
         try
@@ -85,7 +85,7 @@ public class AssetClassesController : ControllerBase
     }
 
     [HttpPost("{id:int}/deactivate")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> Deactivate(int id, CancellationToken ct)
     {
         var result = await _service.DeactivateAsync(id, ct);
@@ -93,7 +93,7 @@ public class AssetClassesController : ControllerBase
     }
 
     [HttpPost("{id:int}/activate")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> Activate(int id, CancellationToken ct)
     {
         var result = await _service.ActivateAsync(id, ct);
@@ -114,7 +114,7 @@ public class AssetClassesController : ControllerBase
     }
 
     [HttpPost("{id:int}/attributes")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> CreateAttribute(
         int id,
         [FromBody] CreateAssetClassAttributeRequest request,
@@ -140,7 +140,7 @@ public class AssetClassesController : ControllerBase
     }
 
     [HttpPut("{id:int}/attributes/{attributeId:int}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> UpdateAttribute(
         int id,
         int attributeId,
@@ -157,7 +157,7 @@ public class AssetClassesController : ControllerBase
     }
 
     [HttpDelete("{id:int}/attributes/{attributeId:int}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> DeleteAttribute(int id, int attributeId, CancellationToken ct)
     {
         var deleted = await _service.DeleteAttributeAsync(id, attributeId, ct);
