@@ -187,6 +187,48 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
+    [HttpGet("{id:int}/escalations")]
+    [EndpointSummary("Получить историю эскалаций заявки")]
+    [ProducesResponseType(typeof(IReadOnlyList<TicketEscalationResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<TicketEscalationResponse>>> GetEscalations(int id, CancellationToken ct)
+    {
+        var escalations = await service.GetTicketEscalationsAsync(id, ct);
+        return escalations is null ? NotFound() : Ok(escalations);
+    }
+
+    [HttpPost("{id:int}/escalation/accept")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
+    [EndpointSummary("Принять эскалацию заявки")]
+    [ProducesResponseType(typeof(TicketEscalationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TicketEscalationResponse>> AcceptEscalation(
+        int id,
+        [FromBody] AcceptEscalationRequest request,
+        CancellationToken ct)
+    {
+        if (!TryGetUserId(out var actorId))
+            return Unauthorized();
+
+        var isAdmin = User.IsInRole("admin") || User.IsInRole("tenant_owner");
+
+        try
+        {
+            var escalation = await service.AcceptEscalationAsync(id, request, actorId, isAdmin, ct);
+            return escalation is null ? NotFound() : Ok(escalation);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return ForbidWithProblem(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ProblemDetails { Title = "Эскалацию нельзя принять", Detail = ex.Message, Status = 409 });
+        }
+    }
+
     [HttpGet("{id:int}/messages")]
     [EndpointSummary("Получить сообщения заявки")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketMessageResponse>), StatusCodes.Status200OK)]

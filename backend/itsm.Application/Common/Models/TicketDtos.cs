@@ -196,4 +196,34 @@ public sealed record TicketEscalationResponse(
     int? FromCriticalityLevelId,
     int? ToCriticalityLevelId,
     IReadOnlyList<int> NotifiedUserIds,
-    DateTimeOffset EscalatedAt);
+    DateTimeOffset EscalatedAt,
+    int? AcceptedByUserId = null,
+    DateTimeOffset? AcceptedAt = null,
+    string? Comment = null);
+
+/// <summary>Эскалированная заявка в очереди принятия.</summary>
+public sealed record PendingEscalationResponse(
+    int EscalationId,
+    int TicketId,
+    string Title,
+    int TicketTypeId,
+    string TicketTypeName,
+    int StatusId,
+    string StatusName,
+    int? CriticalityLevelId,
+    string? CriticalityName,
+    int EscalationLevel,
+    int? AssigneeId,
+    string? AssigneeName,
+    int? InitiatorUserId,
+    string? InitiatorName,
+    DateTimeOffset EscalatedAt,
+    int? AcceptedByUserId,
+    DateTimeOffset? AcceptedAt);
+
+/// <summary>Запрос на принятие эскалации.</summary>
+public sealed record AcceptEscalationRequest
+{
+    [StringLength(2000)]
+    public string? Comment { get; init; }
+}
