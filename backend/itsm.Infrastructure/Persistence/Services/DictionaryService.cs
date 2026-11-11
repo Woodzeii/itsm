@@ -1,31 +1,20 @@
 using itsm.Application.Common.Interfaces;
 using itsm.Application.Common.Models;
 using itsm.Domain.Entities;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 
 namespace itsm.Infrastructure.Persistence.Services;
 
 public class DictionaryService : IDictionaryService
 {
     private readonly ItsmDbContext _db;
-    private readonly IHttpContextAccessor _httpContextAccessor;
 
-    public DictionaryService(ItsmDbContext db, IHttpContextAccessor httpContextAccessor)
+    public DictionaryService(ItsmDbContext db)
     {
         _db = db;
-        _httpContextAccessor = httpContextAccessor;
     }
 
-    private int GetCurrentTenantId()
-    {
-        var tenantIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst("tenantId");
-        if (int.TryParse(tenantIdClaim?.Value, out var tenantId))
-            return tenantId;
-
-        return 1;
-    }
+    private int GetCurrentTenantId() => _db.GetCurrentTenantId();
 
     public async Task<List<DictionaryDto>> GetAllAsync(CancellationToken ct = default)
     {
