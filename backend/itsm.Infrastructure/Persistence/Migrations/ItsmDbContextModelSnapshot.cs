@@ -150,6 +150,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_assets_tenant_id_inventory_number");
 
+                    b.HasIndex("TenantId", "SerialNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_assets_tenant_id_serial_number");
+
                     b.ToTable("assets", "public");
                 });
 

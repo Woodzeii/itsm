@@ -322,6 +322,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => x.TenantId);
             entity.HasIndex(x => new { x.TenantId, x.InventoryNumber }).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.SerialNumber }).IsUnique();
             entity.HasIndex(x => x.LifecycleStage);
             entity.Property(x => x.LifecycleStage).HasDefaultValue("Purchased");
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");

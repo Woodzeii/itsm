@@ -1,7 +1,8 @@
-﻿import { Injectable, inject } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { forkJoin, map, of, switchMap, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { WorkspaceApi } from './workspace-api';
+import { AssetLifecycle } from './workspace.models';
 import { environment } from '../../../environments/environment';
 import {
     AdminSettings,
@@ -48,6 +49,7 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     private readonly typeIds = new Map<string, number>();
     private readonly statusIds = new Map<string, number>();
     private readonly assigneeIds = new Map<string, number>();
+    private readonly assetClassIds = new Map<string, number>();
     private readonly assigneeNames = new Map<string, string>();
 
     getOverview() {
@@ -61,10 +63,20 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             }),
         );
     }
-    getAssets() { return this.http.get<AssetRecord[]>(`${this.baseUrl}/assets`); }
+    getAssets() {
+        return this.http.get<BackendAsset[]>(`${this.baseUrl}/assets`).pipe(
+            map(assets => assets.map(asset => {
+                if (asset.assetClassName) {
+                    this.assetClassIds.set(asset.assetClassName.toLocaleLowerCase(), asset.assetClassId!);
+                }
+                return toAssetRecord(asset);
+            })),
+        );
+    }
     getAssetClasses() {
         return this.http.get<{ id: number; code: string; name: string; isActive: boolean }[]>(`${this.baseUrl}/asset-classes`).pipe(
             switchMap(classes => {
+                classes.forEach(assetClass => this.assetClassIds.set(assetClass.name.toLocaleLowerCase(), assetClass.id));
                 if (!classes.length) return of([] as AssetClassOption[]);
                 const requests = classes.map(assetClass => this.http
                     .get<{ code: string; name: string; dataType: string; isRequired: boolean; defaultValue: string | null; options: string | null }[]>(`${this.baseUrl}/asset-classes/${assetClass.id}/attributes`)
@@ -170,11 +182,67 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             .post<BackendTicketEscalation>(`${this.baseUrl}/tickets/${ticketId}/escalate`, null)
             .pipe(map(escalation => toEscalationHistory(escalation, initiator)));
     }
-    getAssetDetails(assetId: string) { return this.http.get<AssetDetails>(`${this.baseUrl}/assets/${assetId}`); }
-    createAsset(request: CreateAssetRequest) { return this.http.post<AssetDetails>(`${this.baseUrl}/assets`, request); }
-    updateAsset(assetId: string, changes: Partial<CreateAssetRequest>) { return this.http.put<AssetDetails>(`${this.baseUrl}/assets/${assetId}`, changes); }
+    getAssetDetails(assetId: string) {
+        return this.http
+            .get<BackendAssetDetail>(`${this.baseUrl}/assets/${assetId}`)
+            .pipe(map(detail => toAssetDetails(detail)));
+    }
+    createAsset(request: CreateAssetRequest) {
+        const assetClassId = request.assetClassId ?? this.resolveAssetClassId(request.className);
+        if (!assetClassId) {
+            return throwError(() => new Error('Не удалось определить класс актива. Обновите список классов.'));
+        }
+
+        const body = {
+            name: request.name?.trim(),
+            inventoryNumber: request.id?.trim() || null,
+            serialNumber: request.serialNumber?.trim() || null,
+            assetClassId,
+            warehouseId: request.warehouseId ?? null,
+            locationId: request.locationId ?? null,
+            departmentId: request.departmentId ?? null,
+            assignedUserId: request.assignedUserId ?? null,
+        };
+
+        return this.http.post<BackendAsset>(`${this.baseUrl}/assets`, body).pipe(
+            switchMap(created => this.getAssetDetails(String(created.id))),
+        );
+    }
+    updateAsset(assetId: string, changes: Partial<CreateAssetRequest>) {
+        const body = {
+            name: changes.name,
+            inventoryNumber: changes.id,
+            serialNumber: changes.serialNumber,
+            assetClassId: changes.assetClassId,
+            warehouseId: changes.warehouseId,
+            locationId: changes.locationId,
+            departmentId: changes.departmentId,
+        };
+
+        return this.http.put<BackendAsset>(`${this.baseUrl}/assets/${assetId}`, body).pipe(
+            switchMap(() => this.getAssetDetails(assetId)),
+        );
+    }
     deleteAsset(assetId: string) { return this.http.delete<void>(`${this.baseUrl}/assets/${assetId}`); }
-    moveAsset(assetId: string, request: AssetMovementRequest) { return this.http.post<AssetDetails>(`${this.baseUrl}/assets/${assetId}/movements`, request); }
+    moveAsset(assetId: string, request: AssetMovementRequest) {
+        const movementType = this.resolveMovementType(request.kind);
+        if (!movementType) {
+            return throwError(() => new Error(`Не удалось определить тип движения: ${request.kind}.`));
+        }
+
+        const body = {
+            movementType,
+            toUserId: request.toUserId ?? null,
+            toWarehouseId: request.toWarehouseId ?? null,
+            toLocationId: request.toLocationId ?? null,
+            toDepartmentId: request.toDepartmentId ?? null,
+            comment: request.comment?.trim() || null,
+        };
+
+        return this.http.post(`${this.baseUrl}/assets/${assetId}/movements`, body).pipe(
+            switchMap(() => this.getAssetDetails(assetId)),
+        );
+    }
     createRepairTicket(assetId: string, title: string) {
         const typeId = this.typeIds.get('тикет на ремонт') ?? this.typeIds.get('ремонт');
         if (!typeId) {
@@ -344,6 +412,15 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return source.get(value.trim().toLocaleLowerCase());
     }
 
+    private resolveAssetClassId(className: string | undefined): number | undefined {
+        if (!className) return undefined;
+        return this.resolveId(className, this.assetClassIds);
+    }
+
+    private resolveMovementType(kind: string): string | undefined {
+        return ASSET_MOVEMENT_TYPES[kind.trim()];
+    }
+
     private unsupported<T>(feature: string) {
         return throwError(() => new Error(`Backend endpoint for ${feature} is not implemented.`));
     }
@@ -499,6 +576,53 @@ interface BackendTenantSettings {
     reportAccessRoles?: string[];
 }
 
+interface BackendAsset {
+    id: number;
+    inventoryNumber?: string | null;
+    serialNumber?: string | null;
+    name?: string;
+    assetClassId?: number | null;
+    assetClassName?: string | null;
+    category?: string | null;
+    lifecycleStage?: string;
+    lifecycleStageName?: string;
+    assignedUserId?: number | null;
+    assignedUserName?: string | null;
+    warehouseId?: number | null;
+    warehouseName?: string | null;
+    locationId?: number | null;
+    locationName?: string | null;
+    departmentId?: number | null;
+    departmentName?: string | null;
+    licenseExpirationDate?: string | null;
+    createdAt?: string;
+}
+
+interface BackendAssetDetail {
+    asset: BackendAsset;
+    history?: {
+        id: number;
+        actionType?: string;
+        actionTypeName?: string;
+        performedBy?: string;
+        details?: string | null;
+        ticketId?: number | null;
+        comment?: string | null;
+        createdAt?: string;
+    }[];
+    movements?: {
+        id: number;
+        movementType?: string;
+        movementTypeName?: string;
+        fromUserName?: string | null;
+        toUserName?: string | null;
+        performedByName?: string;
+        performedAt?: string;
+        comment?: string | null;
+    }[];
+    relatedTickets?: BackendTicket[];
+}
+
 interface BackendTicket {
     id?: number;
     title?: string;
@@ -549,6 +673,69 @@ interface BackendTicketEscalation {
     toCriticalityLevelId?: number | null;
     notifiedUserIds?: number[];
     escalatedAt?: string;
+}
+
+const ASSET_MOVEMENT_TYPES: Record<string, string> = {
+    'Передача сотруднику': 'transfer',
+    'Перемещение': 'relocate',
+    'Выдача со склада': 'issue',
+    'Возврат на склад': 'return',
+};
+
+const ASSET_LIFECYCLE_LABELS: Record<string, AssetLifecycle> = {
+    Purchased: 'Закуплен',
+    InStock: 'На складе',
+    InUse: 'В эксплуатации',
+    InRepair: 'В ремонте',
+    Decommissioned: 'Списан',
+};
+
+function toAssetRecord(asset: BackendAsset): AssetRecord {
+    const stage = asset.lifecycleStage ?? 'Purchased';
+
+    return {
+        id: asset.inventoryNumber ?? String(asset.id),
+        recordId: String(asset.id),
+        name: asset.name ?? '',
+        owner: asset.assignedUserName ?? '',
+        status: asset.lifecycleStageName ?? stage,
+        type: asset.assetClassName ?? asset.category ?? '',
+        className: asset.assetClassName ?? undefined,
+        lifecycle: ASSET_LIFECYCLE_LABELS[stage] ?? (stage as AssetLifecycle),
+        warehouse: asset.warehouseName ?? undefined,
+        location: asset.locationName ?? undefined,
+        department: asset.departmentName ?? undefined,
+        inventoryNumber: asset.inventoryNumber ?? undefined,
+        serialNumber: asset.serialNumber ?? undefined,
+        assetClassId: asset.assetClassId ?? undefined,
+        warehouseId: asset.warehouseId ?? null,
+        locationId: asset.locationId ?? null,
+        departmentId: asset.departmentId ?? null,
+        assignedUserId: asset.assignedUserId ?? null,
+    };
+}
+
+function toAssetDetails(detail: BackendAssetDetail): AssetDetails {
+    return {
+        ...toAssetRecord(detail.asset),
+        history: (detail.history ?? []).map(entry => ({
+            id: String(entry.id),
+            event: entry.comment ?? entry.actionTypeName ?? entry.actionType ?? '',
+            actor: entry.performedBy ?? '',
+            details: entry.details ?? '',
+            createdAt: entry.createdAt ?? '',
+        })),
+        movements: (detail.movements ?? []).map(movement => ({
+            id: String(movement.id),
+            kind: movement.movementTypeName ?? movement.movementType ?? '',
+            movementType: movement.movementType,
+            from: movement.fromUserName ?? '—',
+            to: movement.toUserName ?? '—',
+            actor: movement.performedByName ?? '',
+            createdAt: movement.performedAt ?? '',
+        })),
+        relatedTickets: (detail.relatedTickets ?? []).map(toTicket),
+    };
 }
 
 function toTicket(ticket: BackendTicket): Ticket {
