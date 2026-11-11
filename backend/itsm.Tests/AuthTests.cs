@@ -1,9 +1,11 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using FluentAssertions;
 using itsm.Application.Common.Models;
 using itsm.Infrastructure.Persistence;
+using itsm.Application.Common.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -85,6 +87,87 @@ public class AuthTests
                 Code = CustomWebApplicationFactory.ValidCode
             });
         repeatVerifyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task TenantAdminCreatedAdmin_CanEnrollTwoFactor()
+    {
+        var username = $"created.admin.{Guid.NewGuid():N}";
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ItsmDbContext>();
+            (await db.Users.IgnoreQueryFilters()
+                .Where(user => user.Username == "tenant.admin")
+                .Select(user => user.TenantId)
+                .SingleAsync()).Should().BeNull();
+            (await db.Users.AnyAsync(user => user.Username == "tenant.admin")).Should().BeFalse();
+
+            var actorId = await db.Users.IgnoreQueryFilters()
+                .Where(user => user.Username == "tenant.admin")
+                .Select(user => user.Id)
+                .SingleAsync();
+            var adminRoleId = await db.SystemRoles
+                .Where(role => role.Code == "admin")
+                .Select(role => role.Id)
+                .SingleAsync();
+            var userAdmin = scope.ServiceProvider.GetRequiredService<IUserAdminService>();
+
+            await userAdmin.CreateAsync(new CreateUserRequest
+            {
+                Username = username,
+                Email = $"{username}@itsm.local",
+                Password = "Passw0rdX",
+                TenantId = 1,
+                RoleIds = { adminRoleId }
+            }, actorId, null);
+        }
+
+        var client = _factory.CreateClient();
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login",
+            new LoginRequest { Username = username, Password = "Passw0rdX" });
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var login = await loginResponse.Content.ReadFromJsonAsync<LoginResponse>();
+        login.Should().NotBeNull();
+        login!.RequiresTwoFactorSetup.Should().BeTrue();
+
+        var verifyResponse = await client.PostAsJsonAsync("/api/auth/verify-2fa",
+            new VerifyTwoFactorRequest
+            {
+                ChallengeId = login.ChallengeId,
+                Code = CustomWebApplicationFactory.ValidCode
+            });
+        verifyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await IsTotpEnabledAsync(username)).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task UnassignedTenantAdmin_CanEnrollAndUseTwoFactorEndpoints()
+    {
+        await ResetTotpAsync("tenant.admin");
+        var client = _factory.CreateClient();
+        var loginResponse = await client.PostAsJsonAsync("/api/auth/login",
+            new LoginRequest { Username = "tenant.admin", Password = "admin123" });
+        loginResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var login = await loginResponse.Content.ReadFromJsonAsync<LoginResponse>();
+        login.Should().NotBeNull();
+        login!.RequiresTwoFactorSetup.Should().BeTrue();
+
+        var verifyResponse = await client.PostAsJsonAsync("/api/auth/verify-2fa",
+            new VerifyTwoFactorRequest
+            {
+                ChallengeId = login.ChallengeId,
+                Code = CustomWebApplicationFactory.ValidCode
+            });
+        verifyResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var verification = await verifyResponse.Content.ReadFromJsonAsync<VerifyTwoFactorResponse>();
+        verification.Should().NotBeNull();
+
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", verification!.AccessToken);
+        var statusResponse = await client.GetAsync("/api/auth/2fa/status");
+        statusResponse.StatusCode.Should().Be(HttpStatusCode.OK);
     }
 
     // ============ AUTH-QA.3 ============
@@ -243,7 +326,8 @@ public class AuthTests
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ItsmDbContext>();
-        var user = await db.Users.SingleAsync(u => u.Username == username);
+        var user = await db.Users.IgnoreQueryFilters()
+            .SingleAsync(u => u.Username == username);
         user.IsTwoFactorEnabled = false;
         user.TwoFaSecret = null;
         user.TwoFactorEnabledAt = null;
@@ -254,7 +338,7 @@ public class AuthTests
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ItsmDbContext>();
-        return await db.Users
+        return await db.Users.IgnoreQueryFilters()
             .Where(u => u.Username == username)
             .Select(u => u.IsTwoFactorEnabled)
             .SingleAsync();

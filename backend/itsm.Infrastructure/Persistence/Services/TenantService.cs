@@ -12,9 +12,11 @@ public interface ITenantService
     Task<List<TenantDto>> GetAllAsync(CancellationToken ct = default);
     Task<TenantDto?> GetByIdAsync(int tenantId, CancellationToken ct = default);
     Task<TenantDto?> GetByCodeAsync(string code, CancellationToken ct = default);
+    Task<TenantSettingsDto?> GetSettingsAsync(int tenantId, CancellationToken ct = default);
     Task<TenantUserQuotaDto?> GetUserQuotaAsync(int tenantId, CancellationToken ct = default);
     Task<TenantDto> CreateAsync(CreateTenantRequest request, CancellationToken ct = default);
     Task<TenantDto?> UpdateAsync(int tenantId, UpdateTenantRequest request, CancellationToken ct = default);
+    Task<TenantSettingsDto?> UpdateSettingsAsync(int tenantId, UpdateTenantSettingsRequest request, CancellationToken ct = default);
     Task<TenantDto?> UpdateStatusAsync(int tenantId, bool isActive, CancellationToken ct = default);
     Task<TenantDto?> BlockAsync(int tenantId, BlockTenantRequest request, CancellationToken ct = default);
     Task<TenantDto?> UnblockAsync(int tenantId, CancellationToken ct = default);
@@ -26,6 +28,7 @@ public class TenantService : ITenantService
 {
     private static readonly TimeSpan UserLimitGracePeriod = TimeSpan.FromDays(7);
     private const string AdminRoleCode = "admin";
+    private const string TenantOwnerRoleCode = "tenant_owner";
     private const string TenantAdminRoleCode = "tenant_admin";
     private readonly ItsmDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
@@ -60,6 +63,19 @@ public class TenantService : ITenantService
         var tenant = await _db.Tenants
             .FirstOrDefaultAsync(t => t.Code == code, ct);
         return tenant is null ? null : ToDto(tenant);
+    }
+
+    public async Task<TenantSettingsDto?> GetSettingsAsync(int tenantId, CancellationToken ct = default)
+    {
+        var tenant = await _db.Tenants
+            .AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == tenantId, ct);
+
+        return tenant is null ? null : new TenantSettingsDto
+        {
+            TenantId = tenant.Id,
+            AllowAdminsCreateAdmins = tenant.AllowAdminsCreateAdmins
+        };
     }
 
     public async Task<TenantUserQuotaDto?> GetUserQuotaAsync(int tenantId, CancellationToken ct = default)
@@ -111,12 +127,12 @@ public class TenantService : ITenantService
                 ct))
             throw new InvalidOperationException("Логин или email первого администратора уже используется");
 
-        var adminRoleId = await _db.SystemRoles
-            .Where(role => role.Code == "admin")
+        var tenantOwnerRoleId = await _db.SystemRoles
+            .Where(role => role.Code == TenantOwnerRoleCode)
             .Select(role => (int?)role.Id)
             .FirstOrDefaultAsync(ct);
-        if (!adminRoleId.HasValue)
-            throw new InvalidOperationException("Системная роль admin не найдена");
+        if (!tenantOwnerRoleId.HasValue)
+            throw new InvalidOperationException("Системная роль tenant_owner не найдена");
 
         var tenant = new Tenant
         {
@@ -128,6 +144,7 @@ public class TenantService : ITenantService
             MaxTickets = request.MaxTickets ?? 10000,
             MaxStorageBytes = request.MaxStorageBytes ?? 10_737_418_240, // 10 GB
             IsBlocked = false,
+            AllowAdminsCreateAdmins = true,
             CurrentUserCount = 1,
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -143,7 +160,7 @@ public class TenantService : ITenantService
             PasswordChangedAt = DateTimeOffset.UtcNow,
             CreatedAt = DateTimeOffset.UtcNow
         };
-        firstAdmin.RoleMappings.Add(new UserRoleMapping { RoleId = adminRoleId.Value });
+        firstAdmin.RoleMappings.Add(new UserRoleMapping { RoleId = tenantOwnerRoleId.Value });
         tenant.Users.Add(firstAdmin);
 
         _db.Tenants.Add(tenant);
@@ -184,6 +201,23 @@ public class TenantService : ITenantService
 
         await _db.SaveChangesAsync(ct);
         return (await GetByIdAsync(tenant.Id, ct))!;
+    }
+
+    public async Task<TenantSettingsDto?> UpdateSettingsAsync(int tenantId, UpdateTenantSettingsRequest request, CancellationToken ct = default)
+    {
+        var tenant = await _db.Tenants.FindAsync(new object[] { tenantId }, cancellationToken: ct);
+        if (tenant is null)
+            return null;
+
+        if (request.AllowAdminsCreateAdmins.HasValue)
+            tenant.AllowAdminsCreateAdmins = request.AllowAdminsCreateAdmins.Value;
+
+        await _db.SaveChangesAsync(ct);
+        return new TenantSettingsDto
+        {
+            TenantId = tenant.Id,
+            AllowAdminsCreateAdmins = tenant.AllowAdminsCreateAdmins
+        };
     }
 
     public async Task<TenantDto?> UpdateStatusAsync(int tenantId, bool isActive, CancellationToken ct = default)
@@ -323,8 +357,8 @@ public class TenantService : ITenantService
 
         var userCounts = await _db.Users
             .IgnoreQueryFilters()
-            .Where(user => tenantIds.Contains(user.TenantId) && user.IsActive)
-            .GroupBy(user => user.TenantId)
+            .Where(user => user.TenantId.HasValue && tenantIds.Contains(user.TenantId.Value) && user.IsActive)
+            .GroupBy(user => user.TenantId!.Value)
             .Select(group => new { TenantId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(group => group.TenantId, group => group.Count, ct);
 
@@ -381,7 +415,9 @@ public class TenantService : ITenantService
     private static bool IsProtectedFromQuotaDeactivation(User user)
     {
         return user.RoleMappings.Any(mapping =>
-            mapping.Role.Code == AdminRoleCode || mapping.Role.Code == TenantAdminRoleCode);
+            mapping.Role.Code == AdminRoleCode
+            || mapping.Role.Code == TenantOwnerRoleCode
+            || mapping.Role.Code == TenantAdminRoleCode);
     }
 
     private static void Shuffle<T>(IList<T> items)

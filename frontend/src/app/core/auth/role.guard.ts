@@ -51,7 +51,7 @@ export const adminAccessGuard: CanActivateFn = () => {
     const router = inject(Router);
     if (!auth.isAuthenticated()) return router.parseUrl('/login');
     const role = auth.getRole();
-    return role === 'admin' || role === 'agent'
+    return auth.isAdmin() || role === 'agent'
         ? true
         : router.parseUrl(auth.canRead() ? '/dashboard' : '/portal');
 };
@@ -67,7 +67,11 @@ export const reportAccessGuard: CanActivateFn = () => {
     const auth = inject(AuthService);
     const router = inject(Router);
     if (!auth.isAuthenticated()) return router.parseUrl('/login');
-    return inject(WorkspaceService).getAdminSettings().pipe(map(settings => settings.reportAccessRoles?.includes(auth.getRole()) ? true : router.parseUrl('/dashboard')));
+    const role = auth.getRole();
+    return inject(WorkspaceService).getAdminSettings().pipe(map(settings => (
+        settings.reportAccessRoles?.includes(role)
+        || (role === 'tenant_owner' && settings.reportAccessRoles?.includes('admin'))
+    ) ? true : router.parseUrl('/dashboard')));
 };
 
 export const tenantAdminAccessGuard: CanActivateFn = () => {

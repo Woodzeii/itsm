@@ -1,6 +1,6 @@
 namespace itsm.Domain.Entities;
 
-public class User : IMultiTenant
+public class User
 {
     public int Id { get; set; }
     public string? ObjectSid { get; set; }
@@ -17,7 +17,7 @@ public class User : IMultiTenant
     public string? PasswordHash { get; set; }
     public string? VerificationTokenHash { get; set; }
     public DateTimeOffset? VerificationTokenExpiresAt { get; set; }
-    public int TenantId { get; set; }
+    public int? TenantId { get; set; }
     public int FailedLoginAttempts { get; set; }
     public DateTimeOffset? LockedUntil { get; set; }
     public DateTimeOffset? PasswordChangedAt { get; set; }
@@ -28,6 +28,7 @@ public class User : IMultiTenant
     public ICollection<User> DirectReports { get; set; } = new List<User>();
     public ICollection<UserRoleMapping> RoleMappings { get; set; } = new List<UserRoleMapping>();
     public ICollection<Ticket> CreatedTickets { get; set; } = new List<Ticket>();
+    public ICollection<Ticket> RequestedTickets { get; set; } = new List<Ticket>();
     public ICollection<Ticket> AssignedTickets { get; set; } = new List<Ticket>();
     public ICollection<TicketApproval> Approvals { get; set; } = new List<TicketApproval>();
     public ICollection<Asset> AssignedAssets { get; set; } = new List<Asset>();

@@ -83,6 +83,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
                   .WithMany(t => t.Users)
                   .HasForeignKey(x => x.TenantId)
                   .OnDelete(DeleteBehavior.Restrict);
+            entity.HasQueryFilter(user => user.TenantId == CurrentTenantId);
         });
 
         modelBuilder.Entity<SystemRole>(entity =>
@@ -378,6 +379,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
 
             entity.HasOne(x => x.Creator).WithMany(x => x.CreatedTickets).HasForeignKey(x => x.CreatorId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Requester).WithMany(x => x.RequestedTickets).HasForeignKey(x => x.RequesterId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Assignee).WithMany(x => x.AssignedTickets).HasForeignKey(x => x.AssigneeId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Type).WithMany().HasForeignKey(x => x.TypeId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Status).WithMany().HasForeignKey(x => x.StatusId).OnDelete(DeleteBehavior.Restrict);
@@ -465,7 +467,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
         modelBuilder.Entity<ServiceDeskHeadSetting>(entity =>
         {
             entity.ToTable("service_desk_head_settings", table => table.HasCheckConstraint("ck_service_desk_head_settings_singleton", "id = 1"));
-            entity.HasKey(x => x.Id);
+            entity.HasKey(x => new { x.TenantId, x.Id });
             entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
 
             entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
@@ -488,6 +490,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => x.Code).IsUnique();
             entity.Property(x => x.IsActive).HasDefaultValue(true);
+            entity.Property(x => x.AllowAdminsCreateAdmins).HasDefaultValue(true);
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
         });
 
@@ -555,7 +558,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
         var seedDate = new DateTimeOffset(2026, 1, 1, 0, 0, 0, TimeSpan.Zero);
 
         modelBuilder.Entity<Tenant>().HasData(
-            new Tenant { Id = 1, Code = "default", Name = "Default Tenant", IsActive = true, CreatedAt = seedDate }
+            new Tenant { Id = 1, Code = "default", Name = "Default Tenant", IsActive = true, AllowAdminsCreateAdmins = true, CreatedAt = seedDate }
         );
 
         modelBuilder.Entity<SystemRole>().HasData(
@@ -563,7 +566,8 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             new SystemRole { Id = 2, Code = "admin", Name = "Администратор" },
             new SystemRole { Id = 3, Code = "agent", Name = "Инженер ТП" },
             new SystemRole { Id = 4, Code = "manager", Name = "Руководитель" },
-            new SystemRole { Id = 5, Code = "portal_user", Name = "Пользователь портала" }
+            new SystemRole { Id = 5, Code = "portal_user", Name = "Пользователь портала" },
+            new SystemRole { Id = 6, Code = "tenant_owner", Name = "Владелец тенанта" }
         );
 
         modelBuilder.Entity<CriticalityLevel>().HasData(

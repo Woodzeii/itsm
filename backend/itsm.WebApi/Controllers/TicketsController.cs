@@ -14,11 +14,35 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     private const long MaxAttachmentSizeBytes = 10 * 1024 * 1024;
 
     [HttpGet]
-    [Authorize(Roles = "admin,agent")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Получить очередь заявок")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<TicketResponse>>> GetQueue(CancellationToken ct)
         => Ok(await service.GetQueueAsync(ct));
+
+    [HttpGet("mine")]
+    [EndpointSummary("Получить заявки текущего пользователя")]
+    [ProducesResponseType(typeof(IReadOnlyList<TicketResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<TicketResponse>>> GetMyTickets(CancellationToken ct)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        return Ok(await service.GetMyTicketsAsync(userId, ct));
+    }
+
+    [HttpGet("portal-types")]
+    [EndpointSummary("Получить доступные на портале типы заявок")]
+    [ProducesResponseType(typeof(IReadOnlyList<PortalTicketTypeResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<PortalTicketTypeResponse>>> GetPortalTypes(CancellationToken ct)
+        => Ok(await service.GetPortalTicketTypesAsync(ct));
+
+    [HttpGet("requesters")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
+    [EndpointSummary("Получить пользователей, доступных для выбора в качестве заявителя")]
+    [ProducesResponseType(typeof(IReadOnlyList<RequesterOptionResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<RequesterOptionResponse>>> GetRequesters(CancellationToken ct)
+        => Ok(await service.GetRequesterOptionsAsync(ct));
 
     [HttpGet("{id:int}")]
     [EndpointSummary("Получить заявку по идентификатору")]
@@ -64,7 +88,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     }
 
     [HttpPut("{id:int}")]
-    [Authorize(Roles = "admin,agent")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Изменить заявку")]
     [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -88,7 +112,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     }
 
     [HttpPut("{id:int}/status")]
-    [Authorize(Roles = "admin,agent")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Изменить статус заявки")]
     [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -121,7 +145,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     }
 
     [HttpPost("{id:int}/assign")]
-    [Authorize(Roles = "admin,agent")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Назначить исполнителя заявки")]
     [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
@@ -181,6 +205,19 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
 
         var messages = await service.GetMessagesAsync(id, userId, IsStaff(), ct);
         return messages is null ? NotFound() : Ok(messages);
+    }
+
+    [HttpGet("{id:int}/history")]
+    [EndpointSummary("Получить историю изменений заявки")]
+    [ProducesResponseType(typeof(IReadOnlyList<TicketHistoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<TicketHistoryResponse>>> GetHistory(int id, CancellationToken ct)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        var history = await service.GetHistoryAsync(id, userId, IsStaff(), ct);
+        return history is null ? NotFound() : Ok(history);
     }
 
     [HttpPost("{id:int}/messages")]
@@ -269,7 +306,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     }
 
     [HttpGet("/api/assets/{id:int}/tickets")]
-    [Authorize(Roles = "admin,agent")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Получить историю заявок по активу")]
     [ProducesResponseType(typeof(IReadOnlyList<AssetTicketHistoryItem>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -299,7 +336,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         int.TryParse(User.FindFirstValue("Id") ?? User.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
 
     private bool IsStaff() =>
-        User.IsInRole("admin") || User.IsInRole("agent");
+        User.IsInRole("admin") || User.IsInRole("tenant_owner") || User.IsInRole("agent");
 
     private IReadOnlyCollection<string> UserRoles() =>
         User.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToArray();

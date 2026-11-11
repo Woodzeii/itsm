@@ -1437,12 +1437,13 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("itsm.Domain.Entities.ServiceDeskHeadSetting", b =>
                 {
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .ValueGeneratedOnAdd()
@@ -1454,7 +1455,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("user_id");
 
-                    b.HasKey("Id")
+                    b.HasKey("TenantId", "Id")
                         .HasName("pk_service_desk_head_settings");
 
                     b.HasIndex("UserId")
@@ -1605,6 +1606,12 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Id = 5,
                             Code = "portal_user",
                             Name = "Пользователь портала"
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Code = "tenant_owner",
+                            Name = "Владелец тенанта"
                         });
                 });
 
@@ -1616,6 +1623,12 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AllowAdminsCreateAdmins")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("allow_admins_create_admins");
 
                     b.Property<string>("BlockReason")
                         .HasColumnType("text")
@@ -1704,6 +1717,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         new
                         {
                             Id = 1,
+                            AllowAdminsCreateAdmins = true,
                             Code = "default",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             CurrentAssetCount = 0,
@@ -1807,6 +1821,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("priority");
 
+                    b.Property<int?>("RequesterId")
+                        .HasColumnType("integer")
+                        .HasColumnName("requester_id");
+
                     b.Property<int?>("ServiceCatalogId")
                         .HasColumnType("integer")
                         .HasColumnName("service_catalog_id");
@@ -1891,6 +1909,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CriticalityLevelId")
                         .HasDatabaseName("ix_tickets_criticality_level_id");
+
+                    b.HasIndex("RequesterId")
+                        .HasDatabaseName("ix_tickets_requester_id");
 
                     b.HasIndex("ServiceCatalogId")
                         .HasDatabaseName("ix_tickets_service_catalog_id");
@@ -2536,7 +2557,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDefaultValue("Unverified")
                         .HasColumnName("status");
 
-                    b.Property<int>("TenantId")
+                    b.Property<int?>("TenantId")
                         .HasColumnType("integer")
                         .HasColumnName("tenant_id");
 
@@ -3081,6 +3102,12 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_tickets_criticality_levels_criticality_level_id");
 
+                    b.HasOne("itsm.Domain.Entities.User", "Requester")
+                        .WithMany("RequestedTickets")
+                        .HasForeignKey("RequesterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_tickets_users_requester_id");
+
                     b.HasOne("itsm.Domain.Entities.ServiceCatalog", null)
                         .WithMany("Tickets")
                         .HasForeignKey("ServiceCatalogId")
@@ -3122,6 +3149,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("Creator");
 
                     b.Navigation("CriticalityLevel");
+
+                    b.Navigation("Requester");
 
                     b.Navigation("Service");
 
@@ -3306,7 +3335,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .WithMany("Users")
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired()
                         .HasConstraintName("fk_users_tenants_tenant_id");
 
                     b.Navigation("Manager");
@@ -3447,6 +3475,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("NewAssetAssignments");
 
                     b.Navigation("PreviousAssetAssignments");
+
+                    b.Navigation("RequestedTickets");
 
                     b.Navigation("RoleMappings");
 

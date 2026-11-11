@@ -15,6 +15,13 @@ describe('workspaceOptionsFor', () => {
         expect(options.map(option => option.role)).toEqual(['agent', 'tenant_admin']);
     });
 
+    it('shows the tenant owner workspace separately from the local admin', () => {
+        const options = workspaceOptionsFor(['tenant_owner', 'admin']);
+
+        expect(options.map(option => option.role)).toEqual(['admin', 'tenant_owner']);
+        expect(options[1].title).toBe('Владелец тенанта');
+    });
+
     it('returns an empty list when no known roles are available', () => {
         expect(workspaceOptionsFor(['unknown'])).toEqual([]);
     });

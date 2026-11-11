@@ -148,6 +148,7 @@ export function getTokenExpiresIn(token: string | UserInfo): number {
  */
 export const SystemRoles = {
   ADMIN: 'admin',
+  TENANT_OWNER: 'tenant_owner',
   TENANT_ADMIN: 'tenant_admin',
   AGENT: 'agent',
   MANAGER: 'manager',
@@ -160,6 +161,14 @@ export const SystemRoles = {
  */
 export const RolePermissions = {
   [SystemRoles.ADMIN]: [
+    'view_dashboard',
+    'manage_users',
+    'manage_roles',
+    'manage_tenants',
+    'view_audit_log',
+    'manage_system_settings'
+  ],
+  [SystemRoles.TENANT_OWNER]: [
     'view_dashboard',
     'manage_users',
     'manage_roles',

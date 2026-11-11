@@ -13,7 +13,7 @@ import { environment } from '../../../environments/environment';
       <div class="card">
         <h1>Авторизация</h1>
         @if (environment.useMockAuth) {
-          <p>Тестовый вход: любые непустые логин и пароль; код — любые 6 цифр. Логины admin, agent, manager и tenant_admin выбирают роль, логин multi — пользователь с двумя ролями (выбор рабочего пространства).</p>
+          <p>Тестовый вход: любые непустые логин и пароль; код — любые 6 цифр. Логины admin, tenant_owner, agent, manager и tenant_admin выбирают роль, логин multi — пользователь с двумя ролями (выбор рабочего пространства).</p>
         }
 
         @if (step === 1) {

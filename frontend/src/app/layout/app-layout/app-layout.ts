@@ -10,9 +10,7 @@ import { AuthService } from '../../core/auth/auth.service';
     <div class="app-shell">
       <aside class="sidebar">
         <div class="brand">
-          <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.5" stroke="currentColor" stroke-width="2.4"/><path d="M12 3.5v4M12 16.5v4M3.5 12h4m9 0h4" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
-          </div>
+          <img class="brand-logo" src="/itsm_nc_logo.svg" alt="" aria-hidden="true" />
           <div class="brand-copy"><strong>ITSM <span>NC</span></strong><small>Service management</small></div>
         </div>
 
@@ -147,18 +145,13 @@ import { AuthService } from '../../core/auth/auth.service';
         border-bottom: 1px solid #eef0f4;
       }
 
-      .brand-mark {
-        width: 36px;
-        height: 36px;
-        border-radius: 11px;
-        background: #2563eb;
-        color: #fff;
-        display: grid;
-        place-items: center;
-        box-shadow: 0 2px 4px #2563eb30;
+      .brand-logo {
+        width: 48px;
+        height: 48px;
+        flex: 0 0 48px;
+        object-fit: contain;
       }
 
-      .brand-mark svg { width: 21px; height: 21px; }
       .brand-copy { display: flex; flex-direction: column; gap: 2px; }
       .brand-copy strong { font-size: 15px; line-height: 1.2; }
       .brand-copy strong span { color: #2563eb; }
@@ -321,6 +314,7 @@ import { AuthService } from '../../core/auth/auth.service';
         .app-shell { flex-direction: column; }
         .sidebar { width: 100%; min-height: 0; flex: 0 0 auto; padding: 0 12px 10px; border-right: 0; border-bottom: 1px solid #e2e6ed; }
         .brand { height: 62px; min-height: 62px; margin: 0 -12px 8px; padding: 0 16px; }
+        .brand-logo { width: 48px; height: 48px; flex-basis: 48px; }
         .nav-caption, .sidebar-spacer, .workspace-note, .sidebar-profile { display: none; }
         .nav { flex-direction: row; overflow-x: auto; }
         .nav a { min-height: 36px; padding: 8px 10px; white-space: nowrap; }
@@ -365,6 +359,7 @@ export class AppLayoutComponent implements OnInit, OnDestroy {
     this.isMultiRole = this.authService.hasMultipleRoles();
     const roleLabels = {
       admin: 'Администратор',
+      tenant_owner: 'Владелец тенанта',
       agent: 'Инженер поддержки',
       manager: 'Руководитель',
       portal_user: 'Пользователь',

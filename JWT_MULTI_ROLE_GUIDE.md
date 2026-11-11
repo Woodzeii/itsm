@@ -7,6 +7,8 @@ JWT-токены теперь содержат все роли пользова�
 1. **Классические Role Claims** — для работы с ASP.NET `[Authorize(Roles = "...")]` атрибутами
 2. **JSON-массив ролей** в custom claim `"roles"` — для валидации на фронтенде на этапе сессии
 
+Роль `tenant_owner` является локальной административной ролью тенанта и располагается выше `admin`. Только глобальный `tenant_admin` может назначить или снять роль владельца; локальный `admin` не может изменить или деактивировать учетную запись владельца.
+
 ## Структура Claims в JWT
 
 ```json
@@ -142,7 +144,7 @@ const routes = [
     path: 'admin',
     component: AdminPanelComponent,
     canActivate: [RoleGuard],
-    data: { roles: ['admin', 'tenant_admin'] }
+    data: { roles: ['admin', 'tenant_owner', 'tenant_admin'] }
   }
 ];
 ```
@@ -299,4 +301,3 @@ function getCurrentUserRoles(): string[] {
 
 > Мультиролевой токен, выданный сразу после 2FA, не содержит Role-claims: до выбора роли
 > role-protected API недоступны. Это защищает от обхода экрана выбора прямым запросом к API.
-

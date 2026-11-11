@@ -35,12 +35,14 @@ public class DatabaseSeeder : IDatabaseSeeder
 
         // Роли (уже есть благодаря HasData в миграции)
         var tenantAdminRoleId = await _db.SystemRoles.Where(r => r.Code == "tenant_admin").Select(r => r.Id).FirstAsync(ct);
+        var tenantOwnerRoleId = await _db.SystemRoles.Where(r => r.Code == "tenant_owner").Select(r => r.Id).FirstAsync(ct);
         var adminRoleId = await _db.SystemRoles.Where(r => r.Code == "admin").Select(r => r.Id).FirstAsync(ct);
         var managerRoleId = await _db.SystemRoles.Where(r => r.Code == "manager").Select(r => r.Id).FirstAsync(ct);
         var agentRoleId = await _db.SystemRoles.Where(r => r.Code == "agent").Select(r => r.Id).FirstAsync(ct);
         var portalRoleId = await _db.SystemRoles.Where(r => r.Code == "portal_user").Select(r => r.Id).FirstAsync(ct);
 
-        var tenantAdmin = NewUser("tenant.admin", "tenant.admin@itsm.local", "Администратор Тенантов", "Администрация", "admin123");
+        var tenantAdmin = NewUser("tenant.admin", "tenant.admin@itsm.local", "Администратор Тенантов", "Администрация", "admin123", tenantId: null);
+        var tenantOwner = NewUser("tenant.owner", "tenant.owner@itsm.local", "Владелец Тенанта", "IT", "pass123");
         var admin = NewUser("admin", "admin@itsm.local", "Администратор Системы", "IT", "admin123");
         var ivanov = NewUser("i.ivanov", "i.ivanov@itsm.local", "Иван Иванов", "IT", "pass123");
         var petrov = NewUser("p.petrov", "p.petrov@itsm.local", "Пётр Петров", "IT", "pass123");
@@ -51,7 +53,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         // активной роли после 2FA.
         var multi = NewUser("m.multi", "m.multi@itsm.local", "Мультиролевой Пользователь", "IT", "pass123");
 
-        _db.Users.AddRange(tenantAdmin, admin, ivanov, petrov, sidorov, anna, maria, multi);
+        _db.Users.AddRange(tenantAdmin, tenantOwner, admin, ivanov, petrov, sidorov, anna, maria, multi);
         await _db.SaveChangesAsync(ct);
 
         // Иерархия: Петров → Иванов → Админ
@@ -62,6 +64,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         // Роли
         _db.UserRoleMappings.AddRange(
             new UserRoleMapping { UserId = tenantAdmin.Id, RoleId = tenantAdminRoleId },
+            new UserRoleMapping { UserId = tenantOwner.Id, RoleId = tenantOwnerRoleId },
             new UserRoleMapping { UserId = admin.Id, RoleId = adminRoleId },
             new UserRoleMapping { UserId = ivanov.Id, RoleId = managerRoleId },
             new UserRoleMapping { UserId = petrov.Id, RoleId = agentRoleId },
@@ -76,7 +79,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         _logger.LogInformation("DatabaseSeeder: создано 8 пользователей");
     }
 
-    private User NewUser(string username, string email, string fullName, string department, string password) => new()
+    private User NewUser(string username, string email, string fullName, string department, string password, int? tenantId = 1) => new()
     {
         Username = username,
         Email = email,
@@ -85,7 +88,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         Status = UserStatuses.Verified, // тестовые — уже подтверждённые
         PasswordHash = _passwordHasher.Hash(password),
         IsActive = true,
-        TenantId = 1,
+        TenantId = tenantId,
         CreatedAt = DateTimeOffset.UtcNow
     };
 }

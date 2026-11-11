@@ -17,12 +17,16 @@ import {
     Escalation,
     FormFieldDefinition,
     OverviewData,
+    PortalTicketType,
+    RequesterOption,
     PortalTicketRequest,
     RepairCloseRequest,
     ReportSummary,
     TicketFormDefinition,
     Ticket,
+    TicketAttachment,
     TicketComment,
+    TicketHistory,
     TicketType,
     TenantRecord,
     CreateUserRequest,
@@ -31,6 +35,7 @@ import {
 } from './workspace.models';
 
 export abstract class WorkspaceApi {
+    abstract readonly supportsTicketTypeConfiguration: boolean;
     abstract getOverview(): Observable<OverviewData>;
     abstract getTickets(): Observable<Ticket[]>;
     abstract getAssets(): Observable<AssetRecord[]>;
@@ -42,7 +47,10 @@ export abstract class WorkspaceApi {
     abstract changeTicketStatus(ticketId: string, statusId: number): Observable<Ticket>;
     abstract assignTicket(ticketId: string, assigneeId: number): Observable<Ticket>;
     abstract changeTicketPriority(ticketId: string, priority: string): Observable<Ticket>;
-    abstract addTicketComment(ticketId: string, comment: Omit<TicketComment, 'id' | 'createdAt'>): Observable<TicketComment>;
+    abstract getTicketComments(ticketId: string): Observable<TicketComment[]>;
+    abstract getTicketHistory(ticketId: string): Observable<TicketHistory[]>;
+    abstract addTicketComment(ticketId: string, comment: Omit<TicketComment, 'id' | 'createdAt' | 'attachments' | 'attachmentRecords'>, attachments: File[]): Observable<TicketComment>;
+    abstract downloadTicketAttachment(ticketId: string, attachment: TicketAttachment): Observable<Blob>;
     abstract escalateTicket(ticketId: string, initiator: string): Observable<EscalationHistoryEntry>;
     abstract getAssetDetails(assetId: string): Observable<AssetDetails>;
     abstract createAsset(request: CreateAssetRequest): Observable<AssetDetails>;
@@ -60,6 +68,8 @@ export abstract class WorkspaceApi {
     abstract saveAdminSettings(settings: AdminSettings): Observable<AdminSettings>;
     abstract getReports(from?: string, to?: string): Observable<ReportSummary[]>;
     abstract getPortalTickets(): Observable<Ticket[]>;
+    abstract getPortalTicketTypes(): Observable<PortalTicketType[]>;
+    abstract getRequesters(): Observable<RequesterOption[]>;
     abstract createPortalTicket(request: PortalTicketRequest): Observable<Ticket>;
     abstract addPortalComment(ticketId: string, message: string, attachments: File[]): Observable<TicketComment>;
     abstract reviewPortalTicket(ticketId: string, accepted: boolean): Observable<Ticket>;

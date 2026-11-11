@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { AuthService } from '../auth/auth.service';
 import { WorkspaceApi } from './workspace-api';
 import {
@@ -24,10 +24,14 @@ import {
     Escalation,
     FormFieldDefinition,
     OverviewData,
+    PortalTicketType,
+    RequesterOption,
     PortalTicketRequest,
     RepairCloseRequest,
     ReportSummary,
+    TicketAttachment,
     TicketComment,
+    TicketHistory,
     TicketFormDefinition,
     Ticket,
     TicketType,
@@ -38,6 +42,8 @@ import {
 
 @Injectable()
 export class MockWorkspaceApiService extends WorkspaceApi {
+    readonly supportsTicketTypeConfiguration = true;
+
     private tickets: Ticket[] = [
         { id: 'INC-1048', title: 'Не подключается VPN после обновления', requester: 'Анна Белова', team: 'Сетевая команда', priority: 'Высокий', status: 'В работе', createdAt: '10:42', slaRemaining: '01:18', type: 'Инцидент', assignee: 'Иван Петров', reactionSla: '00:08 / 00:30', resolutionSla: '01:18 / 04:00', assetId: 'LT-00231', createdOn: '2026-10-10', history: [{ id: 'h1', event: 'Заявка создана', actor: 'Анна Белова', createdAt: '10:12' }, { id: 'h2', event: 'Назначен исполнитель Иван Петров', actor: 'Диспетчер', createdAt: '10:20' }], comments: [{ id: 'c1', author: 'Иван Петров', message: 'Проверяю параметры подключения.', createdAt: '10:42', internal: false, attachments: [] }] },
         { id: 'SR-1047', title: 'Выдать доступ к корпоративному диску', requester: 'Пользователь портала', team: 'Сервис-деск', priority: 'Средний', status: 'Открыта', createdAt: '10:19', slaRemaining: '03:42', type: 'Запрос на обслуживание', assignee: 'Иван Петров', requesterLogin: 'demo-user', reactionSla: '00:11 / 00:30', resolutionSla: '03:42 / 08:00', createdOn: '2026-10-10', history: [{ id: 'h3', event: 'Заявка создана', actor: 'Пользователь портала', createdAt: '10:19' }], comments: [] },
@@ -140,6 +146,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         tenantMode: 'saas',
         passwordPolicy: { minLength: 12, requireUppercase: true, requireSpecial: true, expiryDays: 90, maxFailedAttempts: 5, lockoutMinutes: 15 },
         reportAccessRoles: ['admin', 'manager'],
+        allowAdminsCreateAdmins: true,
     };
 
     private forms: TicketFormDefinition[] = this.ticketTypes.map(type => ({
@@ -192,10 +199,12 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     getEscalations(): Observable<Escalation[]> { return of([...this.escalations]); }
 
     createTicket(request: CreateTicketRequest): Observable<Ticket> {
+        const requester = this.users.find(user => user.id === request.requesterId);
+        const requesterName = request.requesterId != null && requester ? requester.fullName : request.requester;
         const ticket: Ticket = {
             id: this.nextTicketId('SR'),
             title: request.title,
-            requester: request.requester,
+            requester: requesterName,
             team: request.category || 'Сервис-деск',
             priority: request.priority || 'Средний',
             status: 'Открыта',
@@ -209,6 +218,8 @@ export class MockWorkspaceApiService extends WorkspaceApi {
             createdOn: new Date().toISOString().slice(0, 10),
             fields: request.fields ?? {},
             requesterLogin: request.requesterLogin,
+            requesterId: request.requesterId,
+            creatorName: request.requester,
             history: [{ id: this.id('history'), event: 'Заявка создана', actor: request.requester, createdAt: this.now() }],
             comments: request.description ? [{ id: this.id('comment'), author: request.requester, message: request.description, createdAt: this.now(), internal: false, attachments: [] }] : [],
         };
@@ -254,12 +265,41 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         return of(ticket);
     }
 
-    addTicketComment(ticketId: string, comment: Omit<TicketComment, 'id' | 'createdAt'>): Observable<TicketComment> {
+    getTicketComments(ticketId: string): Observable<TicketComment[]> {
         const ticket = this.findTicket(ticketId);
-        const added: TicketComment = { ...comment, id: this.id('comment'), createdAt: this.now() };
+        const isOwner = ticket.requesterLogin === this.auth.getLogin();
+        const isStaff = this.auth.getRole() === 'admin' || this.auth.getRole() === 'agent';
+        if (!isOwner && !isStaff) return this.fail('Доступны только собственные заявки.');
+        return of((ticket.comments ?? [])
+            .filter(comment => isStaff || !comment.internal)
+            .map(comment => ({ ...comment, attachments: [...comment.attachments] })));
+    }
+
+    getTicketHistory(ticketId: string): Observable<TicketHistory[]> {
+        return of((this.findTicket(ticketId).history ?? []).map(entry => ({ ...entry })));
+    }
+
+    addTicketComment(
+        ticketId: string,
+        comment: Omit<TicketComment, 'id' | 'createdAt' | 'attachments' | 'attachmentRecords'>,
+        attachments: File[],
+    ): Observable<TicketComment> {
+        const ticket = this.findTicket(ticketId);
+        const isStaff = this.auth.getRole() === 'admin' || this.auth.getRole() === 'agent';
+        if (comment.internal && !isStaff) return this.fail('Внутренние сообщения доступны только сотрудникам службы поддержки.');
+        const added: TicketComment = {
+            ...comment,
+            id: this.id('comment'),
+            createdAt: this.now(),
+            attachments: attachments.map(file => file.name),
+        };
         ticket.comments = [...(ticket.comments ?? []), added];
         this.recordTicketHistory(ticket, added.internal ? 'Добавлен внутренний комментарий' : 'Добавлен комментарий', added.author);
         return of(added);
+    }
+
+    downloadTicketAttachment(_ticketId: string, _attachment: TicketAttachment): Observable<Blob> {
+        return throwError(() => new Error('Скачивание вложений недоступно в демонстрационном режиме.'));
     }
 
     escalateTicket(ticketId: string, initiator: string): Observable<EscalationHistoryEntry> {
@@ -407,8 +447,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     getEscalationPolicies(): Observable<EscalationPolicy[]> { return of(this.policies.map(policy => ({ ...policy }))); }
     saveEscalationPolicies(policies: EscalationPolicy[]): Observable<EscalationPolicy[]> { this.policies = policies.map(policy => ({ ...policy })); return of(this.policies); }
     getEscalationHistory(): Observable<EscalationHistoryEntry[]> { return of(this.escalationHistory.map(entry => ({ ...entry, recipients: [...entry.recipients] }))); }
-    getAdminSettings(): Observable<AdminSettings> { return of({ ...this.settings, criticalities: [...this.settings.criticalities], statuses: this.settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(this.settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...this.settings.workingDays], holidays: [...this.settings.holidays], portalSlaFields: [...this.settings.portalSlaFields], portalAccounts: [...(this.settings.portalAccounts ?? [])], engineers: [...(this.settings.engineers ?? [])], passwordPolicy: this.settings.passwordPolicy ? { ...this.settings.passwordPolicy } : undefined, reportAccessRoles: [...(this.settings.reportAccessRoles ?? [])] }); }
-
+    getAdminSettings(): Observable<AdminSettings> { return of({ ...this.settings, criticalities: [...this.settings.criticalities], statuses: this.settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(this.settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...this.settings.workingDays], holidays: [...this.settings.holidays],     portalSlaFields: [...this.settings.portalSlaFields], portalAccounts: [...(this.settings.portalAccounts ?? [])], engineers: [...(this.settings.engineers ?? [])], passwordPolicy: this.settings.passwordPolicy ? { ...this.settings.passwordPolicy } : undefined, reportAccessRoles: [...(this.settings.reportAccessRoles ?? [])], allowAdminsCreateAdmins: this.settings.allowAdminsCreateAdmins ?? true }); }
     saveAdminSettings(settings: AdminSettings): Observable<AdminSettings> {
         if (settings.criticalities.length < 3 || settings.criticalities.length > 5) return this.fail('Шкала критичности должна содержать от 3 до 5 уровней.');
         if (settings.slaMode === 'working-hours' && !settings.workingDays.length) return this.fail('Выберите хотя бы один рабочий день.');
@@ -418,7 +457,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         if ((settings.statusTransitions['Закрыта'] ?? []).length) return this.fail('Из закрытого статуса нельзя повторно открыть заявку.');
         const statusNames = new Set(settings.statuses.map(status => status.name));
         if (Object.entries(settings.statusTransitions).some(([source, targets]) => !statusNames.has(source) || targets.some(target => !statusNames.has(target) || target === 'Открыта' || target === source))) return this.fail('Переходы должны ссылаться на существующие статусы и не открывать закрытые заявки заново.');
-        this.settings = { ...settings, criticalities: [...settings.criticalities], statuses: settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...settings.workingDays], holidays: [...settings.holidays], portalSlaFields: [...settings.portalSlaFields], portalAccounts: [...(settings.portalAccounts ?? [])], engineers: [...(settings.engineers ?? [])], passwordPolicy: settings.passwordPolicy ? { ...settings.passwordPolicy } : undefined, reportAccessRoles: [...(settings.reportAccessRoles ?? [])] };
+        this.settings = { ...settings, criticalities: [...settings.criticalities], statuses: settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...settings.workingDays], holidays: [...settings.holidays], portalSlaFields: [...settings.portalSlaFields], portalAccounts: [...(settings.portalAccounts ?? [])], engineers: [...(settings.engineers ?? [])], passwordPolicy: settings.passwordPolicy ? { ...settings.passwordPolicy } : undefined, reportAccessRoles: [...(settings.reportAccessRoles ?? [])], allowAdminsCreateAdmins: settings.allowAdminsCreateAdmins ?? true };
         return this.getAdminSettings();
     }
 
@@ -442,6 +481,24 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         return of(this.tickets.filter(ticket => ticket.requesterLogin === login).map(ticket => ({ ...ticket })));
     }
 
+    getPortalTicketTypes(): Observable<PortalTicketType[]> {
+        return of(this.ticketTypes
+            .filter(type => type.portalAvailable && !type.repair)
+            .map((type, index) => ({ id: index + 1, name: type.name })));
+    }
+
+    getRequesters(): Observable<RequesterOption[]> {
+        return of(this.users
+            .filter(user => user.isActive)
+            .map(user => ({
+                id: user.id,
+                username: user.username,
+                fullName: user.fullName,
+                department: user.department || null,
+                email: user.email || null,
+            })));
+    }
+
     createPortalTicket(request: PortalTicketRequest): Observable<Ticket> {
         const type = this.ticketTypes.find(item => item.name === request.type);
         if (!type?.portalAvailable || type.repair) return this.fail('Этот тип заявки недоступен на портале.');
@@ -454,7 +511,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     addPortalComment(ticketId: string, message: string, attachments: File[]): Observable<TicketComment> {
         const ticket = this.findTicket(ticketId);
         if (ticket.requesterLogin !== this.auth.getLogin()) return this.fail('Доступны только собственные заявки.');
-        return this.addTicketComment(ticketId, { author: ticket.requester, message, internal: false, attachments: attachments.map(file => file.name) });
+        return this.addTicketComment(ticketId, { author: ticket.requester, message, internal: false }, attachments);
     }
 
     reviewPortalTicket(ticketId: string, accepted: boolean): Observable<Ticket> {

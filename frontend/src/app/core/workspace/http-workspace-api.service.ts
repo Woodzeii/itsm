@@ -21,25 +21,34 @@ import {
     Escalation,
     FormFieldDefinition,
     OverviewData,
+    PortalTicketType,
     PortalTicketRequest,
+    RequesterOption,
     RepairCloseRequest,
     ReportSummary,
     TicketComment,
+    TicketHistory,
+    TicketAttachment,
     TicketFormDefinition,
     Ticket,
     TicketType,
     TenantRecord,
+    TenantAdminCreationPolicy,
     CreateUserRequest,
     SystemRoleOption,
     UserRecord,
 } from './workspace.models';
 
-@Injectable()
+@Injectable({ providedIn: 'root' })
 export class HttpWorkspaceApiService extends WorkspaceApi {
+    readonly supportsTicketTypeConfiguration = false;
+
     private readonly http = inject(HttpClient);
     private readonly baseUrl = environment.apiBaseUrl;
     private readonly typeIds = new Map<string, number>();
     private readonly statusIds = new Map<string, number>();
+    private readonly assigneeIds = new Map<string, number>();
+    private readonly assigneeNames = new Map<string, string>();
 
     getOverview() {
         return this.getTickets().pipe(map(toOverview));
@@ -108,6 +117,7 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             typeId,
             priority: request.priority?.trim() || 'Средний',
             assetId: assetId !== null && Number.isFinite(assetId) ? assetId : null,
+            requesterId: request.requesterId ?? null,
             customFieldsData: request.fields ?? null,
         };
 
@@ -130,14 +140,30 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             .put<BackendTicket>(`${this.baseUrl}/tickets/${ticketId}`, { priority })
             .pipe(map(toTicket));
     }
-    addTicketComment(ticketId: string, comment: Omit<TicketComment, 'id' | 'createdAt'>) {
-        return this.http
-            .post<BackendTicketMessage>(`${this.baseUrl}/tickets/${ticketId}/messages`, {
-                messageBody: comment.message,
-                isInternal: comment.internal,
-                attachments: comment.attachments,
-            })
-            .pipe(map(toTicketComment));
+    getTicketComments(ticketId: string) {
+        return this.http.get<BackendTicketMessage[]>(`${this.baseUrl}/tickets/${ticketId}/messages`)
+            .pipe(map(messages => messages.map(toTicketComment)));
+    }
+    getTicketHistory(ticketId: string) {
+        return this.http.get<BackendTicketHistory[]>(`${this.baseUrl}/tickets/${ticketId}/history`)
+            .pipe(map(history => history.map(item => ({
+                id: String(item.id),
+                event: item.event,
+                actor: item.actor,
+                createdAt: item.createdAt,
+            }))));
+    }
+    addTicketComment(
+        ticketId: string,
+        comment: Omit<TicketComment, 'id' | 'createdAt' | 'attachments' | 'attachmentRecords'>,
+        attachments: File[],
+    ) {
+        return this.postTicketComment(ticketId, comment.message, comment.internal, attachments);
+    }
+    downloadTicketAttachment(ticketId: string, attachment: TicketAttachment) {
+        return this.http.get(`${this.baseUrl}/tickets/${ticketId}/attachments/${attachment.id}`, {
+            responseType: 'blob',
+        });
     }
     escalateTicket(ticketId: string, initiator: string) {
         return this.http
@@ -190,17 +216,49 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         // Отдельного endpoint истории эскалаций в текущем backend нет.
         return of([] as EscalationHistoryEntry[]);
     }
-    getAdminSettings() { return this.unsupported<AdminSettings>('admin settings'); }
-    saveAdminSettings(_settings: AdminSettings) { return this.unsupported<AdminSettings>('admin settings'); }
+    getAdminSettings() {
+        return this.getTenantAdminCreationPolicy().pipe(
+            map(settings => toAdminSettings(settings)),
+        );
+    }
+    saveAdminSettings(settings: AdminSettings) {
+        return this.saveTenantAdminCreationPolicy(settings.allowAdminsCreateAdmins ?? true).pipe(
+            map(saved => toAdminSettings(saved)),
+        );
+    }
+    getTenantAdminCreationPolicy() {
+        return this.http.get<TenantAdminCreationPolicy>(`${this.baseUrl}/tenants/settings`).pipe(
+            map(normalizeTenantAdminCreationPolicy),
+        );
+    }
+    saveTenantAdminCreationPolicy(allowAdminsCreateAdmins: boolean) {
+        return this.http.put<TenantAdminCreationPolicy>(`${this.baseUrl}/tenants/settings`, {
+            allowAdminsCreateAdmins,
+        }).pipe(map(normalizeTenantAdminCreationPolicy));
+    }
     getReports(_from?: string, _to?: string) {
         // В контракте отчёты требуют reportType: /api/reports/{reportType}; текущий backend их не реализует.
         return this.unsupported<ReportSummary[]>('reports');
     }
-    getPortalTickets() { return this.unsupported<Ticket[]>('portal tickets'); }
-    createPortalTicket(_request: PortalTicketRequest) {
-        return this.unsupported<Ticket>('portal ticket creation');
+    getPortalTickets() {
+        return this.http.get<BackendTicket[]>(`${this.baseUrl}/tickets/mine`).pipe(
+            map(tickets => tickets.map(toTicket)),
+        );
+    }
+    getPortalTicketTypes() {
+        return this.http.get<PortalTicketType[]>(`${this.baseUrl}/tickets/portal-types`);
+    }
+    getRequesters() {
+        return this.http.get<RequesterOption[]>(`${this.baseUrl}/tickets/requesters`);
+    }
+    createPortalTicket(request: PortalTicketRequest) {
+        return this.createTicket(request);
     }
     addPortalComment(ticketId: string, message: string, attachments: File[]) {
+        return this.postTicketComment(ticketId, message, false, attachments);
+    }
+
+    private postTicketComment(ticketId: string, message: string, internal: boolean, attachments: File[]) {
         const uploads = attachments.length
             ? forkJoin(attachments.map(file => this.uploadAttachment(ticketId, file)))
             : of([] as string[]);
@@ -208,7 +266,7 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return uploads.pipe(
             switchMap(attachmentIds => this.http.post<BackendTicketMessage>(
                 `${this.baseUrl}/tickets/${ticketId}/messages`,
-                { messageBody: message, isInternal: false, attachments: attachmentIds },
+                { messageBody: message, isInternal: internal, attachments: attachmentIds },
             )),
             map(toTicketComment),
         );
@@ -245,12 +303,38 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return this.http.put<UserRecord>(`${this.baseUrl}/users/${userId}/active`, { isActive });
     }
 
+    /** ID статуса по имени из уже загруженной очереди. */
+    resolveStatusId(name: string): number | undefined {
+        const key = name.trim().toLocaleLowerCase();
+        const exact = this.statusIds.get(key);
+        if (exact != null) return exact;
+
+        return [...this.statusIds.entries()]
+            .find(([statusName]) => statusName.includes(key) || key.includes(statusName))?.[1];
+    }
+
+    /** ID исполнителя по имени из уже загруженной очереди. */
+    resolveAssigneeId(value: string): number | undefined {
+        const numeric = Number(value);
+        if (Number.isInteger(numeric) && numeric > 0) return numeric;
+        return this.assigneeIds.get(value.trim().toLocaleLowerCase());
+    }
+
+    knownAssigneeNames(): string[] {
+        return [...this.assigneeNames.values()].sort((left, right) => left.localeCompare(right, 'ru'));
+    }
+
     private rememberLookups(ticket: BackendTicket): void {
         if (ticket.typeName && ticket.typeId != null) {
             this.typeIds.set(ticket.typeName.toLocaleLowerCase(), ticket.typeId);
         }
         if (ticket.statusName && ticket.statusId != null) {
             this.statusIds.set(ticket.statusName.toLocaleLowerCase(), ticket.statusId);
+        }
+        if (ticket.assigneeName && ticket.assigneeId != null) {
+            const key = ticket.assigneeName.toLocaleLowerCase();
+            this.assigneeIds.set(key, ticket.assigneeId);
+            this.assigneeNames.set(key, ticket.assigneeName);
         }
     }
 
@@ -263,6 +347,68 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     private unsupported<T>(feature: string) {
         return throwError(() => new Error(`Backend endpoint for ${feature} is not implemented.`));
     }
+}
+
+function toAdminSettings(settings?: Partial<BackendTenantSettings> | null): AdminSettings {
+    const defaults: AdminSettings = {
+        assignmentMode: 'automatic',
+        manager: '',
+        slaEnabled: true,
+        slaMode: 'working-hours',
+        workingHours: '09:00-18:00',
+        workingDays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт'],
+        holidays: [],
+        criticalities: ['Критический', 'Высокий', 'Средний', 'Низкий'],
+        statuses: [
+            { name: 'Открыта', pausesSla: false, immutable: true },
+            { name: 'В работе', pausesSla: false, immutable: false },
+            { name: 'Проверка', pausesSla: false, immutable: false },
+            { name: 'Закрыта', pausesSla: false, immutable: true },
+        ],
+        statusTransitions: {
+            Открыта: ['В работе', 'Проверка', 'Закрыта'],
+            'В работе': ['Проверка', 'Закрыта'],
+            Проверка: ['В работе', 'Закрыта'],
+            Закрыта: [],
+        },
+        portalSlaFields: [],
+        portalAccounts: [],
+        engineers: [],
+        tenantMode: 'saas',
+        passwordPolicy: {
+            minLength: 12,
+            requireUppercase: true,
+            requireSpecial: true,
+            expiryDays: 90,
+            maxFailedAttempts: 5,
+            lockoutMinutes: 15,
+        },
+        reportAccessRoles: ['admin', 'manager'],
+        allowAdminsCreateAdmins: true,
+    };
+
+    return {
+        ...defaults,
+        ...settings,
+        workingDays: settings?.workingDays?.length ? [...settings.workingDays] : defaults.workingDays,
+        holidays: settings?.holidays?.length ? [...settings.holidays] : defaults.holidays,
+        criticalities: settings?.criticalities?.length ? [...settings.criticalities] : defaults.criticalities,
+        statuses: settings?.statuses?.length ? settings.statuses.map(status => ({ ...status })) : defaults.statuses,
+        statusTransitions: settings?.statusTransitions ? { ...settings.statusTransitions } : defaults.statusTransitions,
+        portalSlaFields: settings?.portalSlaFields?.length ? [...settings.portalSlaFields] : defaults.portalSlaFields,
+        portalAccounts: settings?.portalAccounts?.length ? [...settings.portalAccounts] : defaults.portalAccounts,
+        engineers: settings?.engineers?.length ? [...settings.engineers] : defaults.engineers,
+        reportAccessRoles: settings?.reportAccessRoles?.length ? [...settings.reportAccessRoles] : defaults.reportAccessRoles,
+        passwordPolicy: settings?.passwordPolicy ? { ...settings.passwordPolicy } : defaults.passwordPolicy,
+    };
+}
+
+function normalizeTenantAdminCreationPolicy(policy: TenantAdminCreationPolicy): TenantAdminCreationPolicy {
+    if (!Number.isInteger(policy.tenantId) || typeof policy.allowAdminsCreateAdmins !== 'boolean') {
+        throw new Error('Backend returned an invalid tenant admin-creation policy.');
+    }
+
+    return policy;
 }
 
 function toOverview(tickets: Ticket[]): OverviewData {
@@ -332,6 +478,27 @@ function repairOutcome(result: RepairCloseRequest['result']): string {
     }
 }
 
+interface BackendTenantSettings {
+    tenantId?: number;
+    allowAdminsCreateAdmins?: boolean;
+    assignmentMode?: AdminSettings['assignmentMode'];
+    manager?: string;
+    slaEnabled?: boolean;
+    slaMode?: AdminSettings['slaMode'];
+    workingHours?: string;
+    workingDays?: string[];
+    holidays?: string[];
+    criticalities?: string[];
+    statuses?: { name: string; pausesSla: boolean; immutable: boolean }[];
+    statusTransitions?: Record<string, string[]>;
+    portalSlaFields?: string[];
+    portalAccounts?: string[];
+    engineers?: string[];
+    tenantMode?: AdminSettings['tenantMode'];
+    passwordPolicy?: AdminSettings['passwordPolicy'];
+    reportAccessRoles?: string[];
+}
+
 interface BackendTicket {
     id?: number;
     title?: string;
@@ -343,6 +510,8 @@ interface BackendTicket {
     priority?: string | null;
     creatorId?: number;
     creatorName?: string;
+    requesterId?: number | null;
+    requesterName?: string | null;
     assigneeId?: number | null;
     assigneeName?: string | null;
     assetId?: number | null;
@@ -364,6 +533,13 @@ interface BackendTicketMessage {
     createdAt?: string;
 }
 
+interface BackendTicketHistory {
+    id: number;
+    event: string;
+    actor: string;
+    createdAt: string;
+}
+
 interface BackendTicketEscalation {
     id?: number;
     ticketId?: number;
@@ -382,19 +558,24 @@ function toTicket(ticket: BackendTicket): Ticket {
     return {
         id: String(ticket.id ?? ''),
         title: ticket.title ?? '',
-        requester: ticket.creatorName ?? '',
+        requester: ticket.requesterName ?? ticket.creatorName ?? '',
         team: '',
         priority: ticket.priority ?? '',
         status: ticket.statusName ?? '',
         createdAt: ticket.createdAt ?? '',
         slaRemaining: formatRemaining(ticket.slaResolutionDeadline),
         type: ticket.typeName,
+        typeId: ticket.typeId,
+        statusId: ticket.statusId,
         assignee: ticket.assigneeName ?? undefined,
+        assigneeId: ticket.assigneeId ?? undefined,
         createdOn: ticket.createdAt,
         closedOn: isClosed ? ticket.updatedAt : undefined,
         reactionSla: formatRemaining(ticket.slaReactionDeadline),
         resolutionSla: formatRemaining(ticket.slaResolutionDeadline),
         assetId: ticket.assetId != null ? String(ticket.assetId) : undefined,
+        requesterId: ticket.requesterId ?? undefined,
+        creatorName: ticket.creatorName,
         fields,
     };
 }
@@ -409,6 +590,11 @@ function toTicketComment(message: BackendTicketMessage): TicketComment {
         attachments: (message.attachments ?? [])
             .map(attachment => attachment.fileName ?? String(attachment.id ?? ''))
             .filter(Boolean),
+        attachmentRecords: (message.attachments ?? [])
+            .filter((attachment): attachment is { id: number; fileName: string } =>
+                attachment.id != null && !!attachment.fileName,
+            )
+            .map(attachment => ({ id: String(attachment.id), fileName: attachment.fileName })),
     };
 }
 

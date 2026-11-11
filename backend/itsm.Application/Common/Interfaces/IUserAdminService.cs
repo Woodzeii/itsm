@@ -6,7 +6,8 @@ public enum UserAdminErrorKind
 {
     NotFound,
     Conflict,
-    Validation
+    Validation,
+    Forbidden
 }
 
 public class UserAdminException : Exception

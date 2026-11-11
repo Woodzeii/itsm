@@ -14,13 +14,18 @@ export interface Ticket {
     createdAt: string;
     slaRemaining: string;
     type?: string;
+    typeId?: number;
+    statusId?: number;
     assignee?: string;
+    assigneeId?: number;
     createdOn?: string;
     closedOn?: string;
     reactionSla?: string;
     resolutionSla?: string;
     assetId?: string;
     requesterLogin?: string;
+    requesterId?: number;
+    creatorName?: string;
     comments?: TicketComment[];
     history?: TicketHistory[];
     fields?: Record<string, string | number | boolean | null>;
@@ -33,6 +38,12 @@ export interface TicketComment {
     createdAt: string;
     internal: boolean;
     attachments: string[];
+    attachmentRecords?: TicketAttachment[];
+}
+
+export interface TicketAttachment {
+    id: string;
+    fileName: string;
 }
 
 export interface TicketHistory {
@@ -51,6 +62,19 @@ export interface TicketType {
     reactionSla: string;
     resolutionSla: string;
     slaByCriticality?: Record<string, { reaction: string; resolution: string }>;
+}
+
+export interface PortalTicketType {
+    id: number;
+    name: string;
+}
+
+export interface RequesterOption {
+    id: number;
+    username: string;
+    fullName: string;
+    department: string | null;
+    email: string | null;
 }
 
 export interface AssetRecord {
@@ -137,6 +161,7 @@ export interface CreateTicketRequest {
     assetId?: string;
     fields?: Record<string, string | number | boolean | null>;
     requesterLogin?: string;
+    requesterId?: number;
 }
 
 export interface FormFieldDefinition {
@@ -195,6 +220,12 @@ export interface AdminSettings {
     tenantMode?: 'on-premise' | 'saas';
     passwordPolicy?: { minLength: number; requireUppercase: boolean; requireSpecial: boolean; expiryDays: number; maxFailedAttempts: number; lockoutMinutes: number };
     reportAccessRoles?: string[];
+    allowAdminsCreateAdmins?: boolean;
+}
+
+export interface TenantAdminCreationPolicy {
+    tenantId: number;
+    allowAdminsCreateAdmins: boolean;
 }
 
 export interface ReportSummary {
