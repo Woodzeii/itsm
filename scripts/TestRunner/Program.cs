@@ -107,27 +107,18 @@ internal static class Program
         }
 
         var selectedScript = scripts[selection.Value - 1];
-        if (Path.GetFileName(selectedScript).Equals("auth-smoke-e2e.js", StringComparison.OrdinalIgnoreCase))
+        var selectedScriptName = Path.GetFileName(selectedScript);
+        if (selectedScriptName.Equals("auth-smoke-e2e.js", StringComparison.OrdinalIgnoreCase))
         {
             var authSmokeEnvironment = ReadAuthSmokeSettings();
-            if (OperatingSystem.IsWindows())
-            {
-                var commandProcessor = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
-                await RunProcess(
-                    commandProcessor,
-                    ["/d", "/c", "npm.cmd run test:auth-smoke"],
-                    scriptsDirectory,
-                    authSmokeEnvironment);
-            }
-            else
-            {
-                await RunProcess(
-                    "npm",
-                    ["run", "test:auth-smoke"],
-                    scriptsDirectory,
-                    authSmokeEnvironment);
-            }
+            await RunNpmScript("test:auth-smoke", scriptsDirectory, authSmokeEnvironment);
+            return;
+        }
 
+        if (selectedScriptName.Equals("tenant-isolation-api.js", StringComparison.OrdinalIgnoreCase))
+        {
+            var tenantIsolationEnvironment = ReadTenantIsolationSettings();
+            await RunNpmScript("test:tenant-isolation", scriptsDirectory, tenantIsolationEnvironment);
             return;
         }
 
@@ -142,6 +133,70 @@ internal static class Program
             ["run", selectedScript],
             repositoryRoot,
             environment);
+    }
+
+    private static Dictionary<string, string> ReadTenantIsolationSettings()
+    {
+        Console.WriteLine();
+        Console.WriteLine("Настройка API-тестов изоляции тенантов");
+
+        var settings = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["TENANT_A_ADMIN_USERNAME"] = ReadRequiredValue(
+                "Логин администратора тенанта A",
+                Environment.GetEnvironmentVariable("TENANT_A_ADMIN_USERNAME")),
+            ["TENANT_A_ADMIN_PASSWORD"] = ReadRequiredValue(
+                "Пароль администратора тенанта A (ввод скрыт)",
+                Environment.GetEnvironmentVariable("TENANT_A_ADMIN_PASSWORD"),
+                hideInput: true),
+            ["TENANT_A_TOTP_SECRET"] = ReadRequiredValue(
+                "TOTP-секрет администратора тенанта A (ввод скрыт)",
+                Environment.GetEnvironmentVariable("TENANT_A_TOTP_SECRET"),
+                hideInput: true),
+            ["TENANT_B_ADMIN_USERNAME"] = ReadRequiredValue(
+                "Логин администратора тенанта B",
+                Environment.GetEnvironmentVariable("TENANT_B_ADMIN_USERNAME")),
+            ["TENANT_B_ADMIN_PASSWORD"] = ReadRequiredValue(
+                "Пароль администратора тенанта B (ввод скрыт)",
+                Environment.GetEnvironmentVariable("TENANT_B_ADMIN_PASSWORD"),
+                hideInput: true),
+            ["TENANT_B_TOTP_SECRET"] = ReadRequiredValue(
+                "TOTP-секрет администратора тенанта B (ввод скрыт)",
+                Environment.GetEnvironmentVariable("TENANT_B_TOTP_SECRET"),
+                hideInput: true),
+        };
+
+        settings["TENANT_ISOLATION_API_URL"] = ReadValue(
+            "Базовый URL API",
+            Environment.GetEnvironmentVariable("TENANT_ISOLATION_API_URL") ?? "http://localhost:5062/api",
+            value => Uri.TryCreate(value, UriKind.Absolute, out var uri)
+                && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps));
+
+        return settings;
+    }
+
+    private static async Task RunNpmScript(
+        string npmScript,
+        string scriptsDirectory,
+        IReadOnlyDictionary<string, string> environment)
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            var commandProcessor = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
+            await RunProcess(
+                commandProcessor,
+                ["/d", "/c", $"npm.cmd run {npmScript}"],
+                scriptsDirectory,
+                environment);
+        }
+        else
+        {
+            await RunProcess(
+                "npm",
+                ["run", npmScript],
+                scriptsDirectory,
+                environment);
+        }
     }
 
     private static Dictionary<string, string> ReadAuthSmokeSettings()
