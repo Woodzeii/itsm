@@ -109,10 +109,22 @@ internal static class Program
         var selectedScript = scripts[selection.Value - 1];
         if (Path.GetFileName(selectedScript).Equals("auth-smoke-e2e.js", StringComparison.OrdinalIgnoreCase))
         {
-            await RunProcess(
-                "npm",
-                ["run", "test:auth-smoke"],
-                scriptsDirectory);
+            if (OperatingSystem.IsWindows())
+            {
+                var commandProcessor = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
+                await RunProcess(
+                    commandProcessor,
+                    ["/d", "/c", "npm.cmd run test:auth-smoke"],
+                    scriptsDirectory);
+            }
+            else
+            {
+                await RunProcess(
+                    "npm",
+                    ["run", "test:auth-smoke"],
+                    scriptsDirectory);
+            }
+
             return;
         }
 
