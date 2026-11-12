@@ -119,6 +119,27 @@ internal static class Program
         {
             var tenantIsolationEnvironment = ReadTenantIsolationSettings();
             await RunNpmScript("test:tenant-isolation", scriptsDirectory, tenantIsolationEnvironment);
+        if (Path.GetFileName(selectedScript).Equals("auth-smoke-e2e.js", StringComparison.OrdinalIgnoreCase))
+        {
+            var authSmokeEnvironment = ReadAuthSmokeSettings();
+            if (OperatingSystem.IsWindows())
+            {
+                var commandProcessor = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe";
+                await RunProcess(
+                    commandProcessor,
+                    ["/d", "/c", "npm.cmd run test:auth-smoke"],
+                    scriptsDirectory,
+                    authSmokeEnvironment);
+            }
+            else
+            {
+                await RunProcess(
+                    "npm",
+                    ["run", "test:auth-smoke"],
+                    scriptsDirectory,
+                    authSmokeEnvironment);
+            }
+
             return;
         }
 
