@@ -16,8 +16,8 @@ public interface ITicketService
     Task<TicketEscalationResponse?> EscalateAsync(int id, int actorId, CancellationToken ct = default);
     Task<TicketAttachmentUploadResponse?> UploadAttachmentAsync(int ticketId, int userId, bool isStaff, string fileName, Stream content, long sizeBytes, CancellationToken ct = default);
     Task<TicketAttachmentFile?> OpenAttachmentAsync(int ticketId, int attachmentId, int userId, bool isStaff, CancellationToken ct = default);
-    Task<IReadOnlyList<TicketHistoryResponse>?> GetHistoryAsync(int id, int userId, bool isStaff, CancellationToken ct = default);
-    Task<IReadOnlyList<TicketMessageResponse>?> GetMessagesAsync(int id, int userId, bool isStaff, CancellationToken ct = default);
+    Task<IReadOnlyList<TicketHistoryResponse>?> GetHistoryAsync(int id, int userId, bool isStaff, CancellationToken ct = default, int? skip = null, int? take = null);
+    Task<IReadOnlyList<TicketMessageResponse>?> GetMessagesAsync(int id, int userId, bool isStaff, CancellationToken ct = default, int? skip = null, int? take = null);
     Task<TicketMessageResponse?> CreateMessageAsync(int id, CreateTicketMessageRequest request, int authorId, bool isStaff, CancellationToken ct = default);
     Task<IReadOnlyList<AssetTicketHistoryItem>?> GetAssetTicketHistoryAsync(
         int assetId,

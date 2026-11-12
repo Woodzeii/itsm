@@ -71,6 +71,20 @@ describe('HttpWorkspaceApiService backend contract', () => {
         }]);
     });
 
+    it('loads a message page with its offset and size', () => {
+        let comments: unknown;
+        service.getTicketCommentsPage('42', 30, 30).subscribe(result => comments = result);
+
+        const request = http.expectOne(req =>
+            req.url === `${environment.apiBaseUrl}/tickets/42/messages`
+            && req.params.get('skip') === '30'
+            && req.params.get('take') === '30');
+        expect(request.request.method).toBe('GET');
+        request.flush([]);
+
+        expect(comments).toEqual([]);
+    });
+
     it('loads ticket history and maps backend identifiers to strings', () => {
         let history: unknown;
         service.getTicketHistory('42').subscribe(result => history = result);
@@ -90,6 +104,20 @@ describe('HttpWorkspaceApiService backend contract', () => {
             actor: 'Agent',
             createdAt: '2026-11-07T08:00:00Z',
         }]);
+    });
+
+    it('loads a history page with its offset and size', () => {
+        let history: unknown;
+        service.getTicketHistoryPage('42', 30, 30).subscribe(result => history = result);
+
+        const request = http.expectOne(req =>
+            req.url === `${environment.apiBaseUrl}/tickets/42/history`
+            && req.params.get('skip') === '30'
+            && req.params.get('take') === '30');
+        expect(request.request.method).toBe('GET');
+        request.flush([]);
+
+        expect(history).toEqual([]);
     });
 
     it('posts a ticket message with backend field names', () => {

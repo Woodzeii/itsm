@@ -570,7 +570,9 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         int id,
         int userId,
         bool isStaff,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        int? skip = null,
+        int? take = null)
     {
         var ticketOwner = await db.Tickets
             .Where(ticket => ticket.Id == id)
@@ -579,10 +581,24 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         if (ticketOwner is null || (!isStaff && ticketOwner.CreatorId != userId && ticketOwner.RequesterId != userId))
             return null;
 
-        var messages = await db.TicketMessages
+        var messagesQuery = db.TicketMessages
             .Where(message => message.TicketId == id && (isStaff || message.IsInternal != true))
             .Include(message => message.Author)
-            .Include(message => message.Attachments)
+            .Include(message => message.Attachments);
+
+        if (take.HasValue)
+        {
+            var page = await messagesQuery
+                .OrderByDescending(message => message.CreatedAt)
+                .ThenByDescending(message => message.Id)
+                .Skip(skip ?? 0)
+                .Take(take.Value)
+                .ToListAsync(ct);
+            page.Reverse();
+            return page.Select(ToMessageResponse).ToArray();
+        }
+
+        var messages = await messagesQuery
             .OrderBy(message => message.CreatedAt)
             .ThenBy(message => message.Id)
             .ToListAsync(ct);
@@ -594,7 +610,9 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         int id,
         int userId,
         bool isStaff,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        int? skip = null,
+        int? take = null)
     {
         var ticket = await db.Tickets
             .Where(item => item.Id == id && (isStaff || item.CreatorId == userId || item.RequesterId == userId))
@@ -603,12 +621,20 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         if (ticket is null)
             return null;
 
-        var auditLogs = await db.TicketAuditLogs
+        IQueryable<TicketAuditLog> auditQuery = db.TicketAuditLogs
             .Where(log => log.TicketId == id && log.Ticket.TenantId == ticket.TenantId)
-            .Include(log => log.User)
-            .OrderByDescending(log => log.ChangedAt)
-            .ThenByDescending(log => log.Id)
-            .ToListAsync(ct);
+            .Include(log => log.User);
+
+        if (take.HasValue)
+            auditQuery = auditQuery
+                .OrderByDescending(log => log.ChangedAt)
+                .ThenByDescending(log => log.Id)
+                .Skip(skip ?? 0)
+                .Take(take.Value);
+        else
+            auditQuery = auditQuery.OrderByDescending(log => log.ChangedAt).ThenByDescending(log => log.Id);
+
+        var auditLogs = await auditQuery.ToListAsync(ct);
 
         return auditLogs.Select(log => new TicketHistoryResponse(
             log.Id,

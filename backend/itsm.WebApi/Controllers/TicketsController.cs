@@ -12,6 +12,7 @@ namespace itsm.WebApi.Controllers;
 public sealed class TicketsController(ITicketService service) : ControllerBase
 {
     private const long MaxAttachmentSizeBytes = 10 * 1024 * 1024;
+    private const int MaxTimelinePageSize = 100;
 
     [HttpGet]
     [Authorize(Roles = "admin,tenant_owner,agent")]
@@ -198,12 +199,26 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     [EndpointSummary("Получить сообщения заявки")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketMessageResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<IReadOnlyList<TicketMessageResponse>>> GetMessages(int id, CancellationToken ct)
+    public async Task<ActionResult<IReadOnlyList<TicketMessageResponse>>> GetMessages(
+        int id,
+        CancellationToken ct,
+        [FromQuery] int? skip,
+        [FromQuery] int? take)
     {
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
-        var messages = await service.GetMessagesAsync(id, userId, IsStaff(), ct);
+        if (skip < 0 || take is < 1 or > MaxTimelinePageSize)
+            return BadRequest(new ProblemDetails { Title = "Некорректная страница", Detail = $"skip должен быть неотрицательным, а take — от 1 до {MaxTimelinePageSize}.", Status = 400 });
+
+        var isPaged = skip.HasValue || take.HasValue;
+        var messages = await service.GetMessagesAsync(
+            id,
+            userId,
+            IsStaff(),
+            ct,
+            isPaged ? skip ?? 0 : null,
+            isPaged ? take ?? 30 : null);
         return messages is null ? NotFound() : Ok(messages);
     }
 
@@ -211,12 +226,26 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     [EndpointSummary("Получить историю изменений заявки")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketHistoryResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<IReadOnlyList<TicketHistoryResponse>>> GetHistory(int id, CancellationToken ct)
+    public async Task<ActionResult<IReadOnlyList<TicketHistoryResponse>>> GetHistory(
+        int id,
+        CancellationToken ct,
+        [FromQuery] int? skip,
+        [FromQuery] int? take)
     {
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
-        var history = await service.GetHistoryAsync(id, userId, IsStaff(), ct);
+        if (skip < 0 || take is < 1 or > MaxTimelinePageSize)
+            return BadRequest(new ProblemDetails { Title = "Некорректная страница", Detail = $"skip должен быть неотрицательным, а take — от 1 до {MaxTimelinePageSize}.", Status = 400 });
+
+        var isPaged = skip.HasValue || take.HasValue;
+        var history = await service.GetHistoryAsync(
+            id,
+            userId,
+            IsStaff(),
+            ct,
+            isPaged ? skip ?? 0 : null,
+            isPaged ? take ?? 30 : null);
         return history is null ? NotFound() : Ok(history);
     }
 
