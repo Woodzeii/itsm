@@ -12,6 +12,9 @@ public interface ITicketService
     Task<TicketResponse?> UpdateAsync(int id, UpdateTicketRequest request, int actorId, CancellationToken ct = default);
     Task<TicketResponse?> ChangeStatusAsync(int id, ChangeTicketStatusRequest request, int actorId, IReadOnlyCollection<string> roleCodes, CancellationToken ct = default);
     Task<TicketResponse?> AssignAsync(int id, AssignTicketRequest request, int actorId, CancellationToken ct = default);
+    Task<AutoAssignResponse?> AutoAssignAsync(int id, int actorId, CancellationToken ct = default);
+    Task<AssignmentSettingResponse> GetAssignmentSettingAsync(CancellationToken ct = default);
+    Task<AssignmentSettingResponse> UpdateAssignmentSettingAsync(UpdateAssignmentSettingRequest request, CancellationToken ct = default);
     Task<TicketEscalationResponse?> EscalateAsync(int id, int actorId, CancellationToken ct = default);
     Task<TicketAttachmentUploadResponse?> UploadAttachmentAsync(int ticketId, int userId, bool isStaff, string fileName, Stream content, long sizeBytes, CancellationToken ct = default);
     Task<TicketAttachmentFile?> OpenAttachmentAsync(int ticketId, int attachmentId, int userId, bool isStaff, CancellationToken ct = default);

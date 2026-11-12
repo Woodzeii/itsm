@@ -137,6 +137,50 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
+    [HttpPost("{id:int}/auto-assign")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
+    [EndpointSummary("Автоматически распределить заявку на наименее загруженного инженера")]
+    [ProducesResponseType(typeof(AutoAssignResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AutoAssignResponse>> AutoAssign(int id, CancellationToken ct)
+    {
+        if (!TryGetUserId(out var actorId))
+            return Unauthorized();
+
+        try
+        {
+            var result = await service.AutoAssignAsync(id, actorId, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ProblemDetails { Title = "Автораспределение невозможно", Detail = ex.Message, Status = 409 });
+        }
+    }
+
+    [HttpGet("assignment-setting")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
+    [EndpointSummary("Получить режим назначения исполнителей")]
+    [ProducesResponseType(typeof(AssignmentSettingResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AssignmentSettingResponse>> GetAssignmentSetting(CancellationToken ct)
+        => Ok(await service.GetAssignmentSettingAsync(ct));
+
+    [HttpPut("assignment-setting")]
+    [Authorize(Roles = "admin,tenant_owner")]
+    [EndpointSummary("Изменить режим назначения исполнителей")]
+    [ProducesResponseType(typeof(AssignmentSettingResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<AssignmentSettingResponse>> UpdateAssignmentSetting(
+        [FromBody] UpdateAssignmentSettingRequest request,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        return Ok(await service.UpdateAssignmentSettingAsync(request, ct));
+    }
+
     [HttpPost("{id:int}/assign")]
     [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Назначить исполнителя заявки")]

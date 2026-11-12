@@ -159,6 +159,29 @@ describe('HttpWorkspaceApiService backend contract', () => {
         request.flush({});
     });
 
+    it('reads and updates the assignment mode through the backend', () => {
+        let setting: { mode: string; activeAgentsCount: number } | undefined;
+        service.saveAssignmentSetting('manual').subscribe(value => setting = value);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/assignment-setting`);
+        expect(request.request.method).toBe('PUT');
+        expect(request.request.body).toEqual({ mode: 'manual' });
+        request.flush({ mode: 'manual', manualAssignerUserId: null, manualAssignerName: null, activeAgentsCount: 3 });
+
+        expect(setting).toEqual({ mode: 'manual', manualAssignerUserId: null, manualAssignerName: null, activeAgentsCount: 3 });
+    });
+
+    it('triggers automatic assignment through /auto-assign', () => {
+        let result: { ticketId: string; assigneeName: string } | undefined;
+        service.autoAssignTicket('42').subscribe(value => result = value);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/auto-assign`);
+        expect(request.request.method).toBe('POST');
+        request.flush({ ticketId: 42, assigneeId: 5, assigneeName: 'Пётр Петров', openTicketsCount: 1, reason: 'least-loaded' });
+
+        expect(result).toEqual(expect.objectContaining({ ticketId: '42', assigneeName: 'Пётр Петров' }));
+    });
+
     it('maps backend ticket responses to the frontend ticket model', () => {
         let ticket: unknown;
         service.getTickets().subscribe(tickets => ticket = tickets[0]);

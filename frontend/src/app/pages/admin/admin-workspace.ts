@@ -420,6 +420,18 @@ export class AdminWorkspaceComponent implements OnInit {
             next: settings => this.settings = settings,
             error: err => this.error = err.message,
         });
+        if (this.section === 'settings') {
+            this.workspace.getAssignmentSetting().subscribe({
+                next: assignment => {
+                    if (!this.settings) return;
+                    this.settings = {
+                        ...this.settings,
+                        assignmentMode: assignment.mode === 'manual' ? 'manual' : 'automatic',
+                    };
+                },
+                error: err => this.error = err?.error?.detail ?? err.message,
+            });
+        }
         if (this.section === 'settings' || this.section === 'users') {
             this.tenantPolicyLoading = true;
             this.tenantPolicyError = '';
@@ -477,6 +489,9 @@ export class AdminWorkspaceComponent implements OnInit {
                 this.notice = 'Настройки сохранены.';
             },
             error: err => this.error = err.message,
+        });
+        this.workspace.saveAssignmentSetting(currentSettings.assignmentMode === 'manual' ? 'manual' : 'auto').subscribe({
+            error: err => this.error = err?.error?.detail ?? err.message,
         });
         if (this.workspace.supportsTicketTypeConfiguration) {
             this.workspace.saveTicketTypes(this.ticketTypes).subscribe({

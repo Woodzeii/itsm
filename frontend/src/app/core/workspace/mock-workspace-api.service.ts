@@ -22,6 +22,8 @@ import {
     EscalationHistoryEntry,
     EscalationPolicy,
     Escalation,
+    AssignmentSetting,
+    AutoAssignResult,
     FormFieldDefinition,
     OverviewData,
     PortalTicketType,
@@ -44,7 +46,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     readonly supportsTicketTypeConfiguration = true;
 
     private tickets: Ticket[] = [
-        { id: 'INC-1048', title: 'Не подключается VPN после обновления', requester: 'Анна Белова', team: 'Сетевая команда', priority: 'Высокий', status: 'В работе', createdAt: '10:42', slaRemaining: '01:18', type: 'Инцидент', assignee: 'Иван Петров', reactionSla: '00:08 / 00:30', resolutionSla: '01:18 / 04:00', assetId: 'LT-00231', createdOn: '2026-10-10', history: [{ id: 'h1', event: 'Заявка создана', actor: 'Анна Белова', createdAt: '10:12' }, { id: 'h2', event: 'Назначен исполнитель Иван Петров', actor: 'Диспетчер', createdAt: '10:20' }], comments: [{ id: 'c1', author: 'Иван Петров', message: 'Проверяю параметры подключения.', createdAt: '10:42', internal: false, attachments: [] }] },
+        { id: 'INC-1048', title: 'Не подключается VPN после обновления', requester: 'Анна Белова', team: 'Сетевая команда', priority: 'Высокий', status: 'В работе', createdAt: '10:42', slaRemaining: '01:18', type: 'Инцидент', assignee: 'Иван Петров', reactionSla: '00:08 / 00:30', resolutionSla: '01:18 / 04:00', assetId: 'LT-00231', createdOn: '2026-10-10', history: [{ id: 'h1', event: 'Заявка создана', actor: 'Анна Белова', createdAt: '10:12' }, { id: 'h2', event: 'Назначен исполнитель Иван Петров', actor: 'Администратор', createdAt: '10:20' }], comments: [{ id: 'c1', author: 'Иван Петров', message: 'Проверяю параметры подключения.', createdAt: '10:42', internal: false, attachments: [] }] },
         { id: 'SR-1047', title: 'Выдать доступ к корпоративному диску', requester: 'Пользователь портала', team: 'Сервис-деск', priority: 'Средний', status: 'Открыта', createdAt: '10:19', slaRemaining: '03:42', type: 'Запрос на обслуживание', assignee: 'Иван Петров', requesterLogin: 'demo-user', reactionSla: '00:11 / 00:30', resolutionSla: '03:42 / 08:00', createdOn: '2026-10-10', history: [{ id: 'h3', event: 'Заявка создана', actor: 'Пользователь портала', createdAt: '10:19' }], comments: [] },
         { id: 'INC-1046', title: 'Пропал доступ к принтеру на 3 этаже', requester: 'Елена Смирнова', team: 'Сервис-деск', priority: 'Средний', status: 'Ожидает выполнения', createdAt: '09:56', slaRemaining: '05:26', type: 'Инцидент', assignee: 'Сергей Волков', reactionSla: '00:15 / 00:30', resolutionSla: '05:26 / 08:00', createdOn: '2026-10-10', history: [], comments: [] },
         { id: 'SR-1045', title: 'Установка лицензии Figma', requester: 'Дмитрий Волков', team: 'ИТ-отдел', priority: 'Низкий', status: 'Проверка', createdAt: '09:41', slaRemaining: '07:10', type: 'Запрос на обслуживание', assignee: 'Иван Петров', reactionSla: '00:10 / 00:30', resolutionSla: '07:10 / 16:00', createdOn: '2026-10-09', history: [], comments: [] },
@@ -249,6 +251,38 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         ticket.assignee = assignee;
         this.recordTicketHistory(ticket, `Назначен исполнитель: ${assignee}`, 'Администратор');
         return of(ticket);
+    }
+
+    autoAssignTicket(ticketId: string): Observable<AutoAssignResult> {
+        const ticket = this.findTicket(ticketId);
+        if (ticket.status === 'Закрыта') return this.fail('Закрытую заявку нельзя перераспределить.');
+        const engineers = this.settings.engineers ?? [];
+        if (!engineers.length) return this.fail('Нет доступных активных инженеров для назначения.');
+        const assignee = this.leastLoadedEngineer() ?? engineers[0];
+        ticket.assignee = assignee;
+        this.recordTicketHistory(ticket, `Автораспределение: назначен ${assignee}`, 'Система');
+        const openTicketsCount = this.tickets.filter(item => item.assignee === assignee && item.status !== 'Закрыта').length;
+        return of({
+            ticketId,
+            assigneeId: engineers.indexOf(assignee) + 1,
+            assigneeName: assignee,
+            openTicketsCount,
+            reason: 'Назначен наименее загруженный инженер.',
+        } satisfies AutoAssignResult);
+    }
+
+    getAssignmentSetting(): Observable<AssignmentSetting> {
+        return of({
+            mode: this.settings.assignmentMode === 'manual' ? 'manual' : 'auto',
+            manualAssignerUserId: null,
+            manualAssignerName: null,
+            activeAgentsCount: this.settings.engineers?.length ?? 0,
+        });
+    }
+
+    saveAssignmentSetting(mode: 'auto' | 'manual'): Observable<AssignmentSetting> {
+        this.settings.assignmentMode = mode === 'manual' ? 'manual' : 'automatic';
+        return this.getAssignmentSetting();
     }
 
     changeTicketPriority(ticketId: string, priority: string): Observable<Ticket> {

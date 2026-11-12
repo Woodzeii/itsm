@@ -37,6 +37,9 @@ export class WorkspaceService {
     saveTicketTypes(types: TicketType[]) { return this.api.saveTicketTypes(types); }
     changeTicketStatus(ticketId: string, statusId: number) { return this.api.changeTicketStatus(ticketId, statusId); }
     assignTicket(ticketId: string, assigneeId: number) { return this.api.assignTicket(ticketId, assigneeId); }
+    autoAssignTicket(ticketId: string) { return this.api.autoAssignTicket(ticketId); }
+    getAssignmentSetting() { return this.api.getAssignmentSetting(); }
+    saveAssignmentSetting(mode: 'auto' | 'manual') { return this.api.saveAssignmentSetting(mode); }
     changeTicketPriority(ticketId: string, priority: string) { return this.api.changeTicketPriority(ticketId, priority); }
     getTicketComments(ticketId: string) { return this.api.getTicketComments(ticketId); }
     addTicketComment(ticketId: string, comment: Parameters<typeof this.api.addTicketComment>[1], attachments: File[]) { return this.api.addTicketComment(ticketId, comment, attachments); }

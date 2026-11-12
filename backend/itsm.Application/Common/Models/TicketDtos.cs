@@ -21,10 +21,21 @@ public sealed record CreateTicketRequest
 
     public int? AssetId { get; init; }
 
+    /// <summary>Пользователь, от лица которого создается заявка. По умолчанию — автор заявки.</summary>
+    public int? RequesterId { get; init; }
+
     public JsonElement? CustomFieldsData { get; init; }
 }
 
 public sealed record PortalTicketTypeResponse(int Id, string Name);
+
+/// <summary>Пользователь, которого можно указать заявителем при создании заявки.</summary>
+public sealed record RequesterOptionResponse(
+    int Id,
+    string Username,
+    string FullName,
+    string? Department,
+    string? Email);
 
 /// <summary>Request payload for updating a ticket.</summary>
 public sealed record UpdateTicketRequest
@@ -197,3 +208,26 @@ public sealed record TicketEscalationResponse(
     int? ToCriticalityLevelId,
     IReadOnlyList<int> NotifiedUserIds,
     DateTimeOffset EscalatedAt);
+
+/// <summary>Текущий режим назначения исполнителей.</summary>
+public sealed record AssignmentSettingResponse(
+    string Mode,
+    int? ManualAssignerUserId,
+    string? ManualAssignerName,
+    int ActiveAgentsCount);
+
+/// <summary>Запрос на изменение режима назначения исполнителей.</summary>
+public sealed record UpdateAssignmentSettingRequest
+{
+    [Required]
+    [RegularExpression("^(auto|manual)$", ErrorMessage = "Режим должен быть auto или manual.")]
+    public required string Mode { get; init; }
+}
+
+/// <summary>Результат автоматического назначения исполнителя.</summary>
+public sealed record AutoAssignResponse(
+    int TicketId,
+    int AssigneeId,
+    string AssigneeName,
+    int OpenTicketsCount,
+    string Reason);

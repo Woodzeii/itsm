@@ -15,6 +15,8 @@ import {
     EscalationHistoryEntry,
     EscalationPolicy,
     Escalation,
+    AssignmentSetting,
+    AutoAssignResult,
     FormFieldDefinition,
     OverviewData,
     PortalTicketType,
@@ -45,6 +47,9 @@ export abstract class WorkspaceApi {
     abstract saveTicketTypes(ticketTypes: TicketType[]): Observable<TicketType[]>;
     abstract changeTicketStatus(ticketId: string, statusId: number): Observable<Ticket>;
     abstract assignTicket(ticketId: string, assigneeId: number): Observable<Ticket>;
+    abstract autoAssignTicket(ticketId: string): Observable<AutoAssignResult>;
+    abstract getAssignmentSetting(): Observable<AssignmentSetting>;
+    abstract saveAssignmentSetting(mode: 'auto' | 'manual'): Observable<AssignmentSetting>;
     abstract changeTicketPriority(ticketId: string, priority: string): Observable<Ticket>;
     abstract getTicketComments(ticketId: string): Observable<TicketComment[]>;
     abstract getTicketHistory(ticketId: string): Observable<TicketHistory[]>;

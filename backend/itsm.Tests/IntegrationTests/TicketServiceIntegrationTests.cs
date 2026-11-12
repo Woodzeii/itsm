@@ -18,6 +18,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
     {
         await using var scope = await fixture.CreateScopeAsync();
         var service = CreateService(scope);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "manual" });
         var creator = await CreateUserAsync(scope.Db);
 
         var ticket = await service.CreateAsync(
@@ -29,9 +30,13 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         Assert.Equal("Открыта", ticket.StatusName);
         Assert.Equal(creator.Id, ticket.CreatorId);
         Assert.Equal("High", ticket.Priority);
+        Assert.Null(ticket.AssigneeId);
         Assert.True(await scope.Db.TicketAuditLogs.AnyAsync(log =>
             log.TicketId == ticket.Id && log.FieldName == "created"));
     }
+
+
+
 
     [Fact]
     public async Task GetHistoryReturnsTicketAuditAndRestrictsOtherUsers()
@@ -512,6 +517,115 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
     }
 
     [Fact]
+    public async Task AutoAssignmentOnCreatePicksLeastLoadedAgent()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "auto" });
+        var creator = await CreateUserAsync(scope.Db);
+        var busyAgent = await CreateUserAsync(scope.Db, "agent");
+        var freeAgent = await CreateUserAsync(scope.Db, "agent");
+        await CreateTicketAsync(scope.Db, creator.Id, assigneeId: busyAgent.Id);
+
+        var ticket = await service.CreateAsync(
+            NewTicketRequest(),
+            creator.Id,
+            isStaff: false,
+            isEngineer: false);
+
+        Assert.Equal(freeAgent.Id, ticket.AssigneeId);
+        Assert.True(await scope.Db.TicketAuditLogs.AnyAsync(log =>
+            log.TicketId == ticket.Id && log.FieldName == "autoAssigned"));
+    }
+
+    [Fact]
+    public async Task AutoAssignmentIsSkippedInManualMode()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        await CreateUserAsync(scope.Db, "agent");
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "manual" });
+
+        var ticket = await service.CreateAsync(
+            NewTicketRequest(),
+            creator.Id,
+            isStaff: false,
+            isEngineer: false);
+
+        Assert.Null(ticket.AssigneeId);
+        Assert.False(await scope.Db.TicketAuditLogs.AnyAsync(log =>
+            log.TicketId == ticket.Id && log.FieldName == "autoAssigned"));
+    }
+
+    [Fact]
+    public async Task ManualAutoAssignEndpointReassignsToLeastLoadedAgent()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "auto" });
+        var creator = await CreateUserAsync(scope.Db);
+        var busyAgent = await CreateUserAsync(scope.Db, "agent");
+        var freeAgent = await CreateUserAsync(scope.Db, "agent");
+        await CreateTicketAsync(scope.Db, creator.Id, assigneeId: busyAgent.Id);
+        var target = await CreateTicketAsync(scope.Db, creator.Id, assigneeId: busyAgent.Id);
+
+        var result = await service.AutoAssignAsync(target.Id, busyAgent.Id);
+
+        Assert.NotNull(result);
+        Assert.Equal(freeAgent.Id, result!.AssigneeId);
+        Assert.Equal(0, result.OpenTicketsCount);
+
+        var assigned = await scope.Db.Tickets.FindAsync(target.Id);
+        Assert.Equal(freeAgent.Id, assigned!.AssigneeId);
+    }
+
+    [Fact]
+    public async Task AutoAssignWithoutActiveAgentsThrows()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AutoAssignAsync(ticket.Id, creator.Id));
+    }
+
+    [Fact]
+    public async Task AssignmentSettingIsPersistedAndValidated()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var defaults = await service.GetAssignmentSettingAsync();
+        Assert.Equal("auto", defaults.Mode);
+
+        var updated = await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "manual" });
+        Assert.Equal("manual", updated.Mode);
+
+        var reloaded = await service.GetAssignmentSettingAsync();
+        Assert.Equal("manual", reloaded.Mode);
+    }
+
+
+
+
+
+
+    [Fact]
+    public async Task ClosedTicketEscalationIsRejected()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var head = await CreateUserAsync(scope.Db, "agent");
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id, statusId: 5);
+        await service.SetServiceDeskHeadAsync(new SetServiceDeskHeadRequest { UserId = head.Id });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.EscalateAsync(ticket.Id, creator.Id));
+        Assert.Empty(await scope.Db.TicketEscalations.ToListAsync());
+    }
+
+    [Fact]
     public async Task ManualEscalationIsRejectedWhenDisabledByRule()
     {
         await using var scope = await fixture.CreateScopeAsync();
@@ -694,7 +808,8 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         int? assetId = null,
         int? criticalityLevelId = null,
         int typeId = 1,
-        int statusId = 1)
+        int statusId = 1,
+        int? assigneeId = null)
     {
         var ticket = new Ticket
         {
@@ -706,6 +821,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
             CreatorId = creatorId,
             TenantId = db.GetCurrentTenantId(),
             AssetId = assetId,
+            AssigneeId = assigneeId,
             CriticalityLevelId = criticalityLevelId
         };
         db.Tickets.Add(ticket);

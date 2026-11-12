@@ -133,6 +133,21 @@ export interface Escalation {
     slaRemaining: string;
 }
 
+export interface AssignmentSetting {
+    mode: 'auto' | 'manual';
+    manualAssignerUserId?: number | null;
+    manualAssignerName?: string | null;
+    activeAgentsCount: number;
+}
+
+export interface AutoAssignResult {
+    ticketId: string;
+    assigneeId: number;
+    assigneeName: string;
+    openTicketsCount: number;
+    reason: string;
+}
+
 export interface OverviewData {
     metrics: WorkspaceMetric[];
     series: { label: string; resolved: number; incoming: number }[];
