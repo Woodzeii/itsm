@@ -1,0 +1,13 @@
+{
+  "name": "itsm-e2e-scripts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "install:playwright": "playwright install chromium",
+    "test:auth-smoke": "node auth-smoke-e2e.js"
+  },
+  "dependencies": {
+    "otplib": "12.0.1",
+    "playwright": "1.60.0"
+  }
+}
