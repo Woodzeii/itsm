@@ -24,4 +24,33 @@ public class ItsmDbContextTests
             "jsonb",
             model.FindEntityType(typeof(Ticket))!.FindProperty(nameof(Ticket.CustomFieldsData))!.GetColumnType());
     }
+
+    [Fact]
+    public async Task TenantQueryFilter_UsesTenantOfEachDbContextInstance()
+    {
+        var databaseName = Guid.NewGuid().ToString();
+        var options = new DbContextOptionsBuilder<ItsmDbContext>()
+            .UseInMemoryDatabase(databaseName)
+            .Options;
+
+        var tenantOneContext = new TenantContext();
+        tenantOneContext.SetCurrentTenantId(1);
+        await using (var tenantOneDb = new ItsmDbContext(options, tenantOneContext))
+        {
+            await tenantOneDb.Database.EnsureCreatedAsync();
+            tenantOneDb.Users.AddRange(
+                new User { Username = "tenant-one", Email = "one@example.test", TenantId = 1 },
+                new User { Username = "tenant-three", Email = "three@example.test", TenantId = 3 });
+            await tenantOneDb.SaveChangesAsync();
+            Assert.Equal(1, await tenantOneDb.Users.CountAsync());
+        }
+
+        var tenantThreeContext = new TenantContext();
+        tenantThreeContext.SetCurrentTenantId(3);
+        await using var tenantThreeDb = new ItsmDbContext(options, tenantThreeContext);
+
+        var users = await tenantThreeDb.Users.ToListAsync();
+
+        Assert.Equal(new[] { "tenant-three" }, users.Select(user => user.Username));
+    }
 }

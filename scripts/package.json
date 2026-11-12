@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "install:playwright": "playwright install chromium",
+    "test:auth-smoke": "node auth-smoke-e2e.js",
+    "test:tenant-isolation": "node tenant-isolation-api.js"
     "test:auth-smoke": "node auth-smoke-e2e.js"
   },
   "dependencies": {

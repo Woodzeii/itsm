@@ -668,7 +668,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
 
         foreach (var entityType in multiTenantTypes)
         {
-            // Read the tenant from this DbContext so EF can parameterize the filter per context.
+            // EF параметризует TenantId текущего DbContext отдельно для каждого экземпляра.
             var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
             var property = System.Linq.Expressions.Expression.Property(parameter, tenantIdProperty);
             var currentTenantId = System.Linq.Expressions.Expression.Property(
