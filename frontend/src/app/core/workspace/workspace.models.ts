@@ -90,6 +90,13 @@ export interface AssetRecord {
     location?: string;
     department?: string;
     attributes?: Record<string, string>;
+    inventoryNumber?: string;
+    serialNumber?: string;
+    assetClassId?: number;
+    warehouseId?: number | null;
+    locationId?: number | null;
+    departmentId?: number | null;
+    assignedUserId?: number | null;
 }
 
 export type AssetLifecycle = 'Закуплен' | 'На складе' | 'В эксплуатации' | 'В ремонте' | 'Списан';
@@ -109,6 +116,9 @@ export interface AssetMovement {
     to: string;
     actor: string;
     createdAt: string;
+    movementType?: string;
+    fromUserId?: number | null;
+    toUserId?: number | null;
 }
 
 export interface AssetDetails extends AssetRecord {
@@ -127,12 +137,23 @@ export interface CreateAssetRequest {
     location?: string;
     department?: string;
     attributes?: Record<string, string>;
+    serialNumber?: string;
+    assetClassId?: number;
+    warehouseId?: number | null;
+    locationId?: number | null;
+    departmentId?: number | null;
+    assignedUserId?: number | null;
 }
 
 export interface AssetMovementRequest {
     kind: string;
     from: string;
     to: string;
+    toUserId?: number | null;
+    toWarehouseId?: number | null;
+    toLocationId?: number | null;
+    toDepartmentId?: number | null;
+    comment?: string;
 }
 
 export interface Escalation {
