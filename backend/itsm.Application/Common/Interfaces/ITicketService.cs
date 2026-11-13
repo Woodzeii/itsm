@@ -30,7 +30,6 @@ public interface ITicketService
     Task<TicketAttachmentFile?> OpenAttachmentAsync(int ticketId, int attachmentId, int userId, bool isStaff, CancellationToken ct = default, bool isManager = false);
     Task<IReadOnlyList<TicketHistoryResponse>?> GetHistoryAsync(int id, int userId, bool isStaff, CancellationToken ct = default, bool isManager = false);
     Task<IReadOnlyList<TicketMessageResponse>?> GetMessagesAsync(int id, int userId, bool isStaff, CancellationToken ct = default, bool isManager = false);
-    Task<TicketAttachmentFile?> OpenAttachmentAsync(int ticketId, int attachmentId, int userId, bool isStaff, CancellationToken ct = default);
     Task<IReadOnlyList<TicketHistoryResponse>?> GetHistoryAsync(int id, int userId, bool isStaff, CancellationToken ct = default, int? skip = null, int? take = null);
     Task<IReadOnlyList<TicketMessageResponse>?> GetMessagesAsync(int id, int userId, bool isStaff, CancellationToken ct = default, int? skip = null, int? take = null);
     Task<TicketMessageResponse?> CreateMessageAsync(int id, CreateTicketMessageRequest request, int authorId, bool isStaff, CancellationToken ct = default);
