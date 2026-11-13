@@ -649,6 +649,27 @@ html[data-theme='dark'] tbody tr:hover {
     background: var(--app-hover);
 }
 
+html[data-theme='dark'] app-ticket-queue tbody tr.active,
+html[data-theme='dark'] app-ticket-queue tbody tr.active:hover {
+    background: #1b3352 !important;
+}
+
+html[data-theme='dark'] app-ticket-queue tbody tr.active td {
+    color: #e2e8f0 !important;
+}
+
+html[data-theme='dark'] app-ticket-queue tbody tr.active td:first-child strong {
+    color: #93c5fd !important;
+}
+
+html[data-theme='dark'] app-ticket-queue tbody tr.active td:first-child > span {
+    color: #f1f5f9 !important;
+}
+
+html[data-theme='dark'] app-ticket-queue tbody tr.active td:first-child small {
+    color: #b6c2d2 !important;
+}
+
 html[data-theme='dark'] button.secondary,
 html[data-theme='dark'] button.quiet,
 html[data-theme='dark'] button.outline,
@@ -1242,4 +1263,333 @@ html[data-theme='dark'] .qr-code {
     background: #ffffff;
     padding: 8px;
     border-radius: 10px;
+}
+
+html[data-theme='dark'] app-ticket-queue .activity-modal {
+    border-color: var(--app-border);
+    background: var(--app-surface);
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-ticket-queue .activity-modal-header,
+html[data-theme='dark'] app-ticket-queue .modal-comment-composer {
+    border-color: var(--app-divider);
+    background: var(--app-surface);
+}
+
+html[data-theme='dark'] app-ticket-queue .activity-modal-subtitle,
+html[data-theme='dark'] app-ticket-queue .history-entry small,
+html[data-theme='dark'] app-ticket-queue .timeline-end,
+html[data-theme='dark'] app-ticket-queue .activity-open-action {
+    color: var(--app-muted);
+}
+
+html[data-theme='dark'] app-ticket-queue .activity-open {
+    border-color: var(--app-divider);
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-ticket-queue .activity-open-action {
+    color: var(--app-primary);
+}
+
+html[data-theme='dark'] app-ticket-queue .history-entry {
+    border-color: var(--app-divider);
+}
+
+html[data-theme='dark'] app-ticket-queue .history-entry-marker {
+    background: var(--app-surface);
+    box-shadow: 0 0 0 3px var(--app-surface-2);
+}
+
+html[data-theme='dark'] app-ticket-queue .comments-modal-content .timeline-entry {
+    border-color: var(--app-border);
+    background: var(--app-surface-2);
+}
+
+html[data-theme='dark'] app-ticket-queue .comments-modal-content .timeline-entry.internal {
+    border-color: #6b5428;
+    background: #3d3018;
+}
+
+html[data-theme='dark'] app-ticket-queue .modal-comment-composer textarea {
+    border-color: var(--app-border);
+    background: #0f1728;
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-ticket-queue .modal-jump-latest {
+    border-color: var(--app-primary);
+    background: var(--app-surface-2);
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-ticket-queue .file-picker {
+    border-color: var(--app-border);
+    background: var(--app-surface-2);
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-ticket-queue .file-picker:hover {
+    border-color: var(--app-primary);
+    background: #1f2b3d;
+}
+
+html[data-theme='dark'] app-ticket-queue .timeline-entry .timeline-author {
+    color: var(--app-text) !important;
+    font-size: 13px !important;
+}
+
+html[data-theme='dark'] app-ticket-queue .timeline-entry .timeline-message {
+    color: #f1f5f9 !important;
+    font-size: 15px !important;
+    line-height: 1.65;
+}
+
+html[data-theme='dark'] app-ticket-queue .timeline-meta,
+html[data-theme='dark'] app-ticket-queue .history-entry .timeline-meta {
+    color: #b6c2d2 !important;
+    font-size: 12px !important;
+    font-weight: 500;
+}
+
+html[data-theme='dark'] app-ticket-queue .history-event {
+    color: #f1f5f9 !important;
+    font-size: 14px !important;
+    font-weight: 650;
+}
+
+app-ticket-queue .activity-open {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 0 8px;
+    padding: 3px 0 8px;
+    border: 0;
+    border-bottom: 1px solid #dfe5ee;
+    background: transparent;
+    color: #27364a;
+    text-align: left;
+    cursor: pointer;
+}
+
+app-ticket-queue .activity-open > span:first-child { font-size: 12px; font-weight: 700; }
+app-ticket-queue .activity-open-action { display: inline-flex; align-items: center; gap: 4px; color: #3269b7; font-size: 9px; font-weight: 650; }
+app-ticket-queue .activity-open:hover .activity-open-action { text-decoration: underline; text-underline-offset: 3px; }
+app-ticket-queue .activity-open:focus-visible { outline: 2px solid #3475d1; outline-offset: 3px; border-radius: 3px; }
+
+app-ticket-queue .activity-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(7, 13, 24, .68);
+    backdrop-filter: blur(4px);
+    animation: activity-backdrop-in .16s ease both;
+}
+
+app-ticket-queue .activity-modal {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(920px, 100%);
+    height: min(780px, 88vh);
+    min-height: 360px;
+    overflow: hidden;
+    border: 1px solid #d6deea;
+    border-radius: 14px;
+    background: #fff;
+    color: #202734;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, .32);
+    animation: activity-panel-in .2s ease both;
+}
+
+app-ticket-queue .activity-modal-header {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 28px 16px;
+    border-bottom: 1px solid #e3e9f1;
+    background: #f8faff;
+}
+
+app-ticket-queue .activity-modal > .activity-modal-header {
+    padding-inline: 28px !important;
+}
+
+app-ticket-queue .activity-modal-header h2 { font-size: 20px; }
+app-ticket-queue .activity-modal-subtitle { margin: 6px 0 0; color: #66758a; font-size: 12px; }
+app-ticket-queue .activity-modal-close { flex: 0 0 auto; width: 34px; height: 34px; font-size: 21px; }
+app-ticket-queue .activity-modal-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 16px 24px; }
+app-ticket-queue .history-modal-content { display: grid; align-content: start; }
+
+app-ticket-queue .history-entry {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #e8edf4;
+    animation: timeline-entry-in .2s ease both;
+}
+
+app-ticket-queue .history-entry-marker { width: 9px; height: 9px; margin-top: 4px; border: 2px solid #3475d1; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #eaf2ff; }
+app-ticket-queue .history-entry div { display: grid; gap: 5px; }
+app-ticket-queue .history-entry strong { font-size: 12px; }
+app-ticket-queue .history-entry small,
+app-ticket-queue .timeline-end { color: #718096; font-size: 10px; }
+app-ticket-queue .timeline-end { margin: 14px 0 3px; text-align: center; }
+app-ticket-queue .comments-modal-content { padding-bottom: 12px; }
+
+app-ticket-queue .comments-modal-content .timeline-entry {
+    margin: 0 0 11px;
+    padding: 13px 15px;
+    border: 1px solid #e0e7f0;
+    border-radius: 9px;
+    background: #f7f9fc;
+    animation: timeline-entry-in .2s ease both;
+}
+
+app-ticket-queue .comments-modal-content .timeline-entry.internal { border-color: #ead7af; background: #fff9ed; }
+app-ticket-queue .comments-modal-content .timeline-entry strong { font-size: 12px; }
+app-ticket-queue .comments-modal-content .timeline-entry p { font-size: 12px; }
+
+app-ticket-queue .modal-comment-composer {
+    position: relative;
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 16px 28px 20px;
+    border-top: 1px solid #e3e9f1;
+    background: #fff;
+    box-shadow: 0 -5px 16px rgba(15, 23, 42, .04);
+}
+
+app-ticket-queue .activity-modal > .modal-comment-composer {
+    width: 100%;
+    margin: 0 !important;
+    padding: 16px 28px 20px !important;
+}
+
+app-ticket-queue .modal-comment-composer .composer-options {
+    gap: 10px;
+    padding-inline: 10px;
+}
+
+app-ticket-queue .modal-comment-composer textarea { min-height: 74px; }
+app-ticket-queue .modal-jump-latest { position: absolute; right: 30px; bottom: 112px; }
+
+@keyframes activity-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes activity-panel-in { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+@media (max-width: 600px) {
+    app-ticket-queue .activity-modal-backdrop { padding: 8px; }
+    app-ticket-queue .activity-modal { width: 100%; height: 94vh; min-height: 0; border-radius: 10px; }
+    app-ticket-queue .activity-modal > .activity-modal-header { padding: 15px 20px 12px !important; }
+    app-ticket-queue .activity-modal-header h2 { font-size: 17px; }
+    app-ticket-queue .activity-modal-content { padding: 12px 14px; }
+    app-ticket-queue .activity-modal > .modal-comment-composer { padding: 12px 20px 16px !important; }
+    app-ticket-queue .modal-comment-composer .composer-options { padding-inline: 6px; }
+    app-ticket-queue .modal-jump-latest { right: 24px; bottom: 138px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    app-ticket-queue .activity-modal-backdrop,
+    app-ticket-queue .activity-modal,
+    app-ticket-queue .history-entry,
+    app-ticket-queue .comments-modal-content .timeline-entry { animation: none; }
+}
+
+app-ticket-queue .timeline-entry .timeline-author {
+    display: block;
+    margin-bottom: 5px;
+    color: #344256;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+app-ticket-queue .timeline-entry .timeline-message {
+    margin: 0 0 9px;
+    color: #202b3a;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+app-ticket-queue .timeline-meta {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    color: #66758a;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+}
+
+app-ticket-queue .history-event {
+    color: #202b3a;
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.5;
+}
+
+app-ticket-queue .file-picker {
+    position: relative;
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 11px;
+    overflow: hidden;
+    border: 1px solid #d5deea;
+    border-radius: 6px;
+    background: #f5f8fc;
+    color: #344256;
+    font-size: 10px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+}
+
+app-ticket-queue .file-picker:hover { border-color: #8bb2ef; background: #edf4ff; }
+app-ticket-queue .file-picker:focus-within { outline: 2px solid #3475d1; outline-offset: 2px; }
+app-ticket-queue .file-picker input[type="file"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+html[data-theme='dark'] app-ticket-queue .comment-composer {
+    border-color: var(--app-divider) !important;
+    background: var(--app-surface) !important;
+}
+
+html[data-theme='dark'] app-ticket-queue .comment-composer textarea {
+    border-color: var(--app-border) !important;
+    background: #0f1728 !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-ticket-queue .activity-heading span,
+html[data-theme='dark'] app-ticket-queue .timeline-loading {
+    color: #cbd5e1 !important;
+}
+
+html[data-theme='dark'] app-ticket-queue .jump-latest {
+    border-color: var(--app-primary) !important;
+    background: #1b3352 !important;
+    color: var(--app-text) !important;
 }

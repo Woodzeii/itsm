@@ -119,6 +119,43 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
     }
 
     [Fact]
+    public async Task TicketHistoryPagesReturnNewestChangesFirst()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id);
+        var changedAt = DateTimeOffset.UtcNow;
+
+        scope.Db.TicketAuditLogs.AddRange(
+            new TicketAuditLog
+            {
+                TicketId = ticket.Id,
+                UserId = creator.Id,
+                FieldName = "priority",
+                OldValue = "Низкий",
+                NewValue = "Средний",
+                ChangedAt = changedAt.AddMinutes(-2)
+            },
+            new TicketAuditLog
+            {
+                TicketId = ticket.Id,
+                UserId = creator.Id,
+                FieldName = "priority",
+                OldValue = "Средний",
+                NewValue = "Высокий",
+                ChangedAt = changedAt.AddMinutes(-1)
+            });
+        await scope.Db.SaveChangesAsync();
+
+        var newest = await service.GetHistoryAsync(ticket.Id, creator.Id, isStaff: false, skip: 0, take: 1);
+        var older = await service.GetHistoryAsync(ticket.Id, creator.Id, isStaff: false, skip: 1, take: 1);
+
+        Assert.Equal("Приоритет изменен: Средний → Высокий", Assert.Single(newest!).Event);
+        Assert.Equal("Приоритет изменен: Низкий → Средний", Assert.Single(older!).Event);
+    }
+
+    [Fact]
     public async Task TicketRequestsAreRestrictedToTheCurrentTenant()
     {
         await using var scope = await fixture.CreateScopeAsync();
@@ -346,14 +383,16 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
                 TicketId = ticket.Id,
                 AuthorId = creator.Id,
                 MessageBody = "Public reply",
-                IsInternal = false
+                IsInternal = false,
+                CreatedAt = DateTimeOffset.UtcNow.AddMinutes(-1)
             },
             new TicketMessage
             {
                 TicketId = ticket.Id,
                 AuthorId = agent.Id,
                 MessageBody = "Internal note",
-                IsInternal = true
+                IsInternal = true,
+                CreatedAt = DateTimeOffset.UtcNow
             });
         await scope.Db.SaveChangesAsync();
 
@@ -366,6 +405,12 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         Assert.Equal(
             2,
             (await service.GetMessagesAsync(ticket.Id, agent.Id, isStaff: true))!.Count);
+        Assert.Equal(
+            new[] { "Internal note" },
+            (await service.GetMessagesAsync(ticket.Id, agent.Id, isStaff: true, skip: 0, take: 1))!.Select(message => message.MessageBody));
+        Assert.Equal(
+            new[] { "Public reply" },
+            (await service.GetMessagesAsync(ticket.Id, creator.Id, isStaff: false, skip: 0, take: 1))!.Select(message => message.MessageBody));
     }
 
     [Fact]
