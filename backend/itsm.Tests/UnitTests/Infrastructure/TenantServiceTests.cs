@@ -61,6 +61,39 @@ public class TenantServiceTests
     }
 
     [Fact]
+    public async Task Create_InitializesTicketConfigurationForNewTenant()
+    {
+        var (service, db) = Create();
+        var tenant = await service.CreateAsync(new CreateTenantRequest
+        {
+            Name = "Ticket Configuration Company",
+            FirstAdminLogin = "ticket.admin",
+            FirstAdminEmail = "ticket.admin@example.test",
+            FirstAdminFullName = "Ticket Administrator",
+            FirstAdminPassword = "Passw0rd1"
+        });
+
+        db.SetTenantId(tenant.Id);
+        var ticketService = new TicketService(db, Mock.Of<ITicketAttachmentStorage>());
+
+        var portalTypes = await ticketService.GetPortalTicketTypesAsync();
+        var statuses = await db.TicketStatuses.ToListAsync();
+        var criticalities = await db.CriticalityLevels.ToListAsync();
+        var transitions = await db.TicketStatusTransitions.ToListAsync();
+        var tenantStatusIds = statuses.Select(status => status.Id).ToHashSet();
+        var tenantTransitions = transitions.Where(transition =>
+            tenantStatusIds.Contains(transition.FromStatusId)
+            && tenantStatusIds.Contains(transition.ToStatusId));
+
+        portalTypes.Should().HaveCount(4)
+            .And.Contain(type => type.Name == "Инцидент");
+        statuses.Should().HaveCount(5)
+            .And.Contain(status => status.Code == "new");
+        criticalities.Should().HaveCount(3);
+        tenantTransitions.Should().HaveCount(5);
+    }
+
+    [Fact]
     public async Task UpdateSettings_AllowsOwnerToToggleAdminCreationPolicy()
     {
         var (service, _) = Create();

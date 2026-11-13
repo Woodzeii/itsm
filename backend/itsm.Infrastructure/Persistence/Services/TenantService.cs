@@ -30,6 +30,7 @@ public class TenantService : ITenantService
     private const string AdminRoleCode = "admin";
     private const string TenantOwnerRoleCode = "tenant_owner";
     private const string TenantAdminRoleCode = "tenant_admin";
+    private const int DefaultTenantId = 1;
     private readonly ItsmDbContext _db;
     private readonly IPasswordHasher _passwordHasher;
 
@@ -163,8 +164,77 @@ public class TenantService : ITenantService
         firstAdmin.RoleMappings.Add(new UserRoleMapping { RoleId = tenantOwnerRoleId.Value });
         tenant.Users.Add(firstAdmin);
 
+        var templateTicketTypes = await _db.TicketTypes
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(type => type.TenantId == DefaultTenantId)
+            .ToListAsync(ct);
+        var templateStatuses = await _db.TicketStatuses
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(status => status.TenantId == DefaultTenantId)
+            .ToListAsync(ct);
+        var templateCriticalities = await _db.CriticalityLevels
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(level => level.TenantId == DefaultTenantId)
+            .ToListAsync(ct);
+        var templateTransitions = await _db.TicketStatusTransitions
+            .AsNoTracking()
+            .ToListAsync(ct);
+
+        if (templateTicketTypes.Count == 0 || templateStatuses.Count == 0 || templateCriticalities.Count == 0)
+            throw new InvalidOperationException("Не найдены базовые настройки заявок для нового тенанта.");
+
+        await using var transaction = _db.Database.IsRelational()
+            ? await _db.Database.BeginTransactionAsync(ct)
+            : null;
+
         _db.Tenants.Add(tenant);
         await _db.SaveChangesAsync(ct);
+
+        var statusesByTemplateId = templateStatuses.ToDictionary(
+            status => status.Id,
+            status => new TicketStatus
+            {
+                TenantId = tenant.Id,
+                Code = status.Code,
+                Name = status.Name,
+                IsSlaPausing = status.IsSlaPausing,
+                SortOrder = status.SortOrder
+            });
+
+        _db.TicketTypes.AddRange(templateTicketTypes.Select(type => new TicketType
+        {
+            TenantId = tenant.Id,
+            Code = type.Code,
+            Name = type.Name,
+            IsBuiltIn = type.IsBuiltIn,
+            IsPortalAvailable = type.IsPortalAvailable
+        }));
+        _db.TicketStatuses.AddRange(statusesByTemplateId.Values);
+        _db.CriticalityLevels.AddRange(templateCriticalities.Select(level => new CriticalityLevel
+        {
+            TenantId = tenant.Id,
+            Code = level.Code,
+            Name = level.Name,
+            SortOrder = level.SortOrder,
+            IsActive = level.IsActive
+        }));
+        _db.TicketStatusTransitions.AddRange(templateTransitions
+            .Where(transition => statusesByTemplateId.ContainsKey(transition.FromStatusId)
+                && statusesByTemplateId.ContainsKey(transition.ToStatusId))
+            .Select(transition => new TicketStatusTransition
+            {
+                FromStatus = statusesByTemplateId[transition.FromStatusId],
+                ToStatus = statusesByTemplateId[transition.ToStatusId],
+                RequiredRoleCode = transition.RequiredRoleCode,
+                CreatedAt = transition.CreatedAt
+            }));
+
+        await _db.SaveChangesAsync(ct);
+        if (transaction is not null)
+            await transaction.CommitAsync(ct);
 
         return (await GetByIdAsync(tenant.Id, ct))!;
     }
