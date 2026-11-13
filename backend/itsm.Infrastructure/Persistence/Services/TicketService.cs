@@ -179,6 +179,36 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             NewValue = ticket.StatusId.ToString(),
             ChangedAt = now
         });
+        if (await IsAutoAssignmentEnabledAsync(ct)
+            && ticket.Type.Code != RepairTypeCode
+            && await PickLeastLoadedAgentAsync(excludeUserId: null, ct) is { } autoAssignee)
+        {
+            ticket.AssigneeId = autoAssignee.UserId;
+            ticket.AssigneeGroupId = null;
+            db.TicketAuditLogs.Add(new TicketAuditLog
+            {
+                TicketId = ticket.Id,
+                UserId = creatorId,
+                FieldName = "assigneeId",
+                OldValue = null,
+                NewValue = autoAssignee.UserId.ToString(),
+                ChangedAt = now
+            });
+            db.TicketAuditLogs.Add(new TicketAuditLog
+            {
+                TicketId = ticket.Id,
+                UserId = creatorId,
+                FieldName = "autoAssigned",
+                NewValue = JsonSerializer.Serialize(new
+                {
+                    assigneeId = autoAssignee.UserId,
+                    openTickets = autoAssignee.OpenTickets,
+                    strategy = "least-loaded"
+                }),
+                ChangedAt = now
+            });
+        }
+
         if (requesterId != creatorId)
         {
             db.TicketAuditLogs.Add(new TicketAuditLog
@@ -370,6 +400,139 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         await db.SaveChangesAsync(ct);
         var updatedTicket = await TicketQuery().FirstAsync(item => item.Id == ticket.Id, ct);
         return ToResponse(updatedTicket);
+    }
+
+    public async Task<AutoAssignResponse?> AutoAssignAsync(int id, int actorId, CancellationToken ct = default)
+    {
+        var ticket = await TicketQuery().FirstOrDefaultAsync(item => item.Id == id, ct);
+        if (ticket is null)
+            return null;
+
+        if (ticket.Status.Code == ClosedStatusCode)
+            throw new InvalidOperationException("Закрытую заявку нельзя перераспределить.");
+
+        var candidate = await PickLeastLoadedAgentAsync(excludeUserId: null, ct)
+            ?? throw new InvalidOperationException("Нет доступных активных инженеров для назначения.");
+
+        var oldAssigneeId = ticket.AssigneeId;
+        if (oldAssigneeId == candidate.UserId)
+            return new AutoAssignResponse(
+                ticket.Id,
+                candidate.UserId,
+                candidate.FullName,
+                candidate.OpenTickets,
+                "Наименее загруженный инженер уже назначен на заявку.");
+
+        ticket.AssigneeId = candidate.UserId;
+        ticket.Assignee = await db.Users.FirstAsync(user => user.Id == candidate.UserId, ct);
+        ticket.AssigneeGroupId = null;
+        ticket.UpdatedAt = DateTimeOffset.UtcNow;
+        AddAudit(ticket, actorId, "assigneeId", oldAssigneeId?.ToString(), candidate.UserId.ToString());
+        AddAudit(
+            ticket,
+            actorId,
+            "autoAssigned",
+            null,
+            JsonSerializer.Serialize(new
+            {
+                assigneeId = candidate.UserId,
+                openTickets = candidate.OpenTickets,
+                strategy = "least-loaded"
+            }));
+
+        await db.SaveChangesAsync(ct);
+        return new AutoAssignResponse(
+            ticket.Id,
+            candidate.UserId,
+            candidate.FullName,
+            candidate.OpenTickets,
+            "Назначен наименее загруженный инженер.");
+    }
+
+    public async Task<AssignmentSettingResponse> GetAssignmentSettingAsync(CancellationToken ct = default)
+    {
+        var setting = await db.AssignmentSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == 1, ct);
+        var manualAssignerName = setting?.ManualAssignerUserId is int manualAssignerId
+            ? await db.Users.Where(user => user.Id == manualAssignerId).Select(user => user.FullName).FirstOrDefaultAsync(ct)
+            : null;
+        var activeAgents = await CountActiveAgentsAsync(ct);
+
+        return new AssignmentSettingResponse(
+            setting?.Mode ?? "auto",
+            setting?.ManualAssignerUserId,
+            manualAssignerName,
+            activeAgents);
+    }
+
+    public async Task<AssignmentSettingResponse> UpdateAssignmentSettingAsync(
+        UpdateAssignmentSettingRequest request,
+        CancellationToken ct = default)
+    {
+        var setting = await db.AssignmentSettings.FirstOrDefaultAsync(item => item.Id == 1, ct);
+        if (setting is null)
+        {
+            setting = new AssignmentSetting { Id = 1, Mode = request.Mode };
+            db.AssignmentSettings.Add(setting);
+        }
+        else
+        {
+            setting.Mode = request.Mode;
+            setting.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return await GetAssignmentSettingAsync(ct);
+    }
+
+    private async Task<bool> IsAutoAssignmentEnabledAsync(CancellationToken ct)
+    {
+        var mode = await db.AssignmentSettings
+            .Where(item => item.Id == 1)
+            .Select(item => item.Mode)
+            .FirstOrDefaultAsync(ct);
+
+        return string.Equals(mode ?? "auto", "auto", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<int> CountActiveAgentsAsync(CancellationToken ct) =>
+        await db.Users.CountAsync(user => user.IsActive
+            && user.RoleMappings.Any(mapping => mapping.Role.Code == "agent"), ct);
+
+    private sealed record AgentCandidate(int UserId, string FullName, int OpenTickets);
+
+    private async Task<AgentCandidate?> PickLeastLoadedAgentAsync(int? excludeUserId, CancellationToken ct)
+    {
+        var closedStatusId = await db.TicketStatuses
+            .Where(status => status.Code == ClosedStatusCode)
+            .Select(status => (int?)status.Id)
+            .FirstOrDefaultAsync(ct);
+
+        var agents = await db.Users
+            .AsNoTracking()
+            .Where(user => user.IsActive
+                && user.RoleMappings.Any(mapping => mapping.Role.Code == "agent")
+                && (excludeUserId == null || user.Id != excludeUserId))
+            .Select(user => new
+            {
+                user.Id,
+                user.FullName,
+                OpenTickets = user.AssignedTickets.Count(ticket => closedStatusId == null || ticket.StatusId != closedStatusId),
+                LastAssignedAt = user.AssignedTickets
+                    .Where(ticket => closedStatusId == null || ticket.StatusId != closedStatusId)
+                    .OrderByDescending(ticket => ticket.CreatedAt)
+                    .Select(ticket => (DateTimeOffset?)ticket.CreatedAt)
+                    .FirstOrDefault()
+            })
+            .ToListAsync(ct);
+
+        return agents
+            .OrderBy(agent => agent.OpenTickets)
+            .ThenBy(agent => agent.LastAssignedAt ?? DateTimeOffset.MinValue)
+            .ThenBy(agent => agent.Id)
+            .Select(agent => new AgentCandidate(agent.Id, agent.FullName, agent.OpenTickets))
+            .FirstOrDefault();
     }
 
     public async Task<TicketEscalationResponse?> EscalateAsync(
@@ -1040,6 +1203,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             "assigneeId" => "Исполнитель",
             "requesterId" => "Заявитель",
             "criticalityLevelId" => "Критичность",
+            "autoAssigned" => "Автораспределение",
             "escalationAccepted" => "Эскалация принята",
             _ => log.FieldName
         };

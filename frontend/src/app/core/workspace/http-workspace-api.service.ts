@@ -20,6 +20,8 @@ import {
     EscalationHistoryEntry,
     EscalationPolicy,
     Escalation,
+    AssignmentSetting,
+    AutoAssignResult,
     FormFieldDefinition,
     OverviewData,
     PortalTicketType,
@@ -146,6 +148,30 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return this.http
             .post<BackendTicket>(`${this.baseUrl}/tickets/${ticketId}/assign`, { assigneeId })
             .pipe(map(toTicket));
+    }
+    autoAssignTicket(ticketId: string) {
+        return this.http
+            .post<{ ticketId?: number; assigneeId?: number; assigneeName?: string; openTicketsCount?: number; reason?: string }>(
+                `${this.baseUrl}/tickets/${ticketId}/auto-assign`,
+                null,
+            )
+            .pipe(map(result => ({
+                ticketId: String(result.ticketId ?? ticketId),
+                assigneeId: result.assigneeId ?? 0,
+                assigneeName: result.assigneeName ?? '',
+                openTicketsCount: result.openTicketsCount ?? 0,
+                reason: result.reason ?? '',
+            } satisfies AutoAssignResult)));
+    }
+    getAssignmentSetting() {
+        return this.http
+            .get<BackendAssignmentSetting>(`${this.baseUrl}/tickets/assignment-setting`)
+            .pipe(map(toAssignmentSetting));
+    }
+    saveAssignmentSetting(mode: 'auto' | 'manual') {
+        return this.http
+            .put<BackendAssignmentSetting>(`${this.baseUrl}/tickets/assignment-setting`, { mode })
+            .pipe(map(toAssignmentSetting));
     }
     changeTicketPriority(ticketId: string, priority: string) {
         return this.http
@@ -574,6 +600,22 @@ interface BackendTenantSettings {
     tenantMode?: AdminSettings['tenantMode'];
     passwordPolicy?: AdminSettings['passwordPolicy'];
     reportAccessRoles?: string[];
+}
+
+interface BackendAssignmentSetting {
+    mode?: string;
+    manualAssignerUserId?: number | null;
+    manualAssignerName?: string | null;
+    activeAgentsCount?: number;
+}
+
+function toAssignmentSetting(setting: BackendAssignmentSetting): AssignmentSetting {
+    return {
+        mode: setting.mode === 'manual' ? 'manual' : 'auto',
+        manualAssignerUserId: setting.manualAssignerUserId ?? null,
+        manualAssignerName: setting.manualAssignerName ?? null,
+        activeAgentsCount: setting.activeAgentsCount ?? 0,
+    };
 }
 
 interface BackendAsset {

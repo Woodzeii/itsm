@@ -216,6 +216,29 @@ public sealed record TicketEscalationResponse(
     DateTimeOffset? AcceptedAt = null,
     string? Comment = null);
 
+/// <summary>Текущий режим назначения исполнителей.</summary>
+public sealed record AssignmentSettingResponse(
+    string Mode,
+    int? ManualAssignerUserId,
+    string? ManualAssignerName,
+    int ActiveAgentsCount);
+
+/// <summary>Запрос на изменение режима назначения исполнителей.</summary>
+public sealed record UpdateAssignmentSettingRequest
+{
+    [Required]
+    [RegularExpression("^(auto|manual)$", ErrorMessage = "Режим должен быть auto или manual.")]
+    public required string Mode { get; init; }
+}
+
+/// <summary>Результат автоматического назначения исполнителя.</summary>
+public sealed record AutoAssignResponse(
+    int TicketId,
+    int AssigneeId,
+    string AssigneeName,
+    int OpenTicketsCount,
+    string Reason);
+
 /// <summary>Эскалированная заявка в очереди принятия.</summary>
 public sealed record PendingEscalationResponse(
     int EscalationId,
