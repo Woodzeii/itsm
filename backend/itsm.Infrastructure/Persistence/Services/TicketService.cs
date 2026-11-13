@@ -925,15 +925,6 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         return messages.Select(ToMessageResponse).ToArray();
     }
 
-
-        var messages = await messagesQuery
-            .OrderBy(message => message.CreatedAt)
-            .ThenBy(message => message.Id)
-            .ToListAsync(ct);
-
-        return messages.Select(ToMessageResponse).ToArray();
-    }
-    
     // перегрузка макара
     public async Task<IReadOnlyList<TicketMessageResponse>?> GetMessagesAsync(
         int id,
