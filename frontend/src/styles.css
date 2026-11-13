@@ -8,7 +8,31 @@
     --app-surface-2: #f1f5f9;
     --app-text: #111827;
     --app-muted: #778293;
+    --app-muted-strong: #536173;
     --app-border: #e2e6ed;
+    --app-divider: #edf0f4;
+    --app-input-bg: #ffffff;
+    --app-input-text: #263244;
+    --app-placeholder: #667085;
+    --app-hover: #f3f6fa;
+    --app-selected: #eaf1ff;
+    --app-error-bg: #fff1f0;
+    --app-error-border: #fecdca;
+    --app-error-text: #a93232;
+    --app-success-bg: #edf8f2;
+    --app-success-border: #b7e4ca;
+    --app-success-text: #176f52;
+    --app-warning-bg: #fff8e8;
+    --app-warning-border: #f0c77a;
+    --app-warning-text: #684b16;
+    --app-scrollbar-thumb: #aab4c2;
+    --app-scrollbar-thumb-hover: #78869a;
+    --app-selection-bg: #bfdbfe;
+    --app-control-border: #b8c5d6;
+    --app-control-hover: #dce8f7;
+    --app-control-active: #c9dcf5;
+    --app-action-bg: #2563eb;
+    --app-action-hover: #3b82f6;
 }
 
 html,
@@ -445,9 +469,32 @@ html[data-theme='dark'] {
     --app-surface: #111a2b;
     --app-surface-2: #162033;
     --app-text: #e5e7eb;
-    --app-muted: #94a3b8;
+    --app-muted: #cbd5e1;
+    --app-muted-strong: #d1d5db;
     --app-border: #263244;
     --app-divider: #29364a;
+    --app-input-bg: #0f1728;
+    --app-input-text: #e5e7eb;
+    --app-placeholder: #a7b3c5;
+    --app-hover: #1b2940;
+    --app-selected: #1b3352;
+    --app-error-bg: #3b1d22;
+    --app-error-border: #7f1d1d;
+    --app-error-text: #fecaca;
+    --app-success-bg: #102a22;
+    --app-success-border: #14532d;
+    --app-success-text: #bbf7d0;
+    --app-warning-bg: #3d3018;
+    --app-warning-border: #6b5428;
+    --app-warning-text: #fde68a;
+    --app-scrollbar-thumb: #42516a;
+    --app-scrollbar-thumb-hover: #64748b;
+    --app-selection-bg: #1d4b7a;
+    --app-control-border: #52647e;
+    --app-control-hover: #253750;
+    --app-control-active: #304766;
+    --app-action-bg: #2563eb;
+    --app-action-hover: #3b82f6;
     --app-primary: #60a5fa;
     --app-accent: #34d399;
     color-scheme: dark;
@@ -555,34 +602,34 @@ html[data-theme='dark'] .workspace-note {
 html[data-theme='dark'] input,
 html[data-theme='dark'] select,
 html[data-theme='dark'] textarea {
-    background: #0f1728 !important;
+    background: var(--app-input-bg) !important;
     color: var(--app-text) !important;
     border-color: var(--app-border) !important;
 }
 
 html[data-theme='dark'] input::placeholder,
 html[data-theme='dark'] textarea::placeholder {
-    color: #64748b;
+    color: var(--app-placeholder);
 }
 
 html[data-theme='dark'] .item:hover {
-    background: #1a2638 !important;
+    background: var(--app-hover) !important;
 }
 
 html[data-theme='dark'] .item.active {
-    background: #1b3352 !important;
+    background: var(--app-selected) !important;
 }
 
 html[data-theme='dark'] .badge,
 html[data-theme='dark'] .tag {
-    background: #1f2b3d !important;
-    color: #cbd5e1;
+    background: var(--app-surface-2) !important;
+    color: var(--app-muted-strong);
 }
 
 html[data-theme='dark'] .tag.critical,
 html[data-theme='dark'] .tag.high {
-    background: #4a1f27 !important;
-    color: #fecdd3;
+    background: var(--app-error-bg) !important;
+    color: var(--app-error-text);
 }
 
 html[data-theme='dark'] table {
@@ -599,7 +646,7 @@ html[data-theme='dark'] td {
 }
 
 html[data-theme='dark'] tbody tr:hover {
-    background: #151f31;
+    background: var(--app-hover);
 }
 
 html[data-theme='dark'] app-ticket-queue tbody tr.active,
@@ -642,7 +689,7 @@ html[data-theme='dark'] .icon-button:hover,
 html[data-theme='dark'] .secondary:hover,
 html[data-theme='dark'] .quiet:hover,
 html[data-theme='dark'] .outline:hover {
-    background: #1f2b3d !important;
+    background: var(--app-hover) !important;
     border-color: var(--app-primary) !important;
 }
 
@@ -650,18 +697,18 @@ html[data-theme='dark'] .error,
 html[data-theme='dark'] .err,
 html[data-theme='dark'] .notice.error,
 html[data-theme='dark'] .feedback.error {
-    background: #3b1d22 !important;
-    border-color: #7f1d1d !important;
-    color: #fecaca !important;
+    background: var(--app-error-bg) !important;
+    border-color: var(--app-error-border) !important;
+    color: var(--app-error-text) !important;
 }
 
 html[data-theme='dark'] .success,
 html[data-theme='dark'] .notice.success,
 html[data-theme='dark'] .feedback.success,
 html[data-theme='dark'] .ok {
-    background: #102a22 !important;
-    border-color: #14532d !important;
-    color: #bbf7d0 !important;
+    background: var(--app-success-bg) !important;
+    border-color: var(--app-success-border) !important;
+    color: var(--app-success-text) !important;
 }
 
 html[data-theme='dark'] .notice:not(.error):not(.success) {
@@ -673,7 +720,7 @@ html[data-theme='dark'] .notice:not(.error):not(.success) {
 html[data-theme='dark'] .avatar,
 html[data-theme='dark'] .option-icon,
 html[data-theme='dark'] .sidebar-profile {
-    background-color: #1f2b3d !important;
+    background-color: var(--app-surface-2) !important;
     border-color: var(--app-border) !important;
     color: var(--app-text);
 }
@@ -688,8 +735,8 @@ html[data-theme='dark'] .chat-message {
 }
 
 html[data-theme='dark'] .comments article.internal {
-    background: #2a2438 !important;
-    border-color: #4c3b63 !important;
+    background: var(--app-selected) !important;
+    border-color: var(--app-border) !important;
 }
 
 html[data-theme='dark'] .asset-row,
@@ -724,31 +771,31 @@ html[data-theme='dark'] .ticket-list {
 
 html[data-theme='dark'] .field-errors,
 html[data-theme='dark'] .password-errors {
-    background: #3b1d22 !important;
-    border-color: #7f1d1d !important;
-    color: #fecaca !important;
+    background: var(--app-error-bg) !important;
+    border-color: var(--app-error-border) !important;
+    color: var(--app-error-text) !important;
 }
 
 html[data-theme='dark'] .tag.attention {
-    background: #3d3018 !important;
-    color: #fde68a;
+    background: var(--app-warning-bg) !important;
+    color: var(--app-warning-text);
 }
 
 html[data-theme='dark'] td .status:not(.blocked),
 html[data-theme='dark'] .badge-on {
-    background: #123328 !important;
-    color: #86efac;
+    background: var(--app-success-bg) !important;
+    color: var(--app-success-text);
 }
 
 html[data-theme='dark'] td .status.blocked,
 html[data-theme='dark'] .badge-off {
-    background: #3b1d22 !important;
-    color: #fecaca;
+    background: var(--app-error-bg) !important;
+    color: var(--app-error-text);
 }
 
 html[data-theme='dark'] .icon-action {
-    background: #3b1d22 !important;
-    color: #fecaca !important;
+    background: var(--app-error-bg) !important;
+    color: var(--app-error-text) !important;
 }
 
 html[data-theme='dark'] .option {
@@ -758,7 +805,7 @@ html[data-theme='dark'] .option {
 
 html[data-theme='dark'] .option:hover:not(:disabled),
 html[data-theme='dark'] .option.selected {
-    background: #182740 !important;
+    background: var(--app-selected) !important;
     border-color: var(--app-primary) !important;
 }
 
@@ -790,7 +837,7 @@ html[data-theme='dark'] .admin-nav a {
 
 html[data-theme='dark'] .admin-nav a.active,
 html[data-theme='dark'] .admin-nav a:hover {
-    background: #1b3352 !important;
+    background: var(--app-selected) !important;
     color: var(--app-text) !important;
 }
 
@@ -809,6 +856,407 @@ html[data-theme='dark'] .detail-heading p {
 
 html[data-theme='dark'] .role-switch:hover {
     color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] app-layout :is(.app-shell, .sidebar, .main-panel, .topbar, .sidebar-profile) {
+    background-color: var(--app-surface) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-layout :is(.brand, .top-divider) {
+    border-color: var(--app-divider) !important;
+    background-color: var(--app-divider);
+}
+
+html[data-theme='dark'] app-layout :is(.brand-copy strong, .user-meta strong, .breadcrumb strong) {
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-layout :is(.brand-copy small, .nav-caption, .workspace-note, .user-meta small, .profile-more, .breadcrumb, .chevron) {
+    color: var(--app-muted) !important;
+}
+
+html[data-theme='dark'] app-layout .nav a {
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-layout .nav a:is(:hover, .active) {
+    background: var(--app-selected) !important;
+    color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] app-root :is(
+    .panel, .card, .list, .detail, .metric, .queue, .ticket-detail, .quick-panel,
+    .recent-panel, .performance, .users-toolbar, .users-filters, .form-card,
+    .tenant-card, .security-card, .asset-card, .portal-card, .filters, .ticket-facts,
+    .history, .comments, .report-list article, .admin-nav, .section, .empty-detail,
+    .detail-header, .modal, .dialog, .user-card, .account-card, .list-editor,
+    .add-field, .field-main, .field-options, .asset-row, .ticket-row, .ticket-summary,
+    .conversation, .timeline, .toolbar, .tabs, .card-form, .request-form, .repair-form,
+    .setup-section, .security-grid, .sla-grid, .sla-level, .escalation-list,
+    .account-list, .account-grid, .detail-grid, .transition-matrix, .calendar-settings,
+    .holiday-list span, .search, .message, .movement-list, .ticket-list, .escalation,
+    .create-value-form, .users-table, .users-table tbody tr, .owner-badge,
+    .create, .edit, .role-option, .option, .attachment, .attachment-card, .file-card,
+    .upload-card, .filter-panel, .form-section
+) {
+    background-color: var(--app-surface) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-root :is(
+    .filters, .toolbar, .ticket-facts, .calendar-settings, .field-main, .field-options,
+    .search, .message, .empty-detail, .sidebar-profile, .item:hover, .item.active,
+    .users-table tbody tr:hover, .users-table tbody tr.active, tbody tr:hover,
+    .ticket-row:hover, .asset-row:hover, .escalation:hover
+) {
+    background-color: var(--app-hover) !important;
+}
+
+html[data-theme='dark'] app-root :is(
+    p, small, label, th, td, time, .muted, .subtitle, .hint, .empty, .eyebrow,
+    .meta, .caption, .nav-caption, .workspace-note, .field-note, .breadcrumb,
+    .ticket-summary small, .history article small, .table-note, .help-text,
+    .description, .status-description, .date, .count-label, .option-copy small,
+    .intro, [class*="muted"], [class*="subtitle"], [class*="hint"]
+) {
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-root :is(h1, h2, h3, h4, h5, strong, legend, .title, .option-copy strong) {
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(input, select, textarea, option) {
+    background-color: var(--app-input-bg) !important;
+    color: var(--app-input-text) !important;
+    border-color: var(--app-border) !important;
+    color-scheme: dark;
+}
+
+html[data-theme='dark'] app-root :is(input, textarea)::placeholder {
+    color: var(--app-placeholder) !important;
+    opacity: 1;
+}
+
+html[data-theme='dark'] app-root :is(input, select, textarea):focus-visible {
+    outline: 2px solid var(--app-primary) !important;
+    outline-offset: 2px;
+    border-color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] app-root :is(th, td, .foot, .toolbar, .panel-header, .brand, .topbar, .history, .comments) {
+    border-color: var(--app-divider) !important;
+}
+
+html[data-theme='dark'] app-root tbody tr:hover,
+html[data-theme='dark'] app-root :is(.item:hover, .asset-row:hover, .ticket-row:hover, .option:hover:not(:disabled)) {
+    background-color: var(--app-hover) !important;
+}
+
+html[data-theme='dark'] app-root :is(.item.active, .option.selected, .admin-nav a.active, .admin-nav a:hover) {
+    background-color: var(--app-selected) !important;
+    border-color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] app-root :is(button.secondary, button.quiet, button.outline, .secondary, .quiet, .outline, .icon-button, .role-switch, .mobile-filters-toggle, .retry) {
+    background-color: var(--app-surface-2) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-root :is(button.secondary, button.quiet, button.outline, .secondary, .quiet, .outline, .icon-button, .role-switch, .mobile-filters-toggle, .retry):is(:hover, :focus-visible) {
+    background-color: var(--app-hover) !important;
+    border-color: var(--app-primary) !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(button, [role='button']):not(.primary):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button) {
+    background-color: var(--app-surface-2) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-root :is(button, [role='button']):not(.primary):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button):is(:hover, :focus-visible) {
+    background-color: var(--app-hover) !important;
+    border-color: var(--app-primary) !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(.tag, .badge, .priority, .status:not(.blocked), .stage, .owner-badge) {
+    background-color: var(--app-surface-2) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-root :is(.error, .err, .notice.error, .feedback.error) {
+    background-color: var(--app-error-bg) !important;
+    border-color: var(--app-error-border) !important;
+    color: var(--app-error-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(.success, .notice.success, .feedback.success, .ok) {
+    background-color: var(--app-success-bg) !important;
+    border-color: var(--app-success-border) !important;
+    color: var(--app-success-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(.error, .err, .success, .notice, .feedback) :is(p, small, strong) {
+    color: inherit !important;
+}
+
+html[data-theme='dark'] app-root :is(.tag.critical, .tag.high, .priority.high, .badge-off, .status.blocked, .icon-action, .escalate-button, .count, .danger, .remove, .delete) {
+    background-color: var(--app-error-bg) !important;
+    border-color: var(--app-error-border) !important;
+    color: var(--app-error-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(.tag.attention, .quota-warning) {
+    background-color: var(--app-warning-bg) !important;
+    border-color: var(--app-warning-border) !important;
+    color: var(--app-warning-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(.tag.attention) {
+    background-color: var(--app-warning-bg) !important;
+    border-color: var(--app-warning-border) !important;
+    color: var(--app-warning-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(.badge-on, td .status:not(.blocked)) {
+    background-color: #123328 !important;
+    border-color: #14532d !important;
+    color: #bbf7d0 !important;
+}
+
+html[data-theme='dark'] app-root :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--app-primary);
+    outline-offset: 2px;
+}
+
+html[data-theme='dark'] app-root :is(button, a, .option, tbody tr) {
+    transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+
+html[data-theme='dark'] ::selection {
+    background: var(--app-selection-bg);
+    color: #f8fafc;
+}
+
+html[data-theme='dark'] ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+html[data-theme='dark'] ::-webkit-scrollbar-track {
+    background: var(--app-bg);
+}
+
+html[data-theme='dark'] ::-webkit-scrollbar-thumb {
+    background: var(--app-scrollbar-thumb);
+    border: 2px solid var(--app-bg);
+    border-radius: 8px;
+}
+
+html[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+    background: var(--app-scrollbar-thumb-hover);
+}
+
+html[data-theme='dark'] .mat-mdc-select-panel,
+html[data-theme='dark'] .mat-mdc-menu-panel,
+html[data-theme='dark'] .mat-mdc-dialog-surface,
+html[data-theme='dark'] .mdc-menu-surface,
+html[data-theme='dark'] .mat-mdc-tooltip {
+    background-color: var(--app-surface-2) !important;
+    color: var(--app-text) !important;
+    border-color: var(--app-border) !important;
+}
+
+html[data-theme='dark'] .mat-mdc-option,
+html[data-theme='dark'] .mat-mdc-menu-item,
+html[data-theme='dark'] .mat-mdc-select-value,
+html[data-theme='dark'] .mat-mdc-form-field {
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-root *,
+html[data-theme='dark'] .cdk-overlay-container * {
+    border-color: var(--app-divider) !important;
+}
+
+html[data-theme='dark'] app-root .admin-nav a.active,
+html[data-theme='dark'] app-root .tabs button.active,
+html[data-theme='dark'] app-root .option.selected,
+html[data-theme='dark'] app-root :is(input, select, textarea):focus-visible {
+    border-color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] app-root :is(.error, .err, .field-errors, .password-errors, .notice.error, .feedback.error) {
+    border-color: var(--app-error-border) !important;
+}
+
+html[data-theme='dark'] app-root :is(.success, .notice.success, .feedback.success, .badge-on, td .status:not(.blocked)) {
+    border-color: var(--app-success-border) !important;
+}
+
+html[data-theme='dark'] app-root :is(.quota-warning, .tag.attention) {
+    border-color: var(--app-warning-border) !important;
+}
+
+html[data-theme='dark'] app-root button:not(:disabled):not([aria-disabled='true']):not(.primary):not(.primary-button):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button):not(.tabs button),
+html[data-theme='dark'] app-root [role='button']:not([aria-disabled='true']):not(.primary):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button) {
+    box-shadow: inset 0 0 0 1px var(--app-control-border);
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color .16s ease, box-shadow .16s ease, color .16s ease, transform .16s ease;
+}
+
+html[data-theme='dark'] app-root button:not(:disabled):not([aria-disabled='true']):not(.primary):not(.primary-button):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button):not(.tabs button):hover,
+html[data-theme='dark'] app-root [role='button']:not([aria-disabled='true']):not(.primary):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button):hover {
+    background-color: var(--app-control-hover) !important;
+    box-shadow: inset 0 0 0 1px var(--app-primary), 0 2px 8px rgb(0 0 0 / 22%);
+    color: var(--app-text) !important;
+    transform: translateY(-1px);
+}
+
+html[data-theme='dark'] app-root button:not(:disabled):not([aria-disabled='true']):not(.primary):not(.primary-button):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button):not(.tabs button):active,
+html[data-theme='dark'] app-root [role='button']:not([aria-disabled='true']):not(.primary):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button):active {
+    background-color: var(--app-control-active) !important;
+    transform: translateY(0);
+}
+
+html[data-theme='dark'] app-root button.primary,
+html[data-theme='dark'] app-root .primary-button,
+html[data-theme='dark'] app-root a.primary {
+    background-color: var(--app-action-bg) !important;
+    border: 1px solid #6ea2ff !important;
+    box-shadow: 0 2px 8px rgb(37 99 235 / 30%);
+    color: #ffffff !important;
+    cursor: pointer;
+    font-weight: 650;
+    transition: background-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+html[data-theme='dark'] app-root :is(button.primary, .primary-button, a.primary):not(:disabled):hover {
+    background-color: var(--app-action-hover) !important;
+    box-shadow: 0 4px 12px rgb(37 99 235 / 40%);
+    transform: translateY(-1px);
+}
+
+html[data-theme='dark'] app-root :is(button.primary, .primary-button, a.primary):active {
+    transform: translateY(0);
+}
+
+html[data-theme='dark'] app-root :is(button, [role='button']):disabled,
+html[data-theme='dark'] app-root :is(button, [role='button'])[aria-disabled='true'] {
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    opacity: .5;
+}
+
+html[data-theme='dark'] app-root .item {
+    cursor: pointer;
+    transition: background-color .16s ease, box-shadow .16s ease, color .16s ease;
+}
+
+html[data-theme='dark'] app-root .item:hover {
+    box-shadow: inset 3px 0 0 var(--app-primary);
+}
+
+html[data-theme='dark'] app-root .item.active {
+    box-shadow: inset 3px 0 0 var(--app-primary);
+}
+
+html[data-theme='dark'] app-asset-classes .item,
+html[data-theme='dark'] app-dictionaries .item {
+    display: flex;
+    width: 100%;
+    min-height: 58px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 7px;
+    padding: 10px 12px;
+    border: 1px solid var(--app-control-border) !important;
+    border-left: 3px solid var(--app-control-border) !important;
+    border-radius: 8px;
+    background: var(--app-surface-2) !important;
+    box-shadow: none;
+    color: var(--app-text) !important;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+html[data-theme='dark'] app-asset-classes .item:hover,
+html[data-theme='dark'] app-dictionaries .item:hover {
+    border-color: var(--app-primary) !important;
+    background: var(--app-control-hover) !important;
+    box-shadow: 0 3px 10px rgb(0 0 0 / 24%);
+    transform: translateY(-1px);
+}
+
+html[data-theme='dark'] app-asset-classes .item.active,
+html[data-theme='dark'] app-dictionaries .item.active {
+    border-color: var(--app-primary) !important;
+    border-left-width: 4px !important;
+    background: var(--app-control-active) !important;
+    box-shadow: inset 0 0 0 1px rgb(96 165 250 / 18%);
+}
+
+html[data-theme='dark'] app-asset-classes .item:focus-visible,
+html[data-theme='dark'] app-dictionaries .item:focus-visible {
+    outline: 2px solid var(--app-primary) !important;
+    outline-offset: 2px;
+}
+
+html[data-theme='dark'] app-asset-classes .item-action,
+html[data-theme='dark'] app-dictionaries .item-action {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border: 1px solid var(--app-control-border);
+    border-radius: 12px;
+    background: var(--app-selected);
+    color: var(--app-text);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+html[data-theme='dark'] app-asset-classes .item.active .item-action,
+html[data-theme='dark'] app-dictionaries .item.active .item-action {
+    border-color: var(--app-primary);
+    background: var(--app-primary);
+    color: #0b1220;
+}
+
+html[data-theme='dark'] app-root a[href]:not(.primary-button):not(.primary) {
+    cursor: pointer;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+}
+
+html[data-theme='dark'] app-root a[href]:not(.primary-button):not(.primary):hover {
+    color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] app-root :is(button, a[href], [role='button'], .item):focus-visible {
+    outline: 2px solid var(--app-primary) !important;
+    outline-offset: 2px;
+}
+
+html[data-theme='dark'] app-root .timeline article:not(:last-child)::before {
+    background-color: var(--app-divider) !important;
+}
+
+html[data-theme='dark'] app-root hr,
+html[data-theme='dark'] .mat-divider,
+html[data-theme='dark'] .mat-mdc-divider,
+html[data-theme='dark'] .mdc-list-divider {
+    border-color: var(--app-divider) !important;
+    background-color: var(--app-divider) !important;
 }
 
 html[data-theme='dark'] .qr-code {

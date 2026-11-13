@@ -41,7 +41,8 @@ import {
         <aside class="list">
           <h3>Классы ({{ classes.length }})</h3>
           @for (c of classes; track c.id) {
-            <div class="item" [class.active]="selected?.id === c.id" (click)="select(c)">
+            <button type="button" class="item" [class.active]="selected?.id === c.id"
+              [attr.aria-pressed]="selected?.id === c.id" (click)="select(c)">
               <div>
                 <strong>{{ c.name }}</strong>
                 <small>{{ c.code }} · атрибутов: {{ c.attributesCount }} · активов: {{ c.assetsCount }}</small>
@@ -49,7 +50,8 @@ import {
               @if (!c.isActive) {
                 <span class="badge inactive">выкл.</span>
               }
-            </div>
+              <span class="item-action">{{ selected?.id === c.id ? 'Выбран' : 'Открыть' }}</span>
+            </button>
           }
           @if (classes.length === 0) {
             <p class="empty">Нет классов активов</p>
@@ -153,9 +155,11 @@ import {
       button.secondary { background: #6b7280; }
       .layout { display: grid; grid-template-columns: 360px 1fr; gap: 16px; }
       .list, .detail { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(15,23,42,0.05); }
-      .item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-radius: 8px; cursor: pointer; }
-      .item:hover { background: #f3f4f6; }
-      .item.active { background: #eef2ff; }
+      .item { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; padding: 10px; border: 1px solid #d5deeb; border-radius: 8px; background: #fff; color: inherit; text-align: left; cursor: pointer; transition: background .16s ease, border-color .16s ease, box-shadow .16s ease; }
+      .item:hover { border-color: #7da8ec; background: #f3f7ff; box-shadow: 0 2px 8px rgba(37,99,235,.12); }
+      .item.active { border-color: #3475d1; background: #eef4ff; box-shadow: inset 3px 0 #3475d1; }
+      .item:focus-visible { outline: 2px solid #3475d1; outline-offset: 2px; }
+      .item-action { flex: 0 0 auto; padding: 4px 8px; border-radius: 12px; background: #eaf1ff; color: #245db0; font-size: .72rem; font-weight: 700; }
       .item small { display: block; color: #6b7280; font-size: 0.8rem; margin-top: 2px; }
       .badge { background: #e5e7eb; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; }
       .badge.inactive { background: #fee2e2; color: #991b1b; }

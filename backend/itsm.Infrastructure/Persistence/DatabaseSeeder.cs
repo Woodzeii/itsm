@@ -76,7 +76,7 @@ public class DatabaseSeeder : IDatabaseSeeder
         );
         await _db.SaveChangesAsync(ct);
 
-        _logger.LogInformation("DatabaseSeeder: создано 8 пользователей");
+        _logger.LogInformation("DatabaseSeeder: создано 9 пользователей");
     }
 
     private User NewUser(string username, string email, string fullName, string department, string password, int? tenantId = 1) => new()

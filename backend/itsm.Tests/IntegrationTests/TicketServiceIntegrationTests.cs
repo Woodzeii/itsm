@@ -18,6 +18,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
     {
         await using var scope = await fixture.CreateScopeAsync();
         var service = CreateService(scope);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "manual" });
         var creator = await CreateUserAsync(scope.Db);
 
         var ticket = await service.CreateAsync(
@@ -30,9 +31,13 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         Assert.Equal(creator.Id, ticket.CreatorId);
         Assert.Equal(creator.Id, ticket.RequesterId);
         Assert.Equal("High", ticket.Priority);
+        Assert.Null(ticket.AssigneeId);
         Assert.True(await scope.Db.TicketAuditLogs.AnyAsync(log =>
             log.TicketId == ticket.Id && log.FieldName == "created"));
     }
+
+
+
 
     [Fact]
     public async Task CreateTicketByStaffRecordsSeparateRequester()
@@ -612,6 +617,226 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         Assert.Contains(admin.Id, escalation.NotifiedUserIds);
         Assert.Equal(2, await scope.Db.Notifications.CountAsync(notification => notification.TicketId == ticket.Id));
         Assert.Equal(2, (await scope.Db.Tickets.FindAsync(ticket.Id))!.CriticalityLevelId);
+        Assert.Equal("Эскалирована", (await service.GetByIdAsync(ticket.Id, creator.Id, isStaff: false))!.StatusName);
+    }
+
+
+
+
+
+
+    [Fact]
+    public async Task EscalatedTicketIsListedAsPendingUntilAccepted()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var head = await CreateUserAsync(scope.Db, "agent");
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id, criticalityLevelId: 1);
+        await service.SetServiceDeskHeadAsync(new SetServiceDeskHeadRequest { UserId = head.Id });
+
+        await service.EscalateAsync(ticket.Id, creator.Id);
+
+        var pending = await service.GetPendingEscalationsAsync();
+        var item = Assert.Single(pending!);
+        Assert.Equal(ticket.Id, item.TicketId);
+        Assert.Null(item.AcceptedByUserId);
+        Assert.Equal("Эскалирована", item.StatusName);
+    }
+
+    [Fact]
+    public async Task ServiceDeskHeadAcceptsEscalationAndTicketMovesInProgress()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var head = await CreateUserAsync(scope.Db, "agent");
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id, criticalityLevelId: 1);
+        await service.SetServiceDeskHeadAsync(new SetServiceDeskHeadRequest { UserId = head.Id });
+        await service.EscalateAsync(ticket.Id, creator.Id);
+
+        var accepted = await service.AcceptEscalationAsync(
+            ticket.Id,
+            new AcceptEscalationRequest { Comment = "Беру в работу" },
+            head.Id,
+            isAdmin: false);
+
+        Assert.NotNull(accepted);
+        Assert.Equal(head.Id, accepted!.AcceptedByUserId);
+        Assert.Equal("Беру в работу", accepted.Comment);
+
+        var updated = await service.GetByIdAsync(ticket.Id, head.Id, isStaff: true);
+        Assert.Equal("В работе", updated!.StatusName);
+        Assert.Equal(head.Id, updated.AssigneeId);
+
+        Assert.Empty((await service.GetPendingEscalationsAsync())!);
+        Assert.True(await scope.Db.Notifications.AnyAsync(notification =>
+            notification.UserId == creator.Id && notification.Type == "TicketEscalationAccepted"));
+        Assert.True(await scope.Db.TicketAuditLogs.AnyAsync(log =>
+            log.TicketId == ticket.Id && log.FieldName == "escalationAccepted"));
+    }
+
+    [Fact]
+    public async Task EscalationCannotBeAcceptedTwice()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var head = await CreateUserAsync(scope.Db, "agent");
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id, criticalityLevelId: 1);
+        await service.SetServiceDeskHeadAsync(new SetServiceDeskHeadRequest { UserId = head.Id });
+        await service.EscalateAsync(ticket.Id, creator.Id);
+        await service.AcceptEscalationAsync(ticket.Id, new AcceptEscalationRequest(), head.Id, isAdmin: false);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AcceptEscalationAsync(
+            ticket.Id,
+            new AcceptEscalationRequest(),
+            head.Id,
+            isAdmin: false));
+    }
+
+    [Fact]
+    public async Task EscalationCanOnlyBeAcceptedByHeadOrAdmin()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var head = await CreateUserAsync(scope.Db, "agent");
+        var otherAgent = await CreateUserAsync(scope.Db, "agent");
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id, criticalityLevelId: 1);
+        await service.SetServiceDeskHeadAsync(new SetServiceDeskHeadRequest { UserId = head.Id });
+        await service.EscalateAsync(ticket.Id, creator.Id);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.AcceptEscalationAsync(
+            ticket.Id,
+            new AcceptEscalationRequest(),
+            otherAgent.Id,
+            isAdmin: false));
+
+        Assert.Single((await service.GetPendingEscalationsAsync())!);
+    }
+
+    [Fact]
+    public async Task AdminWithoutAgentRoleCannotAcceptEscalation()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var head = await CreateUserAsync(scope.Db, "agent");
+        var admin = await CreateUserAsync(scope.Db, "admin");
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id, criticalityLevelId: 1);
+        await service.SetServiceDeskHeadAsync(new SetServiceDeskHeadRequest { UserId = head.Id });
+        await service.EscalateAsync(ticket.Id, creator.Id);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.AcceptEscalationAsync(
+            ticket.Id,
+            new AcceptEscalationRequest(),
+            admin.Id,
+            isAdmin: true));
+    }
+
+    [Fact]
+    public async Task ClosedTicketEscalationIsRejected()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var head = await CreateUserAsync(scope.Db, "agent");
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id, statusId: 5);
+        await service.SetServiceDeskHeadAsync(new SetServiceDeskHeadRequest { UserId = head.Id });
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.EscalateAsync(ticket.Id, creator.Id));
+        Assert.Empty(await scope.Db.TicketEscalations.ToListAsync());
+    }
+
+    [Fact]
+    public async Task AutoAssignmentOnCreatePicksLeastLoadedAgent()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "auto" });
+        var creator = await CreateUserAsync(scope.Db);
+        var busyAgent = await CreateUserAsync(scope.Db, "agent");
+        var freeAgent = await CreateUserAsync(scope.Db, "agent");
+        await CreateTicketAsync(scope.Db, creator.Id, assigneeId: busyAgent.Id);
+
+        var ticket = await service.CreateAsync(
+            NewTicketRequest(),
+            creator.Id,
+            isStaff: false,
+            isEngineer: false);
+
+        Assert.Equal(freeAgent.Id, ticket.AssigneeId);
+        Assert.True(await scope.Db.TicketAuditLogs.AnyAsync(log =>
+            log.TicketId == ticket.Id && log.FieldName == "autoAssigned"));
+    }
+
+    [Fact]
+    public async Task AutoAssignmentIsSkippedInManualMode()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        await CreateUserAsync(scope.Db, "agent");
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "manual" });
+
+        var ticket = await service.CreateAsync(
+            NewTicketRequest(),
+            creator.Id,
+            isStaff: false,
+            isEngineer: false);
+
+        Assert.Null(ticket.AssigneeId);
+        Assert.False(await scope.Db.TicketAuditLogs.AnyAsync(log =>
+            log.TicketId == ticket.Id && log.FieldName == "autoAssigned"));
+    }
+
+    [Fact]
+    public async Task ManualAutoAssignEndpointReassignsToLeastLoadedAgent()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "auto" });
+        var creator = await CreateUserAsync(scope.Db);
+        var busyAgent = await CreateUserAsync(scope.Db, "agent");
+        var freeAgent = await CreateUserAsync(scope.Db, "agent");
+        await CreateTicketAsync(scope.Db, creator.Id, assigneeId: busyAgent.Id);
+        var target = await CreateTicketAsync(scope.Db, creator.Id, assigneeId: busyAgent.Id);
+
+        var result = await service.AutoAssignAsync(target.Id, busyAgent.Id);
+
+        Assert.NotNull(result);
+        Assert.Equal(freeAgent.Id, result!.AssigneeId);
+        Assert.Equal(0, result.OpenTicketsCount);
+
+        var assigned = await scope.Db.Tickets.FindAsync(target.Id);
+        Assert.Equal(freeAgent.Id, assigned!.AssigneeId);
+    }
+
+    [Fact]
+    public async Task AutoAssignWithoutActiveAgentsThrows()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.AutoAssignAsync(ticket.Id, creator.Id));
+    }
+
+    [Fact]
+    public async Task AssignmentSettingIsPersistedAndValidated()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var defaults = await service.GetAssignmentSettingAsync();
+        Assert.Equal("auto", defaults.Mode);
+
+        var updated = await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "manual" });
+        Assert.Equal("manual", updated.Mode);
+
+        var reloaded = await service.GetAssignmentSettingAsync();
+        Assert.Equal("manual", reloaded.Mode);
     }
 
     [Fact]
@@ -797,7 +1022,8 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         int? assetId = null,
         int? criticalityLevelId = null,
         int typeId = 1,
-        int statusId = 1)
+        int statusId = 1,
+        int? assigneeId = null)
     {
         var ticket = new Ticket
         {
@@ -809,6 +1035,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
             CreatorId = creatorId,
             TenantId = db.GetCurrentTenantId(),
             AssetId = assetId,
+            AssigneeId = assigneeId,
             CriticalityLevelId = criticalityLevelId
         };
         db.Tickets.Add(ticket);

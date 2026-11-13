@@ -145,6 +145,50 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
+    [HttpPost("{id:int}/auto-assign")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
+    [EndpointSummary("Автоматически распределить заявку на наименее загруженного инженера")]
+    [ProducesResponseType(typeof(AutoAssignResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AutoAssignResponse>> AutoAssign(int id, CancellationToken ct)
+    {
+        if (!TryGetUserId(out var actorId))
+            return Unauthorized();
+
+        try
+        {
+            var result = await service.AutoAssignAsync(id, actorId, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ProblemDetails { Title = "Автораспределение невозможно", Detail = ex.Message, Status = 409 });
+        }
+    }
+
+    [HttpGet("assignment-setting")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
+    [EndpointSummary("Получить режим назначения исполнителей")]
+    [ProducesResponseType(typeof(AssignmentSettingResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AssignmentSettingResponse>> GetAssignmentSetting(CancellationToken ct)
+        => Ok(await service.GetAssignmentSettingAsync(ct));
+
+    [HttpPut("assignment-setting")]
+    [Authorize(Roles = "admin,tenant_owner")]
+    [EndpointSummary("Изменить режим назначения исполнителей")]
+    [ProducesResponseType(typeof(AssignmentSettingResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<AssignmentSettingResponse>> UpdateAssignmentSetting(
+        [FromBody] UpdateAssignmentSettingRequest request,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        return Ok(await service.UpdateAssignmentSettingAsync(request, ct));
+    }
+
     [HttpPost("{id:int}/assign")]
     [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Назначить исполнителя заявки")]
@@ -192,6 +236,48 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         catch (InvalidOperationException ex)
         {
             return Conflict(new ProblemDetails { Title = "Эскалация невозможна", Detail = ex.Message, Status = 409 });
+        }
+    }
+
+    [HttpGet("{id:int}/escalations")]
+    [EndpointSummary("Получить историю эскалаций заявки")]
+    [ProducesResponseType(typeof(IReadOnlyList<TicketEscalationResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<TicketEscalationResponse>>> GetEscalations(int id, CancellationToken ct)
+    {
+        var escalations = await service.GetTicketEscalationsAsync(id, ct);
+        return escalations is null ? NotFound() : Ok(escalations);
+    }
+
+    [HttpPost("{id:int}/escalation/accept")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
+    [EndpointSummary("Принять эскалацию заявки")]
+    [ProducesResponseType(typeof(TicketEscalationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TicketEscalationResponse>> AcceptEscalation(
+        int id,
+        [FromBody] AcceptEscalationRequest request,
+        CancellationToken ct)
+    {
+        if (!TryGetUserId(out var actorId))
+            return Unauthorized();
+
+        var isAdmin = User.IsInRole("admin") || User.IsInRole("tenant_owner");
+
+        try
+        {
+            var escalation = await service.AcceptEscalationAsync(id, request, actorId, isAdmin, ct);
+            return escalation is null ? NotFound() : Ok(escalation);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return ForbidWithProblem(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ProblemDetails { Title = "Эскалацию нельзя принять", Detail = ex.Message, Status = 409 });
         }
     }
 

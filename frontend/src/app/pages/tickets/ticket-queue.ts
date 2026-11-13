@@ -57,9 +57,10 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, 
           @if (selected) {
             <header class="detail-heading"><div><p class="eyebrow">{{ selected.id }} · {{ selected.type }}</p><h2>{{ selected.title }}</h2></div><button class="icon-button" type="button" aria-label="Закрыть карточку" (click)="selected = null">×</button></header>
             <div class="ticket-facts"><div><small>Автор</small><strong>{{ selected.creatorName || selected.requester }}</strong></div>@if (selected.creatorName) { <div><small>Заявитель</small><strong>{{ selected.requester }}</strong></div> }<div><small>Исполнитель</small><strong>{{ selected.assignee || 'Не назначен' }}</strong></div><div><small>Критичность</small><strong>{{ selected.priority }}</strong></div><div><small>Статус</small><strong>{{ selected.status }}</strong></div><div><small>Реакция</small><strong>{{ selected.reactionSla || '—' }}</strong></div><div><small>Решение</small><strong>{{ selected.resolutionSla || selected.slaRemaining }}</strong></div></div>
-            @if (settings?.assignmentMode === 'manual') { <div class="assignment"><label>Исполнитель<select name="assignee" [(ngModel)]="assigneeDraft"><option value="">Выбрать инженера</option>@for (engineer of engineerOptions; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label><button class="secondary" type="button" [disabled]="!assigneeDraft" (click)="assign()">Назначить</button></div> }
+            @if (settings?.assignmentMode === 'manual') { <div class="assignment"><label>Исполнитель<select name="assignee" [(ngModel)]="assigneeDraft"><option value="">Выбрать инженера</option>@for (engineer of engineerOptions; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label><button class="secondary" type="button" [disabled]="!assigneeDraft || isAssigning" (click)="assign()">Назначить</button><button class="secondary" type="button" [disabled]="isAssigning" (click)="autoAssign()">Распределить автоматически</button></div> }
             @if (isEngineer && selected.status !== 'Закрыта') { <div class="priority-edit"><label>Критичность<select name="priority" [(ngModel)]="priorityDraft">@for (priority of settings?.criticalities ?? []; track priority) { <option [value]="priority">{{ priority }}</option> }</select></label><button class="secondary" type="button" [disabled]="priorityDraft === selected.priority" (click)="changePriority()">Изменить</button></div> }
             @for (nextStatus of nextStatuses; track nextStatus) { <button class="primary transition" type="button" (click)="changeStatus(nextStatus.statusId)">Перевести в «{{ nextStatus.name }}»</button> }
+
             @if (isEngineer && selected.status !== 'Закрыта') { <button class="outline escalation-action" type="button" (click)="escalate()">Повысить критичность и эскалировать</button> }
             @if (selected.type === 'Тикет на ремонт' && selected.status !== 'Закрыта') {
               <form class="repair-close" (ngSubmit)="closeRepair()"><label>Результат ремонта<select name="result" [(ngModel)]="repairResult"><option value="В эксплуатацию">Вернуть в эксплуатацию</option><option value="На склад">Перевести на склад</option><option value="Списать">Списать</option></select></label><label>Что ремонтировалось и что менялось<textarea name="work" [(ngModel)]="repairDescription" required></textarea></label><button class="primary" type="submit" [disabled]="!repairDescription.trim()">Закрыть ремонт</button></form>
@@ -236,6 +237,7 @@ export class TicketQueueComponent implements OnInit {
     selected: Ticket | null = null;
     activityPanel: 'history' | 'comments' | null = null;
     isEngineer = false;
+    isAssigning = false;
     canUseInternalComments = false;
     loadingComments = false;
     loadingHistory = false;
@@ -608,6 +610,24 @@ export class TicketQueueComponent implements OnInit {
     escalate(): void {
         if (!this.selected) return;
         this.ticketsApi.escalateTicket(this.selected.id, 'Инженер ТП').subscribe({ next: entry => { this.selected!.priority = entry.newPriority; this.selected!.status = 'В работе'; this.selected!.history = [...(this.selected!.history ?? []), { id: entry.createdAt, event: `Эскалация ${entry.previousPriority} → ${entry.newPriority}; уведомлены ${entry.recipients.join(', ')}`, actor: entry.initiator, createdAt: entry.createdAt }]; this.notice = `Эскалация создана. Уведомление: ${entry.recipients.join(', ')}.`; this.changeDetector.markForCheck(); this.load(false); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } });
+    }
+    autoAssign(): void {
+        if (!this.selected || this.isAssigning) return;
+        this.isAssigning = true;
+        this.error = '';
+        this.ticketsApi.autoAssignTicket(this.selected.id).subscribe({
+            next: result => {
+                this.isAssigning = false;
+                this.notice = `Заявка ${result.ticketId} распределена: ${result.assigneeName} (открытых заявок: ${result.openTicketsCount}).`;
+                this.changeDetector.markForCheck();
+                this.load(false);
+            },
+            error: err => {
+                this.isAssigning = false;
+                this.error = err?.error?.detail ?? err.message;
+                this.changeDetector.markForCheck();
+            },
+        });
     }
     closeRepair(): void {
         if (!this.selected) return;

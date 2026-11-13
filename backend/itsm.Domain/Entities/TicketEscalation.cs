@@ -10,8 +10,13 @@ public class TicketEscalation
     public string? NotifiedUserIds { get; set; }
     public DateTimeOffset EscalatedAt { get; set; } = DateTimeOffset.UtcNow;
 
+    public int? AcceptedByUserId { get; set; }
+    public DateTimeOffset? AcceptedAt { get; set; }
+    public string? Comment { get; set; }
+
     public Ticket Ticket { get; set; } = null!;
     public User? Initiator { get; set; }
+    public User? AcceptedByUser { get; set; }
     public CriticalityLevel? FromCriticalityLevel { get; set; }
     public CriticalityLevel? ToCriticalityLevel { get; set; }
 }
