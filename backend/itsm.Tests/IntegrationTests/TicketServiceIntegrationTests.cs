@@ -92,6 +92,48 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
     }
 
     [Fact]
+    public async Task ManagerCanReadTicketsOnlyFromTheirDepartment()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var manager = await CreateUserAsync(scope.Db);
+        manager.Department = "IT";
+        var inDepartmentRequester = await CreateUserAsync(scope.Db);
+        inDepartmentRequester.Department = "IT";
+        var otherDepartmentRequester = await CreateUserAsync(scope.Db);
+        otherDepartmentRequester.Department = "Finance";
+        await scope.Db.SaveChangesAsync();
+
+        var inDepartmentTicket = await service.CreateAsync(
+            NewTicketRequest(),
+            inDepartmentRequester.Id,
+            isStaff: false,
+            isEngineer: false);
+        var otherDepartmentTicket = await service.CreateAsync(
+            NewTicketRequest(),
+            otherDepartmentRequester.Id,
+            isStaff: false,
+            isEngineer: false);
+
+        var managerQueue = await service.GetManagerQueueAsync(manager.Id);
+
+        Assert.Contains(managerQueue, ticket => ticket.Id == inDepartmentTicket.Id);
+        Assert.DoesNotContain(managerQueue, ticket => ticket.Id == otherDepartmentTicket.Id);
+        Assert.NotNull(await service.GetByIdAsync(
+            inDepartmentTicket.Id, manager.Id, isStaff: false, isManager: true));
+        Assert.Null(await service.GetByIdAsync(
+            otherDepartmentTicket.Id, manager.Id, isStaff: false, isManager: true));
+        Assert.NotNull(await service.GetHistoryAsync(
+            inDepartmentTicket.Id, manager.Id, isStaff: false, isManager: true));
+        Assert.Null(await service.GetHistoryAsync(
+            otherDepartmentTicket.Id, manager.Id, isStaff: false, isManager: true));
+        Assert.NotNull(await service.GetMessagesAsync(
+            inDepartmentTicket.Id, manager.Id, isStaff: false, isManager: true));
+        Assert.Null(await service.GetMessagesAsync(
+            otherDepartmentTicket.Id, manager.Id, isStaff: false, isManager: true));
+    }
+
+    [Fact]
     public async Task GetHistoryReturnsTicketAuditAndRestrictsOtherUsers()
     {
         await using var scope = await fixture.CreateScopeAsync();
