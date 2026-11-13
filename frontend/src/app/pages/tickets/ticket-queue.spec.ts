@@ -45,8 +45,10 @@ describe('TicketQueueComponent real queue', () => {
         createPortalTicket: ReturnType<typeof vi.fn>;
     };
     let queryParams: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
+    let activeRole: string;
 
     beforeEach(async () => {
+        activeRole = 'agent';
         queryParams = new BehaviorSubject(convertToParamMap({}));
         api = {
             getTickets: vi.fn().mockReturnValue(of([openTicket, assignedTicket])),
@@ -100,7 +102,7 @@ describe('TicketQueueComponent real queue', () => {
                 },
                 {
                     provide: AuthService,
-                    useValue: { canRead: () => true, getLogin: () => 'agent', getRole: () => 'agent' },
+                    useValue: { canRead: () => true, getLogin: () => 'agent', getRole: () => activeRole },
                 },
                 {
                     provide: ActivatedRoute,
@@ -121,6 +123,22 @@ describe('TicketQueueComponent real queue', () => {
 
         expect(api.getTickets).toHaveBeenCalled();
         expect(component.tickets.map(ticket => ticket.id)).toEqual(['42', '43']);
+    });
+
+    it('shows managers their department queue as read-only', () => {
+        activeRole = 'manager';
+        const fixture = TestBed.createComponent(TicketQueueComponent);
+        fixture.detectChanges();
+        const component = fixture.componentInstance;
+
+        component.select(openTicket);
+        fixture.detectChanges();
+
+        expect(component.isManager).toBe(true);
+        expect(fixture.nativeElement.textContent).toContain('очередь вашего отдела');
+        expect(fixture.nativeElement.querySelector('.assignment')).toBeNull();
+        expect(fixture.nativeElement.querySelector('.priority-edit')).toBeNull();
+        expect(fixture.nativeElement.querySelector('.comments form')).toBeNull();
     });
 
     it('filters the real queue by status and assignee', () => {

@@ -15,7 +15,7 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, 
     imports: [CommonModule, FormsModule, RouterLink],
     template: `
     <section class="page">
-      <header class="heading"><div><p class="eyebrow">Service Desk / единая очередь</p><h1>Заявки</h1></div><div class="heading-actions"><button class="primary" type="button" (click)="openCreate()">+ Новая заявка</button><a class="secondary" routerLink="/admin/settings">Типы заявок и SLA</a></div></header>
+      <header class="heading"><div><p class="eyebrow">Service Desk / {{ isManager ? 'заявки отдела' : 'единая очередь' }}</p><h1>Заявки</h1></div><div class="heading-actions"><button class="primary" type="button" (click)="openCreate()">+ Новая заявка</button><a class="secondary" routerLink="/admin/settings">Типы заявок и SLA</a></div></header>
       @if (error) { <p class="notice error">{{ error }}</p> }
       @if (notice) { <p class="notice success">{{ notice }}</p> }
       @if (showCreateForm) {
@@ -50,23 +50,23 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, 
             }
             @if (!filteredTickets.length) { <tr><td colspan="7" class="empty">Заявок по заданным фильтрам нет</td></tr> }
           </tbody></table></div>
-          <footer>{{ filteredTickets.length }} из {{ tickets.length }} заявок · общая очередь</footer>
+          <footer>{{ filteredTickets.length }} из {{ tickets.length }} заявок · {{ isManager ? 'очередь вашего отдела' : 'общая очередь' }}</footer>
         </section>
 
         <aside class="panel ticket-detail">
           @if (selected) {
             <header class="detail-heading"><div><p class="eyebrow">{{ selected.id }} · {{ selected.type }}</p><h2>{{ selected.title }}</h2></div><button class="icon-button" type="button" aria-label="Закрыть карточку" (click)="selected = null">×</button></header>
             <div class="ticket-facts"><div><small>Автор</small><strong>{{ selected.creatorName || selected.requester }}</strong></div>@if (selected.creatorName) { <div><small>Заявитель</small><strong>{{ selected.requester }}</strong></div> }<div><small>Исполнитель</small><strong>{{ selected.assignee || 'Не назначен' }}</strong></div><div><small>Критичность</small><strong>{{ selected.priority }}</strong></div><div><small>Статус</small><strong>{{ selected.status }}</strong></div><div><small>Реакция</small><strong>{{ selected.reactionSla || '—' }}</strong></div><div><small>Решение</small><strong>{{ selected.resolutionSla || selected.slaRemaining }}</strong></div></div>
-            @if (settings?.assignmentMode === 'manual') { <div class="assignment"><label>Исполнитель<select name="assignee" [(ngModel)]="assigneeDraft"><option value="">Выбрать инженера</option>@for (engineer of engineerOptions; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label><button class="secondary" type="button" [disabled]="!assigneeDraft" (click)="assign()">Назначить</button></div> }
+            @if (!isManager && settings?.assignmentMode === 'manual') { <div class="assignment"><label>Исполнитель<select name="assignee" [(ngModel)]="assigneeDraft"><option value="">Выбрать инженера</option>@for (engineer of engineerOptions; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label><button class="secondary" type="button" [disabled]="!assigneeDraft" (click)="assign()">Назначить</button></div> }
             @if (isEngineer && selected.status !== 'Закрыта') { <div class="priority-edit"><label>Критичность<select name="priority" [(ngModel)]="priorityDraft">@for (priority of settings?.criticalities ?? []; track priority) { <option [value]="priority">{{ priority }}</option> }</select></label><button class="secondary" type="button" [disabled]="priorityDraft === selected.priority" (click)="changePriority()">Изменить</button></div> }
-            @for (nextStatus of nextStatuses; track nextStatus) { <button class="primary transition" type="button" (click)="changeStatus(nextStatus.statusId)">Перевести в «{{ nextStatus.name }}»</button> }
-            @if (isEngineer && selected.status !== 'Закрыта') { <button class="outline escalation-action" type="button" (click)="escalate()">Повысить критичность и эскалировать</button> }
-            @if (selected.type === 'Тикет на ремонт' && selected.status !== 'Закрыта') {
+            @if (!isManager) { @for (nextStatus of nextStatuses; track nextStatus) { <button class="primary transition" type="button" (click)="changeStatus(nextStatus.statusId)">Перевести в «{{ nextStatus.name }}»</button> } }
+            @if (!isManager && isEngineer && selected.status !== 'Закрыта') { <button class="outline escalation-action" type="button" (click)="escalate()">Повысить критичность и эскалировать</button> }
+            @if (!isManager && selected.type === 'Тикет на ремонт' && selected.status !== 'Закрыта') {
               <form class="repair-close" (ngSubmit)="closeRepair()"><label>Результат ремонта<select name="result" [(ngModel)]="repairResult"><option value="В эксплуатацию">Вернуть в эксплуатацию</option><option value="На склад">Перевести на склад</option><option value="Списать">Списать</option></select></label><label>Что ремонтировалось и что менялось<textarea name="work" [(ngModel)]="repairDescription" required></textarea></label><button class="primary" type="submit" [disabled]="!repairDescription.trim()">Закрыть ремонт</button></form>
             }
             <section class="history"><h3>История заявки</h3>@if (loadingHistory) { <p class="empty">Загрузка истории...</p> } @else if (selected.history?.length) { @for (item of selected.history; track item.id) { <article><strong>{{ item.event }}</strong><small>{{ item.createdAt }} · {{ item.actor }}</small></article> } } @else { <p class="empty">История изменений пока пуста.</p> }</section>
             <section class="comments"><h3>Переписка</h3>@if (loadingComments) { <p class="empty">Загрузка сообщений...</p> } @for (comment of visibleComments; track comment.id) { <article [class.internal]="comment.internal"><strong>{{ comment.author }} @if (comment.internal) { <span>Внутренний комментарий</span> }</strong><p>{{ comment.message }}</p><small>{{ comment.createdAt }}</small>@if (comment.attachmentRecords?.length) { @for (attachment of comment.attachmentRecords; track attachment.id) { <button class="attachment" type="button" (click)="downloadAttachment(attachment)">📎 {{ attachment.fileName }}</button> } } @else { @for (file of comment.attachments; track file) { <small class="attachment">📎 {{ file }}</small> } }</article> }
-              <form (ngSubmit)="addComment()"><textarea name="message" [(ngModel)]="commentText" placeholder="Сообщение по заявке" required></textarea><label class="file-picker">Прикрепить файлы<input type="file" multiple (change)="pickAttachments($event)" /></label>@if (canUseInternalComments) { <label class="internal-toggle"><input type="checkbox" name="internal" [(ngModel)]="internalComment" /> Внутренний комментарий</label> }<button class="primary" type="submit" [disabled]="isSendingComment || !commentText.trim()">Отправить</button></form>
+              @if (!isManager) { <form (ngSubmit)="addComment()"><textarea name="message" [(ngModel)]="commentText" placeholder="Сообщение по заявке" required></textarea><label class="file-picker">Прикрепить файлы<input type="file" multiple (change)="pickAttachments($event)" /></label>@if (canUseInternalComments) { <label class="internal-toggle"><input type="checkbox" name="internal" [(ngModel)]="internalComment" /> Внутренний комментарий</label> }<button class="primary" type="submit" [disabled]="isSendingComment || !commentText.trim()">Отправить</button></form> }
             </section>
           } @else { <div class="empty-detail"><h2>Откройте заявку</h2><p>Выберите строку в общей очереди, чтобы увидеть SLA, историю и переписку.</p></div> }
         </aside>
@@ -137,6 +137,7 @@ export class TicketQueueComponent implements OnInit {
     settings: AdminSettings | null = null;
     selected: Ticket | null = null;
     isEngineer = false;
+    isManager = false;
     canUseInternalComments = false;
     loadingComments = false;
     loadingHistory = false;
@@ -194,13 +195,14 @@ export class TicketQueueComponent implements OnInit {
     }
     get visibleComments() { return (this.selected?.comments ?? []).filter(comment => !comment.internal || this.canUseInternalComments); }
     get canSelectRequester(): boolean {
-        if (!this.isEngineer) return false;
+        if (!this.isEngineer || this.isManager) return false;
         const activeRole = this.auth.getActiveRole?.();
         return !activeRole || activeRole === 'admin' || activeRole === 'tenant_owner' || activeRole === 'agent' || activeRole === 'manager';
     }
 
     ngOnInit(): void {
-        this.isEngineer = this.auth.canRead();
+        this.isManager = this.auth.getRole() === 'manager';
+        this.isEngineer = this.auth.canRead() && !this.isManager;
         this.canUseInternalComments = this.auth.getRole() === 'admin' || this.auth.getRole() === 'agent';
         this.load();
       this.workspace.getAdminSettings().subscribe({
