@@ -22,6 +22,22 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         return tickets.Select(ToResponse).ToArray();
     }
 
+    public async Task<IReadOnlyList<TicketResponse>> GetManagerQueueAsync(int managerId, CancellationToken ct = default)
+    {
+        var department = await GetManagerDepartmentAsync(managerId, ct);
+        if (department is null)
+            return [];
+
+        var tickets = await TicketQuery()
+            .Where(ticket => (ticket.RequesterId != null
+                    ? ticket.Requester!.Department
+                    : ticket.Creator.Department) == department)
+            .OrderByDescending(ticket => ticket.CreatedAt)
+            .ToListAsync(ct);
+
+        return tickets.Select(ToResponse).ToArray();
+    }
+
     public async Task<IReadOnlyList<TicketResponse>> GetMyTicketsAsync(int userId, CancellationToken ct = default)
     {
         var tickets = await TicketQuery()
@@ -58,12 +74,16 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         int id,
         int userId,
         bool isStaff,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool isManager = false)
     {
         var ticket = await TicketQuery()
             .FirstOrDefaultAsync(ticket => ticket.Id == id, ct);
 
-        if (ticket is null || (!isStaff && ticket.CreatorId != userId && ticket.RequesterId != userId))
+        if (ticket is null || (!isStaff
+            && ticket.CreatorId != userId
+            && ticket.RequesterId != userId
+            && (!isManager || !await IsManagerDepartmentTicketAsync(id, userId, ct))))
             return null;
 
         return ToResponse(ticket);
@@ -550,13 +570,17 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         int attachmentId,
         int userId,
         bool isStaff,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool isManager = false)
     {
+        if (!await CanReadTicketAsync(ticketId, userId, isStaff, isManager, ct))
+            return null;
+
         var attachment = await db.Attachments
             .Where(item => item.Id == attachmentId
                 && item.TicketMessage.TicketId == ticketId
                 && item.TicketMessage.Ticket.TenantId == db.GetCurrentTenantId()
-                && (isStaff || ((item.TicketMessage.Ticket.CreatorId == userId || item.TicketMessage.Ticket.RequesterId == userId) && item.TicketMessage.IsInternal != true)))
+                && (isStaff || item.TicketMessage.IsInternal != true))
             .Select(item => new { item.FileName, item.FilePath })
             .FirstOrDefaultAsync(ct);
         if (attachment is null)
@@ -570,13 +594,10 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         int id,
         int userId,
         bool isStaff,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool isManager = false)
     {
-        var ticketOwner = await db.Tickets
-            .Where(ticket => ticket.Id == id)
-            .Select(ticket => new { CreatorId = (int?)ticket.CreatorId, RequesterId = (int?)ticket.RequesterId })
-            .FirstOrDefaultAsync(ct);
-        if (ticketOwner is null || (!isStaff && ticketOwner.CreatorId != userId && ticketOwner.RequesterId != userId))
+        if (!await CanReadTicketAsync(id, userId, isStaff, isManager, ct))
             return null;
 
         var messages = await db.TicketMessages
@@ -594,10 +615,14 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         int id,
         int userId,
         bool isStaff,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        bool isManager = false)
     {
+        if (!await CanReadTicketAsync(id, userId, isStaff, isManager, ct))
+            return null;
+
         var ticket = await db.Tickets
-            .Where(item => item.Id == id && (isStaff || item.CreatorId == userId || item.RequesterId == userId))
+            .Where(item => item.Id == id)
             .Select(item => new { item.Id, item.TenantId })
             .FirstOrDefaultAsync(ct);
         if (ticket is null)
@@ -843,6 +868,50 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             .Include(ticket => ticket.Requester)
             .Include(ticket => ticket.Assignee)
             .Include(ticket => ticket.CriticalityLevel);
+
+    private async Task<bool> CanReadTicketAsync(
+        int ticketId,
+        int userId,
+        bool isStaff,
+        bool isManager,
+        CancellationToken ct)
+    {
+        if (isStaff)
+            return await db.Tickets.AnyAsync(ticket => ticket.Id == ticketId, ct);
+
+        var ownership = await db.Tickets
+            .Where(ticket => ticket.Id == ticketId)
+            .Select(ticket => new { ticket.CreatorId, ticket.RequesterId })
+            .FirstOrDefaultAsync(ct);
+        if (ownership is null)
+            return false;
+        if (ownership.CreatorId == userId || ownership.RequesterId == userId)
+            return true;
+
+        return isManager && await IsManagerDepartmentTicketAsync(ticketId, userId, ct);
+    }
+
+    private async Task<bool> IsManagerDepartmentTicketAsync(int ticketId, int managerId, CancellationToken ct)
+    {
+        var department = await GetManagerDepartmentAsync(managerId, ct);
+        if (department is null)
+            return false;
+
+        return await db.Tickets.AnyAsync(ticket => ticket.Id == ticketId
+            && (ticket.RequesterId != null
+                ? ticket.Requester!.Department == department
+                : ticket.Creator.Department == department), ct);
+    }
+
+    private async Task<string?> GetManagerDepartmentAsync(int managerId, CancellationToken ct)
+    {
+        var department = await db.Users
+            .Where(user => user.Id == managerId)
+            .Select(user => user.Department)
+            .FirstOrDefaultAsync(ct);
+
+        return string.IsNullOrWhiteSpace(department) ? null : department;
+    }
 
     private async Task ValidateActiveAgentAsync(int userId, CancellationToken ct)
     {
