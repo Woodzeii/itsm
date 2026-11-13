@@ -28,6 +28,7 @@ public class User
     public ICollection<User> DirectReports { get; set; } = new List<User>();
     public ICollection<UserRoleMapping> RoleMappings { get; set; } = new List<UserRoleMapping>();
     public ICollection<Ticket> CreatedTickets { get; set; } = new List<Ticket>();
+    public ICollection<Ticket> RequestedTickets { get; set; } = new List<Ticket>();
     public ICollection<Ticket> AssignedTickets { get; set; } = new List<Ticket>();
     public ICollection<TicketApproval> Approvals { get; set; } = new List<TicketApproval>();
     public ICollection<Asset> AssignedAssets { get; set; } = new List<Asset>();

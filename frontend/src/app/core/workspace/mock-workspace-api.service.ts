@@ -27,6 +27,7 @@ import {
     FormFieldDefinition,
     OverviewData,
     PortalTicketType,
+    RequesterOption,
     PortalTicketRequest,
     RepairCloseRequest,
     ReportSummary,
@@ -200,10 +201,12 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     getEscalations(): Observable<Escalation[]> { return of([...this.escalations]); }
 
     createTicket(request: CreateTicketRequest): Observable<Ticket> {
+        const requester = this.users.find(user => user.id === request.requesterId);
+        const requesterName = request.requesterId != null && requester ? requester.fullName : request.requester;
         const ticket: Ticket = {
             id: this.nextTicketId('SR'),
             title: request.title,
-            requester: request.requester,
+            requester: requesterName,
             team: request.category || 'Сервис-деск',
             priority: request.priority || 'Средний',
             status: 'Открыта',
@@ -217,6 +220,8 @@ export class MockWorkspaceApiService extends WorkspaceApi {
             createdOn: new Date().toISOString().slice(0, 10),
             fields: request.fields ?? {},
             requesterLogin: request.requesterLogin,
+            requesterId: request.requesterId,
+            creatorName: request.requester,
             history: [{ id: this.id('history'), event: 'Заявка создана', actor: request.requester, createdAt: this.now() }],
             comments: request.description ? [{ id: this.id('comment'), author: request.requester, message: request.description, createdAt: this.now(), internal: false, attachments: [] }] : [],
         };
@@ -514,6 +519,18 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         return of(this.ticketTypes
             .filter(type => type.portalAvailable && !type.repair)
             .map((type, index) => ({ id: index + 1, name: type.name })));
+    }
+
+    getRequesters(): Observable<RequesterOption[]> {
+        return of(this.users
+            .filter(user => user.isActive)
+            .map(user => ({
+                id: user.id,
+                username: user.username,
+                fullName: user.fullName,
+                department: user.department || null,
+                email: user.email || null,
+            })));
     }
 
     createPortalTicket(request: PortalTicketRequest): Observable<Ticket> {

@@ -41,6 +41,7 @@ describe('TicketQueueComponent real queue', () => {
         getTicketHistory: ReturnType<typeof vi.fn>;
         addTicketComment: ReturnType<typeof vi.fn>;
         getPortalTicketTypes: ReturnType<typeof vi.fn>;
+        getRequesters: ReturnType<typeof vi.fn>;
         createPortalTicket: ReturnType<typeof vi.fn>;
     };
     let queryParams: BehaviorSubject<ReturnType<typeof convertToParamMap>>;
@@ -65,6 +66,9 @@ describe('TicketQueueComponent real queue', () => {
                 attachments: [],
             } satisfies TicketComment)),
             getPortalTicketTypes: vi.fn().mockReturnValue(of([{ id: 1, name: 'Инцидент' }])),
+            getRequesters: vi.fn().mockReturnValue(of([
+                { id: 7, username: 'anna.belova', fullName: 'Анна Белова', department: 'Бухгалтерия', email: 'anna@itsm.local' },
+            ])),
             createPortalTicket: vi.fn().mockReturnValue(of({ ...openTicket, id: '44', title: 'Новая заявка' })),
         };
 
@@ -89,6 +93,9 @@ describe('TicketQueueComponent real queue', () => {
                                 'В работе': [],
                             },
                         }),
+                        getRequesters: () => of([
+                            { id: 7, username: 'anna.belova', fullName: 'Анна Белова', department: 'Бухгалтерия', email: 'anna@itsm.local' },
+                        ]),
                     },
                 },
                 {
@@ -185,6 +192,29 @@ describe('TicketQueueComponent real queue', () => {
         expect(component.showCreateForm).toBe(true);
         expect(api.getPortalTicketTypes).toHaveBeenCalled();
         expect(component.newTicketTypeId).toBe('1');
+    });
+
+    it('loads requester options for staff so a ticket can be created on behalf of a user', () => {
+        const component = createComponent();
+        component.openCreate();
+
+        expect(api.getRequesters).toHaveBeenCalled();
+        expect(component.requesters.map(requester => requester.id)).toEqual([7]);
+    });
+
+    it('passes the selected requester when a staff member creates a ticket on behalf of a user', () => {
+        const component = createComponent();
+        component.openCreate();
+        component.newTicketTitle = 'Не работает 1С';
+        component.newTicketDescription = 'Бухгалтер не может открыть базу';
+        component.newTicketRequesterId = '7';
+
+        component.createTicket();
+
+        expect(api.createPortalTicket).toHaveBeenCalledWith(expect.objectContaining({
+            typeId: 1,
+            requesterId: 7,
+        }));
     });
 
     it('creates a ticket from the queue form and adds it to the queue', () => {

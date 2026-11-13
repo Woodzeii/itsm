@@ -233,6 +233,7 @@ describe('HttpWorkspaceApiService backend contract', () => {
             typeId: 2,
             priority: 'Высокий',
             assetId: 15,
+            requesterId: null,
             customFieldsData: { office: 'Москва' },
         });
         request.flush({ id: 42, title: 'Нет доступа к VPN' });
@@ -278,6 +279,7 @@ describe('HttpWorkspaceApiService backend contract', () => {
             typeId: 1,
             priority: 'Средний',
             assetId: null,
+            requesterId: null,
             customFieldsData: null,
         });
         request.flush({ id: 43, title: 'Нет доступа к VPN', typeName: 'Инцидент' });
@@ -376,7 +378,59 @@ describe('HttpWorkspaceApiService backend contract', () => {
 
         const request = http.expectOne(`${environment.apiBaseUrl}/assets/15`);
         expect(request.request.method).toBe('PUT');
-        request.flush({});
+        request.flush({ id: 15, name: 'Ноутбук' });
+        http.expectOne(`${environment.apiBaseUrl}/assets/15`).flush({ asset: { id: 15, name: 'Ноутбук' } });
+    });
+
+    it('creates an asset with the backend contract and returns its detail', () => {
+        let detail: { recordId?: string; name: string } | undefined;
+        service.createAsset({
+            name: 'Ноутбук Dell',
+            type: 'Ноутбук',
+            className: 'Ноутбук',
+            id: 'INV-9001',
+            serialNumber: 'SN-9001',
+            assetClassId: 3,
+            warehouseId: 1,
+        }).subscribe(result => detail = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/assets`);
+        expect(request.request.method).toBe('POST');
+        expect(request.request.body).toEqual({
+            name: 'Ноутбук Dell',
+            inventoryNumber: 'INV-9001',
+            serialNumber: 'SN-9001',
+            assetClassId: 3,
+            warehouseId: 1,
+            locationId: null,
+            departmentId: null,
+            assignedUserId: null,
+        });
+        request.flush({ id: 15, name: 'Ноутбук Dell', inventoryNumber: 'INV-9001' });
+
+        const detailRequest = http.expectOne(`${environment.apiBaseUrl}/assets/15`);
+        expect(detailRequest.request.method).toBe('GET');
+        detailRequest.flush({ asset: { id: 15, name: 'Ноутбук Dell', inventoryNumber: 'INV-9001', lifecycleStage: 'InStock' } });
+
+        expect(detail?.recordId).toBe('15');
+        expect(detail?.name).toBe('Ноутбук Dell');
+    });
+
+    it('registers an asset movement using backend movement types and reloads the card', () => {
+        service.moveAsset('15', { kind: 'Выдача со склада', from: '', to: 'Анна Белова', toUserId: 7 }).subscribe();
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/assets/15/movements`);
+        expect(request.request.method).toBe('POST');
+        expect(request.request.body).toEqual({
+            movementType: 'issue',
+            toUserId: 7,
+            toWarehouseId: null,
+            toLocationId: null,
+            toDepartmentId: null,
+            comment: null,
+        });
+        request.flush({ id: 1, assetId: 15, movementType: 'issue' });
+        http.expectOne(`${environment.apiBaseUrl}/assets/15`).flush({ asset: { id: 15, name: 'Ноутбук' } });
     });
 
     it('posts portal messages as public JSON to the ticket messages endpoint', () => {

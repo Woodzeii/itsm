@@ -150,6 +150,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_assets_tenant_id_inventory_number");
 
+                    b.HasIndex("TenantId", "SerialNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_assets_tenant_id_serial_number");
+
                     b.ToTable("assets", "public");
                 });
 
@@ -1821,6 +1825,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("priority");
 
+                    b.Property<int?>("RequesterId")
+                        .HasColumnType("integer")
+                        .HasColumnName("requester_id");
+
                     b.Property<int?>("ServiceCatalogId")
                         .HasColumnType("integer")
                         .HasColumnName("service_catalog_id");
@@ -1905,6 +1913,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("CriticalityLevelId")
                         .HasDatabaseName("ix_tickets_criticality_level_id");
+
+                    b.HasIndex("RequesterId")
+                        .HasDatabaseName("ix_tickets_requester_id");
 
                     b.HasIndex("ServiceCatalogId")
                         .HasDatabaseName("ix_tickets_service_catalog_id");
@@ -2103,6 +2114,18 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTimeOffset?>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<int?>("AcceptedByUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("accepted_by_user_id");
+
+                    b.Property<string>("Comment")
+                        .HasColumnType("text")
+                        .HasColumnName("comment");
+
                     b.Property<DateTimeOffset>("EscalatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2137,6 +2160,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_ticket_escalations");
 
+                    b.HasIndex("AcceptedByUserId")
+                        .HasDatabaseName("ix_ticket_escalations_accepted_by_user_id");
+
                     b.HasIndex("EscalatedAt")
                         .HasDatabaseName("ix_ticket_escalations_escalated_at");
 
@@ -2151,6 +2177,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ToCriticalityLevelId")
                         .HasDatabaseName("ix_ticket_escalations_to_criticality_level_id");
+
+                    b.HasIndex("TicketId", "AcceptedAt")
+                        .HasDatabaseName("ix_ticket_escalations_ticket_id_accepted_at");
 
                     b.ToTable("ticket_escalations", "public");
                 });
@@ -2298,6 +2327,15 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Name = "Закрыта",
                             SortOrder = 5,
                             TenantId = 1
+                        },
+                        new
+                        {
+                            Id = 6,
+                            Code = "escalated",
+                            IsSlaPausing = false,
+                            Name = "Эскалирована",
+                            SortOrder = 6,
+                            TenantId = 1
                         });
                 });
 
@@ -2375,6 +2413,43 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             FromStatusId = 4,
                             ToStatusId = 2
+                        },
+                        new
+                        {
+                            Id = 6,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            FromStatusId = 1,
+                            ToStatusId = 6
+                        },
+                        new
+                        {
+                            Id = 7,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            FromStatusId = 2,
+                            ToStatusId = 6
+                        },
+                        new
+                        {
+                            Id = 8,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            FromStatusId = 3,
+                            ToStatusId = 6
+                        },
+                        new
+                        {
+                            Id = 9,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            FromStatusId = 6,
+                            RequiredRoleCode = "agent",
+                            ToStatusId = 3
+                        },
+                        new
+                        {
+                            Id = 10,
+                            CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            FromStatusId = 6,
+                            RequiredRoleCode = "admin",
+                            ToStatusId = 5
                         });
                 });
 
@@ -3095,6 +3170,12 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_tickets_criticality_levels_criticality_level_id");
 
+                    b.HasOne("itsm.Domain.Entities.User", "Requester")
+                        .WithMany("RequestedTickets")
+                        .HasForeignKey("RequesterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_tickets_users_requester_id");
+
                     b.HasOne("itsm.Domain.Entities.ServiceCatalog", null)
                         .WithMany("Tickets")
                         .HasForeignKey("ServiceCatalogId")
@@ -3136,6 +3217,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("Creator");
 
                     b.Navigation("CriticalityLevel");
+
+                    b.Navigation("Requester");
 
                     b.Navigation("Service");
 
@@ -3232,6 +3315,12 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("itsm.Domain.Entities.TicketEscalation", b =>
                 {
+                    b.HasOne("itsm.Domain.Entities.User", "AcceptedByUser")
+                        .WithMany()
+                        .HasForeignKey("AcceptedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_ticket_escalations_users_accepted_by_user_id");
+
                     b.HasOne("itsm.Domain.Entities.CriticalityLevel", "FromCriticalityLevel")
                         .WithMany()
                         .HasForeignKey("FromCriticalityLevelId")
@@ -3256,6 +3345,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ToCriticalityLevelId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .HasConstraintName("fk_ticket_escalations_criticality_levels_to_criticality_level_");
+
+                    b.Navigation("AcceptedByUser");
 
                     b.Navigation("FromCriticalityLevel");
 
@@ -3460,6 +3551,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("NewAssetAssignments");
 
                     b.Navigation("PreviousAssetAssignments");
+
+                    b.Navigation("RequestedTickets");
 
                     b.Navigation("RoleMappings");
 

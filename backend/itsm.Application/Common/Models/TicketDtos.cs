@@ -108,6 +108,8 @@ public sealed record TicketResponse(
     int? ServiceId,
     int CreatorId,
     string CreatorName,
+    int? RequesterId,
+    string? RequesterName,
     int? AssigneeId,
     string? AssigneeName,
     int? AssigneeGroupId,
@@ -189,6 +191,8 @@ public sealed record AssetTicketHistoryItem(
     string Title,
     int CreatorId,
     string CreatorName,
+    int? RequesterId,
+    string? RequesterName,
     int? AssigneeId,
     string? AssigneeName,
     int StatusId,
@@ -231,3 +235,34 @@ public sealed record AutoAssignResponse(
     string AssigneeName,
     int OpenTicketsCount,
     string Reason);
+    DateTimeOffset EscalatedAt,
+    int? AcceptedByUserId = null,
+    DateTimeOffset? AcceptedAt = null,
+    string? Comment = null);
+
+/// <summary>Эскалированная заявка в очереди принятия.</summary>
+public sealed record PendingEscalationResponse(
+    int EscalationId,
+    int TicketId,
+    string Title,
+    int TicketTypeId,
+    string TicketTypeName,
+    int StatusId,
+    string StatusName,
+    int? CriticalityLevelId,
+    string? CriticalityName,
+    int EscalationLevel,
+    int? AssigneeId,
+    string? AssigneeName,
+    int? InitiatorUserId,
+    string? InitiatorName,
+    DateTimeOffset EscalatedAt,
+    int? AcceptedByUserId,
+    DateTimeOffset? AcceptedAt);
+
+/// <summary>Запрос на принятие эскалации.</summary>
+public sealed record AcceptEscalationRequest
+{
+    [StringLength(2000)]
+    public string? Comment { get; init; }
+}

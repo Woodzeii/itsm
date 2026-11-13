@@ -265,10 +265,12 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => x.TicketId);
             entity.HasIndex(x => x.EscalatedAt);
+            entity.HasIndex(x => new { x.TicketId, x.AcceptedAt });
             entity.Property(x => x.EscalatedAt).HasDefaultValueSql("now()");
 
             entity.HasOne(x => x.Ticket).WithMany().HasForeignKey(x => x.TicketId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(x => x.Initiator).WithMany().HasForeignKey(x => x.InitiatorUserId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.AcceptedByUser).WithMany().HasForeignKey(x => x.AcceptedByUserId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.FromCriticalityLevel).WithMany().HasForeignKey(x => x.FromCriticalityLevelId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.ToCriticalityLevel).WithMany().HasForeignKey(x => x.ToCriticalityLevelId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -322,6 +324,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => x.TenantId);
             entity.HasIndex(x => new { x.TenantId, x.InventoryNumber }).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.SerialNumber }).IsUnique();
             entity.HasIndex(x => x.LifecycleStage);
             entity.Property(x => x.LifecycleStage).HasDefaultValue("Purchased");
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
@@ -379,6 +382,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
 
             entity.HasOne(x => x.Creator).WithMany(x => x.CreatedTickets).HasForeignKey(x => x.CreatorId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Requester).WithMany(x => x.RequestedTickets).HasForeignKey(x => x.RequesterId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Assignee).WithMany(x => x.AssignedTickets).HasForeignKey(x => x.AssigneeId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Type).WithMany().HasForeignKey(x => x.TypeId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Status).WithMany().HasForeignKey(x => x.StatusId).OnDelete(DeleteBehavior.Restrict);
@@ -588,7 +592,8 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             new TicketStatus { Id = 2, TenantId = 1, Code = "pending", Name = "Ожидает выполнения", IsSlaPausing = false, SortOrder = 2 },
             new TicketStatus { Id = 3, TenantId = 1, Code = "in_progress", Name = "В работе", IsSlaPausing = false, SortOrder = 3 },
             new TicketStatus { Id = 4, TenantId = 1, Code = "review", Name = "Проверка", IsSlaPausing = true, SortOrder = 4 },
-            new TicketStatus { Id = 5, TenantId = 1, Code = "closed", Name = "Закрыта", IsSlaPausing = false, SortOrder = 5 }
+            new TicketStatus { Id = 5, TenantId = 1, Code = "closed", Name = "Закрыта", IsSlaPausing = false, SortOrder = 5 },
+            new TicketStatus { Id = 6, TenantId = 1, Code = "escalated", Name = "Эскалирована", IsSlaPausing = false, SortOrder = 6 }
         );
 
         modelBuilder.Entity<TicketStatusTransition>().HasData(
@@ -596,7 +601,12 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             new TicketStatusTransition { Id = 2, FromStatusId = 2, ToStatusId = 3, CreatedAt = seedDate },
             new TicketStatusTransition { Id = 3, FromStatusId = 3, ToStatusId = 4, CreatedAt = seedDate },
             new TicketStatusTransition { Id = 4, FromStatusId = 4, ToStatusId = 5, CreatedAt = seedDate },
-            new TicketStatusTransition { Id = 5, FromStatusId = 4, ToStatusId = 2, CreatedAt = seedDate }
+            new TicketStatusTransition { Id = 5, FromStatusId = 4, ToStatusId = 2, CreatedAt = seedDate },
+            new TicketStatusTransition { Id = 6, FromStatusId = 1, ToStatusId = 6, CreatedAt = seedDate },
+            new TicketStatusTransition { Id = 7, FromStatusId = 2, ToStatusId = 6, CreatedAt = seedDate },
+            new TicketStatusTransition { Id = 8, FromStatusId = 3, ToStatusId = 6, CreatedAt = seedDate },
+            new TicketStatusTransition { Id = 9, FromStatusId = 6, ToStatusId = 3, RequiredRoleCode = "agent", CreatedAt = seedDate },
+            new TicketStatusTransition { Id = 10, FromStatusId = 6, ToStatusId = 5, RequiredRoleCode = "admin", CreatedAt = seedDate }
         );
 
         modelBuilder.Entity<Dictionary>().HasData(
@@ -667,7 +677,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
 
         foreach (var entityType in multiTenantTypes)
         {
-            // Read the tenant from this DbContext so EF can parameterize the filter per context.
+            // EF параметризует TenantId текущего DbContext отдельно для каждого экземпляра.
             var parameter = System.Linq.Expressions.Expression.Parameter(entityType.ClrType, "e");
             var property = System.Linq.Expressions.Expression.Property(parameter, tenantIdProperty);
             var currentTenantId = System.Linq.Expressions.Expression.Property(
