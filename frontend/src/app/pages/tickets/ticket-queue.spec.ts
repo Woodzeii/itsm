@@ -179,18 +179,19 @@ describe('TicketQueueComponent real queue', () => {
         const component = fixture.componentInstance;
         fixture.detectChanges();
         component.select(openTicket);
+        fixture.detectChanges();
 
-        component.openActivityPanel('history');
+        fixture.nativeElement.querySelector('.history .activity-open').click();
         fixture.detectChanges();
         expect(component.activityPanel).toBe('history');
         expect(fixture.nativeElement.querySelector('#ticket-history-dialog-title')?.textContent.trim()).toBe('История заявки');
 
-        component.openActivityPanel('comments');
+        fixture.nativeElement.querySelector('.comments .activity-open').click();
         fixture.detectChanges();
         expect(component.activityPanel).toBe('comments');
         expect(fixture.nativeElement.querySelector('#ticket-comments-dialog-title')?.textContent.trim()).toBe('Переписка');
 
-        component.closeActivityPanel();
+        fixture.nativeElement.querySelector('[aria-label="Закрыть панель"]').click();
         fixture.detectChanges();
         expect(component.activityPanel).toBeNull();
         expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeNull();
