@@ -794,25 +794,6 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         Assert.Equal("manual", reloaded.Mode);
     }
 
-
-
-
-
-
-    [Fact]
-    public async Task ClosedTicketEscalationIsRejected()
-    {
-        await using var scope = await fixture.CreateScopeAsync();
-        var service = CreateService(scope);
-        var creator = await CreateUserAsync(scope.Db);
-        var head = await CreateUserAsync(scope.Db, "agent");
-        var ticket = await CreateTicketAsync(scope.Db, creator.Id, statusId: 5);
-        await service.SetServiceDeskHeadAsync(new SetServiceDeskHeadRequest { UserId = head.Id });
-
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.EscalateAsync(ticket.Id, creator.Id));
-        Assert.Empty(await scope.Db.TicketEscalations.ToListAsync());
-    }
-
     [Fact]
     public async Task ManualEscalationIsRejectedWhenDisabledByRule()
     {

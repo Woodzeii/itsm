@@ -616,6 +616,8 @@ function toAssignmentSetting(setting: BackendAssignmentSetting): AssignmentSetti
         manualAssignerName: setting.manualAssignerName ?? null,
         activeAgentsCount: setting.activeAgentsCount ?? 0,
     };
+}
+
 interface BackendAsset {
     id: number;
     inventoryNumber?: string | null;

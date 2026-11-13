@@ -185,8 +185,6 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         {
             ticket.AssigneeId = autoAssignee.UserId;
             ticket.AssigneeGroupId = null;
-        if (requesterId != creatorId)
-        {
             db.TicketAuditLogs.Add(new TicketAuditLog
             {
                 TicketId = ticket.Id,
@@ -210,6 +208,13 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
                 ChangedAt = now
             });
         }
+
+        if (requesterId != creatorId)
+        {
+            db.TicketAuditLogs.Add(new TicketAuditLog
+            {
+                TicketId = ticket.Id,
+                UserId = creatorId,
                 FieldName = "requesterId",
                 OldValue = null,
                 NewValue = requesterId.ToString(),

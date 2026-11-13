@@ -211,7 +211,10 @@ public sealed record TicketEscalationResponse(
     int? FromCriticalityLevelId,
     int? ToCriticalityLevelId,
     IReadOnlyList<int> NotifiedUserIds,
-    DateTimeOffset EscalatedAt);
+    DateTimeOffset EscalatedAt,
+    int? AcceptedByUserId = null,
+    DateTimeOffset? AcceptedAt = null,
+    string? Comment = null);
 
 /// <summary>Текущий режим назначения исполнителей.</summary>
 public sealed record AssignmentSettingResponse(
@@ -235,10 +238,6 @@ public sealed record AutoAssignResponse(
     string AssigneeName,
     int OpenTicketsCount,
     string Reason);
-    DateTimeOffset EscalatedAt,
-    int? AcceptedByUserId = null,
-    DateTimeOffset? AcceptedAt = null,
-    string? Comment = null);
 
 /// <summary>Эскалированная заявка в очереди принятия.</summary>
 public sealed record PendingEscalationResponse(
