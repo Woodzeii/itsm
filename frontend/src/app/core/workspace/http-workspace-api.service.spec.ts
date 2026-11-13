@@ -71,6 +71,20 @@ describe('HttpWorkspaceApiService backend contract', () => {
         }]);
     });
 
+    it('loads a message page with its offset and size', () => {
+        let comments: unknown;
+        service.getTicketCommentsPage('42', 30, 30).subscribe(result => comments = result);
+
+        const request = http.expectOne(req =>
+            req.url === `${environment.apiBaseUrl}/tickets/42/messages`
+            && req.params.get('skip') === '30'
+            && req.params.get('take') === '30');
+        expect(request.request.method).toBe('GET');
+        request.flush([]);
+
+        expect(comments).toEqual([]);
+    });
+
     it('loads ticket history and maps backend identifiers to strings', () => {
         let history: unknown;
         service.getTicketHistory('42').subscribe(result => history = result);
@@ -90,6 +104,20 @@ describe('HttpWorkspaceApiService backend contract', () => {
             actor: 'Agent',
             createdAt: '2026-11-07T08:00:00Z',
         }]);
+    });
+
+    it('loads a history page with its offset and size', () => {
+        let history: unknown;
+        service.getTicketHistoryPage('42', 30, 30).subscribe(result => history = result);
+
+        const request = http.expectOne(req =>
+            req.url === `${environment.apiBaseUrl}/tickets/42/history`
+            && req.params.get('skip') === '30'
+            && req.params.get('take') === '30');
+        expect(request.request.method).toBe('GET');
+        request.flush([]);
+
+        expect(history).toEqual([]);
     });
 
     it('posts a ticket message with backend field names', () => {
@@ -157,6 +185,29 @@ describe('HttpWorkspaceApiService backend contract', () => {
         expect(request.request.method).toBe('POST');
         expect(request.request.body).toBeNull();
         request.flush({});
+    });
+
+    it('reads and updates the assignment mode through the backend', () => {
+        let setting: { mode: string; activeAgentsCount: number } | undefined;
+        service.saveAssignmentSetting('manual').subscribe(value => setting = value);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/assignment-setting`);
+        expect(request.request.method).toBe('PUT');
+        expect(request.request.body).toEqual({ mode: 'manual' });
+        request.flush({ mode: 'manual', manualAssignerUserId: null, manualAssignerName: null, activeAgentsCount: 3 });
+
+        expect(setting).toEqual({ mode: 'manual', manualAssignerUserId: null, manualAssignerName: null, activeAgentsCount: 3 });
+    });
+
+    it('triggers automatic assignment through /auto-assign', () => {
+        let result: { ticketId: string; assigneeName: string } | undefined;
+        service.autoAssignTicket('42').subscribe(value => result = value);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/auto-assign`);
+        expect(request.request.method).toBe('POST');
+        request.flush({ ticketId: 42, assigneeId: 5, assigneeName: 'Пётр Петров', openTicketsCount: 1, reason: 'least-loaded' });
+
+        expect(result).toEqual(expect.objectContaining({ ticketId: '42', assigneeName: 'Пётр Петров' }));
     });
 
     it('maps backend ticket responses to the frontend ticket model', () => {

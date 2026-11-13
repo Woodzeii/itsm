@@ -12,6 +12,7 @@ namespace itsm.WebApi.Controllers;
 public sealed class TicketsController(ITicketService service) : ControllerBase
 {
     private const long MaxAttachmentSizeBytes = 10 * 1024 * 1024;
+    private const int MaxTimelinePageSize = 100;
 
     [HttpGet]
     [Authorize(Roles = "admin,tenant_owner,agent,manager")]
@@ -154,6 +155,50 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
+    [HttpPost("{id:int}/auto-assign")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
+    [EndpointSummary("Автоматически распределить заявку на наименее загруженного инженера")]
+    [ProducesResponseType(typeof(AutoAssignResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AutoAssignResponse>> AutoAssign(int id, CancellationToken ct)
+    {
+        if (!TryGetUserId(out var actorId))
+            return Unauthorized();
+
+        try
+        {
+            var result = await service.AutoAssignAsync(id, actorId, ct);
+            return result is null ? NotFound() : Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ProblemDetails { Title = "Автораспределение невозможно", Detail = ex.Message, Status = 409 });
+        }
+    }
+
+    [HttpGet("assignment-setting")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
+    [EndpointSummary("Получить режим назначения исполнителей")]
+    [ProducesResponseType(typeof(AssignmentSettingResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<AssignmentSettingResponse>> GetAssignmentSetting(CancellationToken ct)
+        => Ok(await service.GetAssignmentSettingAsync(ct));
+
+    [HttpPut("assignment-setting")]
+    [Authorize(Roles = "admin,tenant_owner")]
+    [EndpointSummary("Изменить режим назначения исполнителей")]
+    [ProducesResponseType(typeof(AssignmentSettingResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<AssignmentSettingResponse>> UpdateAssignmentSetting(
+        [FromBody] UpdateAssignmentSettingRequest request,
+        CancellationToken ct)
+    {
+        if (!ModelState.IsValid)
+            return ValidationProblem(ModelState);
+
+        return Ok(await service.UpdateAssignmentSettingAsync(request, ct));
+    }
+
     [HttpPost("{id:int}/assign")]
     [Authorize(Roles = "admin,tenant_owner,agent")]
     [EndpointSummary("Назначить исполнителя заявки")]
@@ -204,6 +249,77 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
+    [HttpGet("{id:int}/escalations")]
+    [EndpointSummary("Получить историю эскалаций заявки")]
+    [ProducesResponseType(typeof(IReadOnlyList<TicketEscalationResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<TicketEscalationResponse>>> GetEscalations(int id, CancellationToken ct)
+    {
+        var escalations = await service.GetTicketEscalationsAsync(id, ct);
+        return escalations is null ? NotFound() : Ok(escalations);
+    }
+
+    [HttpPost("{id:int}/escalation/accept")]
+    [Authorize(Roles = "admin,tenant_owner,agent")]
+    [EndpointSummary("Принять эскалацию заявки")]
+    [ProducesResponseType(typeof(TicketEscalationResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    public async Task<ActionResult<TicketEscalationResponse>> AcceptEscalation(
+        int id,
+        [FromBody] AcceptEscalationRequest request,
+        CancellationToken ct)
+    {
+        if (!TryGetUserId(out var actorId))
+            return Unauthorized();
+
+        var isAdmin = User.IsInRole("admin") || User.IsInRole("tenant_owner");
+
+        try
+        {
+            var escalation = await service.AcceptEscalationAsync(id, request, actorId, isAdmin, ct);
+            return escalation is null ? NotFound() : Ok(escalation);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return ForbidWithProblem(ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new ProblemDetails { Title = "Эскалацию нельзя принять", Detail = ex.Message, Status = 409 });
+        }
+    }
+
+    // перегрузка макара
+    [HttpGet("{id:int}/messages")]
+    [EndpointSummary("Получить сообщения заявки")]
+    [ProducesResponseType(typeof(IReadOnlyList<TicketMessageResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<TicketMessageResponse>>> GetMessages(
+        int id,
+        CancellationToken ct,
+        [FromQuery] int? skip,
+        [FromQuery] int? take)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        if (skip < 0 || take is < 1 or > MaxTimelinePageSize)
+            return BadRequest(new ProblemDetails { Title = "Некорректная страница", Detail = $"skip должен быть неотрицательным, а take — от 1 до {MaxTimelinePageSize}.", Status = 400 });
+
+        var isPaged = skip.HasValue || take.HasValue;
+        var messages = await service.GetMessagesAsync(
+            id,
+            userId,
+            IsStaff(),
+            ct,
+            isPaged ? skip ?? 0 : null,
+            isPaged ? take ?? 30 : null);
+        return messages is null ? NotFound() : Ok(messages);
+    }
+    
+    // перегрузка дениса
     [HttpGet("{id:int}/messages")]
     [EndpointSummary("Получить сообщения заявки")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketMessageResponse>), StatusCodes.Status200OK)]
@@ -217,6 +333,35 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         return messages is null ? NotFound() : Ok(messages);
     }
 
+    // перегрузка макара
+    [HttpGet("{id:int}/history")]
+    [EndpointSummary("Получить историю изменений заявки")]
+    [ProducesResponseType(typeof(IReadOnlyList<TicketHistoryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<IReadOnlyList<TicketHistoryResponse>>> GetHistory(
+        int id,
+        CancellationToken ct,
+        [FromQuery] int? skip,
+        [FromQuery] int? take)
+    {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        if (skip < 0 || take is < 1 or > MaxTimelinePageSize)
+            return BadRequest(new ProblemDetails { Title = "Некорректная страница", Detail = $"skip должен быть неотрицательным, а take — от 1 до {MaxTimelinePageSize}.", Status = 400 });
+
+        var isPaged = skip.HasValue || take.HasValue;
+        var history = await service.GetHistoryAsync(
+            id,
+            userId,
+            IsStaff(),
+            ct,
+            isPaged ? skip ?? 0 : null,
+            isPaged ? take ?? 30 : null);
+        return history is null ? NotFound() : Ok(history);
+    }
+    
+    // перегрузка дениса   
     [HttpGet("{id:int}/history")]
     [EndpointSummary("Получить историю изменений заявки")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketHistoryResponse>), StatusCodes.Status200OK)]
@@ -229,6 +374,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         var history = await service.GetHistoryAsync(id, userId, IsStaff(), ct, IsManager());
         return history is null ? NotFound() : Ok(history);
     }
+
 
     [HttpPost("{id:int}/messages")]
     [EndpointSummary("Добавить сообщение к заявке")]

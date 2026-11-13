@@ -64,6 +64,18 @@ describe('AdminWorkspaceComponent user list', () => {
                             portalSlaFields: [],
                             reportAccessRoles: [],
                         }),
+                        getAssignmentSetting: () => of({
+                            mode: 'auto',
+                            manualAssignerUserId: null,
+                            manualAssignerName: null,
+                            activeAgentsCount: 2,
+                        }),
+                        saveAssignmentSetting: (mode: 'auto' | 'manual') => of({
+                            mode,
+                            manualAssignerUserId: null,
+                            manualAssignerName: null,
+                            activeAgentsCount: 2,
+                        }),
                     },
                 },
                 {

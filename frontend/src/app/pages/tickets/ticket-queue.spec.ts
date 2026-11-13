@@ -38,7 +38,9 @@ describe('TicketQueueComponent real queue', () => {
         changeTicketStatus: ReturnType<typeof vi.fn>;
         assignTicket: ReturnType<typeof vi.fn>;
         getTicketComments: ReturnType<typeof vi.fn>;
+        getTicketCommentsPage: ReturnType<typeof vi.fn>;
         getTicketHistory: ReturnType<typeof vi.fn>;
+        getTicketHistoryPage: ReturnType<typeof vi.fn>;
         addTicketComment: ReturnType<typeof vi.fn>;
         getPortalTicketTypes: ReturnType<typeof vi.fn>;
         getRequesters: ReturnType<typeof vi.fn>;
@@ -58,7 +60,9 @@ describe('TicketQueueComponent real queue', () => {
             changeTicketStatus: vi.fn().mockReturnValue(of({ ...openTicket, status: 'В работе', statusId: 3 })),
             assignTicket: vi.fn().mockReturnValue(of({ ...openTicket, assignee: 'Пётр Петров', assigneeId: 5 })),
             getTicketComments: vi.fn().mockReturnValue(of([])),
+            getTicketCommentsPage: vi.fn().mockReturnValue(of([])),
             getTicketHistory: vi.fn().mockReturnValue(of([])),
+            getTicketHistoryPage: vi.fn().mockReturnValue(of([])),
             addTicketComment: vi.fn().mockReturnValue(of({
                 id: 'm3',
                 author: 'agent',
@@ -179,13 +183,36 @@ describe('TicketQueueComponent real queue', () => {
             { id: 'm1', author: 'agent', message: 'Внутренняя заметка', createdAt: '', internal: true, attachments: [] },
             { id: 'm2', author: 'Иван', message: 'Публичный ответ', createdAt: '', internal: false, attachments: [] },
         ];
-        api.getTicketComments.mockReturnValue(of(messages));
+        api.getTicketCommentsPage.mockReturnValue(of(messages));
         const component = createComponent();
 
         component.select(openTicket);
 
-        expect(api.getTicketComments).toHaveBeenCalledWith('42');
+        expect(api.getTicketCommentsPage).toHaveBeenCalledWith('42', 0, 30);
         expect(component.visibleComments).toEqual(messages);
+    });
+
+    it('opens the full history and conversation in separate activity panels', () => {
+        const fixture = TestBed.createComponent(TicketQueueComponent);
+        const component = fixture.componentInstance;
+        fixture.detectChanges();
+        component.select(openTicket);
+        fixture.detectChanges();
+
+        fixture.nativeElement.querySelector('.history .activity-open').click();
+        fixture.detectChanges();
+        expect(component.activityPanel).toBe('history');
+        expect(fixture.nativeElement.querySelector('#ticket-history-dialog-title')?.textContent.trim()).toBe('История заявки');
+
+        fixture.nativeElement.querySelector('.comments .activity-open').click();
+        fixture.detectChanges();
+        expect(component.activityPanel).toBe('comments');
+        expect(fixture.nativeElement.querySelector('#ticket-comments-dialog-title')?.textContent.trim()).toBe('Переписка');
+
+        fixture.nativeElement.querySelector('[aria-label="Закрыть панель"]').click();
+        fixture.detectChanges();
+        expect(component.activityPanel).toBeNull();
+        expect(fixture.nativeElement.querySelector('[role="dialog"]')).toBeNull();
     });
 
     it('filters internal comments when the active user is not staff', () => {

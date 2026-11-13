@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, HostListener, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
@@ -67,10 +67,93 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, 
             <section class="history"><h3>История заявки</h3>@if (loadingHistory) { <p class="empty">Загрузка истории...</p> } @else if (selected.history?.length) { @for (item of selected.history; track item.id) { <article><strong>{{ item.event }}</strong><small>{{ item.createdAt }} · {{ item.actor }}</small></article> } } @else { <p class="empty">История изменений пока пуста.</p> }</section>
             <section class="comments"><h3>Переписка</h3>@if (loadingComments) { <p class="empty">Загрузка сообщений...</p> } @for (comment of visibleComments; track comment.id) { <article [class.internal]="comment.internal"><strong>{{ comment.author }} @if (comment.internal) { <span>Внутренний комментарий</span> }</strong><p>{{ comment.message }}</p><small>{{ comment.createdAt }}</small>@if (comment.attachmentRecords?.length) { @for (attachment of comment.attachmentRecords; track attachment.id) { <button class="attachment" type="button" (click)="downloadAttachment(attachment)">📎 {{ attachment.fileName }}</button> } } @else { @for (file of comment.attachments; track file) { <small class="attachment">📎 {{ file }}</small> } }</article> }
               @if (!isManager) { <form (ngSubmit)="addComment()"><textarea name="message" [(ngModel)]="commentText" placeholder="Сообщение по заявке" required></textarea><label class="file-picker">Прикрепить файлы<input type="file" multiple (change)="pickAttachments($event)" /></label>@if (canUseInternalComments) { <label class="internal-toggle"><input type="checkbox" name="internal" [(ngModel)]="internalComment" /> Внутренний комментарий</label> }<button class="primary" type="submit" [disabled]="isSendingComment || !commentText.trim()">Отправить</button></form> }
+            @if (settings?.assignmentMode === 'manual') { <div class="assignment"><label>Исполнитель<select name="assignee" [(ngModel)]="assigneeDraft"><option value="">Выбрать инженера</option>@for (engineer of engineerOptions; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label><button class="secondary" type="button" [disabled]="!assigneeDraft || isAssigning" (click)="assign()">Назначить</button><button class="secondary" type="button" [disabled]="isAssigning" (click)="autoAssign()">Распределить автоматически</button></div> }
+            @if (isEngineer && selected.status !== 'Закрыта') { <div class="priority-edit"><label>Критичность<select name="priority" [(ngModel)]="priorityDraft">@for (priority of settings?.criticalities ?? []; track priority) { <option [value]="priority">{{ priority }}</option> }</select></label><button class="secondary" type="button" [disabled]="priorityDraft === selected.priority" (click)="changePriority()">Изменить</button></div> }
+            @for (nextStatus of nextStatuses; track nextStatus) { <button class="primary transition" type="button" (click)="changeStatus(nextStatus.statusId)">Перевести в «{{ nextStatus.name }}»</button> }
+
+            @if (isEngineer && selected.status !== 'Закрыта') { <button class="outline escalation-action" type="button" (click)="escalate()">Повысить критичность и эскалировать</button> }
+            @if (selected.type === 'Тикет на ремонт' && selected.status !== 'Закрыта') {
+              <form class="repair-close" (ngSubmit)="closeRepair()"><label>Результат ремонта<select name="result" [(ngModel)]="repairResult"><option value="В эксплуатацию">Вернуть в эксплуатацию</option><option value="На склад">Перевести на склад</option><option value="Списать">Списать</option></select></label><label>Что ремонтировалось и что менялось<textarea name="work" [(ngModel)]="repairDescription" required></textarea></label><button class="primary" type="submit" [disabled]="!repairDescription.trim()">Закрыть ремонт</button></form>
+            }
+            <section class="history"><button type="button" class="activity-open" (click)="openActivityPanel('history')"><span>История заявки</span><span class="activity-open-action">Открыть полностью <span aria-hidden="true">↗</span></span></button><div class="history-scroll" #historyScroll (scroll)="onHistoryScroll($event)">
+              @if (loadingHistory) { <p class="empty" aria-live="polite">Загрузка истории...</p> }
+              @else if (selected.history?.length) { @for (item of selected.history; track item.id) { <article><strong class="history-event">{{ item.event }}</strong><small class="timeline-meta"><time [attr.datetime]="item.createdAt">{{ item.createdAt | date:'dd.MM.yyyy, HH:mm' }}</time><span aria-hidden="true">·</span><span>{{ item.actor }}</span></small></article> } }
+              @else { <p class="empty">История изменений пока пуста.</p> }
+              @if (loadingOlderHistory) { <p class="timeline-loading" aria-live="polite">Загружаем более ранние события...</p> }
+            </div></section>
+            <section class="comments"><header class="activity-heading"><button type="button" class="activity-open" (click)="openActivityPanel('comments')"><span>Переписка</span><span class="activity-open-action">Открыть чат <span aria-hidden="true">↗</span></span></button><span>{{ visibleComments.length }} сообщений</span></header>
+              <div class="comments-scroll" #commentsScroll (scroll)="onCommentsScroll($event)">
+                @if (loadingComments) { <p class="empty" aria-live="polite">Загрузка сообщений...</p> }
+                @if (loadingOlderComments) { <p class="timeline-loading" aria-live="polite">Загружаем более ранние сообщения...</p> }
+                @for (comment of visibleComments; track comment.id) { <article class="timeline-entry" [class.internal]="comment.internal"><strong class="timeline-author">{{ comment.author }} @if (comment.internal) { <span>Внутренний комментарий</span> }</strong><p class="timeline-message">{{ comment.message }}</p><time class="timeline-meta" [attr.datetime]="comment.createdAt">{{ comment.createdAt | date:'dd.MM.yyyy, HH:mm' }}</time>@if (comment.attachmentRecords?.length) { @for (attachment of comment.attachmentRecords; track attachment.id) { <button class="attachment" type="button" (click)="downloadAttachment(attachment)">📎 {{ attachment.fileName }}</button> } } @else { @for (file of comment.attachments; track file) { <small class="attachment">📎 {{ file }}</small> } }</article> }
+                @if (!loadingComments && !visibleComments.length) { <p class="empty">Сообщений пока нет.</p> }
+              </div>
+              @if (showJumpToLatest) { <button class="jump-latest" type="button" (click)="scrollCommentsToLatest()">↓ К последним сообщениям</button> }
+              <form class="comment-composer" (ngSubmit)="addComment()"><textarea name="message" [(ngModel)]="commentText" placeholder="Сообщение по заявке" required></textarea><div class="composer-options"><label class="file-picker">Выбрать файлы<input type="file" multiple (change)="pickAttachments($event)" /></label>@if (canUseInternalComments) { <label class="internal-toggle"><input type="checkbox" name="internal" [(ngModel)]="internalComment" /> Внутренний комментарий</label> }<button class="primary" type="submit" [disabled]="isSendingComment || !commentText.trim()">Отправить</button></div></form>
             </section>
           } @else { <div class="empty-detail"><h2>Откройте заявку</h2><p>Выберите строку в общей очереди, чтобы увидеть SLA, историю и переписку.</p></div> }
         </aside>
       </div>
+      @if (activityPanel) {
+        <div class="activity-modal-backdrop" (click)="closeActivityPanel()">
+          <section class="activity-modal" role="dialog" aria-modal="true"
+            [attr.aria-labelledby]="activityPanel === 'history' ? 'ticket-history-dialog-title' : 'ticket-comments-dialog-title'"
+            (click)="$event.stopPropagation()">
+            <header class="activity-modal-header">
+              <div>
+                <p class="eyebrow">{{ selected?.id }} · {{ selected?.type }}</p>
+                <h2 [id]="activityPanel === 'history' ? 'ticket-history-dialog-title' : 'ticket-comments-dialog-title'">
+                  {{ activityPanel === 'history' ? 'История заявки' : 'Переписка' }}
+                </h2>
+                <p class="activity-modal-subtitle">{{ selected?.title }}</p>
+              </div>
+              <button #activityModalClose class="icon-button activity-modal-close" type="button"
+                aria-label="Закрыть панель" (click)="closeActivityPanel()">×</button>
+            </header>
+            @if (activityPanel === 'history') {
+              <div class="activity-modal-content history-modal-content" #modalHistoryScroll (scroll)="onHistoryScroll($event)">
+                @if (loadingHistory) { <p class="empty" aria-live="polite">Загрузка истории...</p> }
+                @else if (selected?.history?.length) {
+                  @for (item of selected?.history; track item.id) {
+                    <article class="history-entry"><span class="history-entry-marker" aria-hidden="true"></span><div><strong class="history-event">{{ item.event }}</strong><small class="timeline-meta"><time [attr.datetime]="item.createdAt">{{ item.createdAt | date:'dd.MM.yyyy, HH:mm' }}</time><span aria-hidden="true">·</span><span>{{ item.actor }}</span></small></div></article>
+                  }
+                } @else { <p class="empty">История изменений пока пуста.</p> }
+                @if (loadingOlderHistory) { <p class="timeline-loading" aria-live="polite">Загружаем более ранние события...</p> }
+                @if (!historyHasOlder && selected?.history?.length) { <p class="timeline-end">Начало истории заявки</p> }
+              </div>
+            } @else {
+              <div class="activity-modal-content comments-modal-content" #modalCommentsScroll (scroll)="onCommentsScroll($event)">
+                @if (loadingComments) { <p class="empty" aria-live="polite">Загрузка сообщений...</p> }
+                @if (loadingOlderComments) { <p class="timeline-loading" aria-live="polite">Загружаем более ранние сообщения...</p> }
+                @for (comment of visibleComments; track comment.id) {
+                  <article class="timeline-entry" [class.internal]="comment.internal">
+                    <strong class="timeline-author">{{ comment.author }} @if (comment.internal) { <span>Внутренний комментарий</span> }</strong>
+                    <p class="timeline-message">{{ comment.message }}</p><time class="timeline-meta" [attr.datetime]="comment.createdAt">{{ comment.createdAt | date:'dd.MM.yyyy, HH:mm' }}</time>
+                    @if (comment.attachmentRecords?.length) {
+                      @for (attachment of comment.attachmentRecords; track attachment.id) {
+                        <button class="attachment" type="button" (click)="downloadAttachment(attachment)">📎 {{ attachment.fileName }}</button>
+                      }
+                    } @else {
+                      @for (file of comment.attachments; track file) { <small class="attachment">📎 {{ file }}</small> }
+                    }
+                  </article>
+                }
+                @if (!loadingComments && !visibleComments.length) { <p class="empty">Сообщений пока нет.</p> }
+                @if (!commentsHaveOlder && visibleComments.length) { <p class="timeline-end">Начало переписки</p> }
+              </div>
+              @if (showJumpToLatest) { <button class="jump-latest modal-jump-latest" type="button" (click)="scrollCommentsToLatest()">↓ К последним сообщениям</button> }
+              <form class="comment-composer modal-comment-composer" (ngSubmit)="addComment()">
+                <textarea name="dialogMessage" [(ngModel)]="commentText" placeholder="Сообщение по заявке" required></textarea>
+                <div class="composer-options">
+                  <label class="file-picker">Выбрать файлы<input type="file" multiple (change)="pickAttachments($event)" /></label>
+                  @if (canUseInternalComments) { <label class="internal-toggle"><input type="checkbox" name="dialogInternal" [(ngModel)]="internalComment" /> Внутренний комментарий</label> }
+                  <button class="primary" type="submit" [disabled]="isSendingComment || !commentText.trim()">Отправить</button>
+                </div>
+              </form>
+            }
+          </section>
+        </div>
+      }
     </section>
   `,
     styles: [`
@@ -113,20 +196,46 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, 
       .history,.comments { margin-top:14px; padding-top:13px; border-top:1px solid #edf0f4; }
       .history article { display:grid; gap:3px; padding:7px 0; } .history article strong,.comments article strong { color:#4b5664; font-size:10px; }
       .history article small { color:#98a1ae; font-size:9px; }
+      .history article .history-event { color:#202b3a; font-size:13px; font-weight:650; line-height:1.5; }
       .comments article { margin:8px 0; padding:9px; border-radius:6px; background:#f5f8fc; }
       .comments article.internal { background:#fff8eb; } .comments article strong span { margin-left:5px; color:#a77a27; font-weight:500; }
       .comments article p { margin:5px 0 0; color:#596474; font-size:10px; line-height:1.5; white-space:pre-wrap; }
+      .comments article .timeline-author { display:block; margin-bottom:5px; color:#344256; font-size:12px; font-weight:650; }
+      .comments article .timeline-message { margin:0 0 9px; color:#202b3a; font-size:15px; line-height:1.65; overflow-wrap:anywhere; }
       .attachment { display:block; margin-top:5px; padding:0; border:0; background:none; color:#5579af; font-size:9px; text-align:left; cursor:pointer; }
       .comments form { display:grid; gap:8px; } .comments form textarea { min-height:64px; }
       .file-picker input { font-size:9px; } .internal-toggle { display:flex; align-items:center; gap:5px; }
       .empty,.empty-detail { padding:25px 12px; color:#8a94a2; font-size:11px; } .empty-detail { padding:75px 18px; text-align:center; } .empty-detail p { color:#8a94a2; font-size:10px; line-height:1.5; }
       .notice { padding:9px 12px; border-radius:5px; font-size:10px; } .error { background:#fff1ef; color:#a93232; } .success { background:#edf8f2; color:#176f52; }
       .secondary { color:#536173; text-decoration:none; display:inline-flex; align-items:center; }
-      @media(max-width:1150px) { .queue-layout { grid-template-columns:1fr; } .ticket-detail { position:static; max-height:none; } .filters { grid-template-columns:repeat(2,minmax(0,1fr)); } }
-      @media(max-width:600px) { .page { padding:20px 12px 28px; } .heading { align-items:flex-start; flex-direction:column; } .heading-actions { flex-wrap:wrap; } .create-form { grid-template-columns:1fr; } .create-heading,.wide,.create-actions { grid-column:auto; } .filters { grid-template-columns:1fr; } }
+      .history-scroll { max-height:190px; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; }
+      .history article { animation:timeline-entry-in .2s ease both; }
+      .history .timeline-loading,.timeline-loading { margin:5px 0; padding:7px; color:#8492a6; text-align:center; font-size:10px; }
+      .comments { position:relative; display:flex; flex-direction:column; max-height:min(56vh,520px); min-height:300px; overflow:hidden; padding-top:11px; }
+      .activity-heading { display:flex; align-items:center; justify-content:space-between; flex:0 0 auto; gap:8px; margin-bottom:7px; }
+      .activity-heading h3 { margin:0; }
+      .activity-heading span { color:#8492a6; font-size:9px; }
+      .comments-scroll { flex:1 1 auto; min-height:0; overflow-y:auto; overscroll-behavior:contain; scrollbar-gutter:stable; padding:0 3px 4px 0; }
+      .comments article { animation:timeline-entry-in .2s ease both; }
+      .comment-composer { position:sticky; bottom:0; z-index:1; flex:0 0 auto; display:grid; gap:7px; margin:0 -4px -4px; padding:10px 4px 4px; border-top:1px solid #dfe5ee; background:#fff; }
+      .comments > .comment-composer { position:relative; bottom:auto; margin:0; }
+      .comment-composer textarea { min-height:54px; max-height:120px; resize:vertical; }
+      .composer-options { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+      .composer-options .internal-toggle { flex:1 1 auto; }
+      .jump-latest { position:absolute; right:22px; bottom:132px; z-index:2; padding:6px 10px; border:1px solid #8bb2ef; border-radius:16px; background:#eaf2ff; color:#245db0; box-shadow:0 2px 8px rgba(15,23,42,.16); font-size:10px; font-weight:650; cursor:pointer; }
+      @keyframes timeline-entry-in { from { opacity:0; transform:translateY(5px); } to { opacity:1; transform:translateY(0); } }
+      @media (prefers-reduced-motion: reduce) { .history article,.comments article { animation:none; } }
+      @media(max-width:1150px) { .queue-layout { grid-template-columns:1fr; } .ticket-detail { position:static; height:auto; max-height:calc(100vh - 120px); } .filters { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+      @media(max-width:600px) { .page { padding:20px 12px 28px; } .heading { align-items:flex-start; flex-direction:column; } .heading-actions { flex-wrap:wrap; } .create-form { grid-template-columns:1fr; } .create-heading,.wide,.create-actions { grid-column:auto; } .filters { grid-template-columns:1fr; } .ticket-detail { max-height:calc(100vh - 100px); padding:11px; } .comments { max-height:52vh; min-height:260px; } .history-scroll { max-height:22vh; } .composer-options { align-items:flex-start; } .jump-latest { bottom:140px; } }
     `],
 })
 export class TicketQueueComponent implements OnInit {
+    @ViewChild('commentsScroll') private commentsScroller?: ElementRef<HTMLDivElement>;
+    @ViewChild('historyScroll') private historyScroller?: ElementRef<HTMLDivElement>;
+    @ViewChild('modalCommentsScroll') private modalCommentsScroller?: ElementRef<HTMLDivElement>;
+    @ViewChild('modalHistoryScroll') private modalHistoryScroller?: ElementRef<HTMLDivElement>;
+    @ViewChild('activityModalClose') private activityModalCloseButton?: ElementRef<HTMLButtonElement>;
+
     private readonly workspace = inject(WorkspaceService);
     private readonly ticketsApi = inject(HttpWorkspaceApiService);
     private readonly auth = inject(AuthService);
@@ -136,11 +245,21 @@ export class TicketQueueComponent implements OnInit {
     tickets: Ticket[] = [];
     settings: AdminSettings | null = null;
     selected: Ticket | null = null;
+    activityPanel: 'history' | 'comments' | null = null;
     isEngineer = false;
     isManager = false;
+    isAssigning = false;
     canUseInternalComments = false;
     loadingComments = false;
     loadingHistory = false;
+    loadingOlderComments = false;
+    loadingOlderHistory = false;
+    commentsHaveOlder = false;
+    historyHasOlder = false;
+    showJumpToLatest = false;
+    private readonly timelinePageSize = 30;
+    private commentsOffset = 0;
+    private historyOffset = 0;
     query = '';
     typeFilter = '';
     assigneeFilter = '';
@@ -295,18 +414,29 @@ export class TicketQueueComponent implements OnInit {
     }
 
     select(ticket: Ticket): void {
+        this.closeActivityPanel();
         this.selected = { ...ticket, comments: [], history: [] };
         this.repairDescription = '';
         this.assigneeDraft = '';
         this.priorityDraft = ticket.priority;
         this.loadingComments = true;
+        this.loadingOlderComments = false;
+        this.loadingOlderHistory = false;
+        this.commentsOffset = 0;
+        this.historyOffset = 0;
+        this.commentsHaveOlder = false;
+        this.historyHasOlder = false;
+        this.showJumpToLatest = false;
         this.loadHistory(ticket.id);
-        this.ticketsApi.getTicketComments(ticket.id).subscribe({
+        this.ticketsApi.getTicketCommentsPage(ticket.id, 0, this.timelinePageSize).subscribe({
             next: comments => {
                 if (this.selected?.id === ticket.id) {
                     this.selected.comments = comments;
                     this.loadingComments = false;
+                    this.commentsOffset = comments.length;
+                    this.commentsHaveOlder = comments.length === this.timelinePageSize;
                     this.changeDetector.markForCheck();
+                    this.scrollCommentsToBottom(ticket.id);
                 }
             },
             error: err => {
@@ -315,6 +445,123 @@ export class TicketQueueComponent implements OnInit {
                     this.loadingComments = false;
                     this.changeDetector.markForCheck();
                 }
+            },
+        });
+    }
+
+    openActivityPanel(panel: 'history' | 'comments'): void {
+        if (!this.selected) return;
+        this.activityPanel = panel;
+        this.showJumpToLatest = false;
+        requestAnimationFrame(() => {
+            this.activityModalCloseButton?.nativeElement.focus();
+            if (panel === 'comments' && this.modalCommentsScroller) {
+                const element = this.modalCommentsScroller.nativeElement;
+                element.scrollTop = element.scrollHeight;
+            } else if (panel === 'history' && this.modalHistoryScroller) {
+                const element = this.modalHistoryScroller.nativeElement;
+                element.scrollTop = element.scrollHeight;
+            }
+        });
+    }
+
+    closeActivityPanel(): void {
+        this.activityPanel = null;
+        this.showJumpToLatest = false;
+    }
+
+    @HostListener('document:keydown.escape')
+    onEscape(): void {
+        if (this.activityPanel) this.closeActivityPanel();
+    }
+
+    onCommentsScroll(event?: Event): void {
+        const element = (event?.currentTarget as HTMLDivElement | null) ?? this.commentsScroller?.nativeElement;
+        if (!element) return;
+        this.showJumpToLatest = element.scrollHeight - element.clientHeight - element.scrollTop > 120;
+        if (element.scrollTop <= 24) this.loadOlderComments(element);
+    }
+
+    onHistoryScroll(event?: Event): void {
+        const element = (event?.currentTarget as HTMLDivElement | null) ?? this.historyScroller?.nativeElement;
+        if ((element?.scrollTop ?? 1) <= 24) this.loadOlderHistory(element);
+    }
+
+    scrollCommentsToLatest(): void {
+        const element = (this.activityPanel === 'comments'
+            ? this.modalCommentsScroller?.nativeElement
+            : this.commentsScroller?.nativeElement);
+        if (!element) return;
+        element.scrollTo({ top: element.scrollHeight, behavior: 'smooth' });
+        this.showJumpToLatest = false;
+    }
+
+    private scrollCommentsToBottom(ticketId: string): void {
+        requestAnimationFrame(() => {
+            if (this.selected?.id !== ticketId) return;
+            const element = this.activityPanel === 'comments'
+                ? this.modalCommentsScroller?.nativeElement
+                : this.commentsScroller?.nativeElement;
+            if (!element) return;
+            element.scrollTop = element.scrollHeight;
+            this.showJumpToLatest = false;
+        });
+    }
+
+    private loadOlderComments(element?: HTMLDivElement): void {
+        if (!this.selected || !this.commentsHaveOlder || this.loadingOlderComments) return;
+        const ticketId = this.selected.id;
+        const previousHeight = element?.scrollHeight ?? 0;
+        const previousTop = element?.scrollTop ?? 0;
+        this.loadingOlderComments = true;
+        this.ticketsApi.getTicketCommentsPage(ticketId, this.commentsOffset, this.timelinePageSize).subscribe({
+            next: olderComments => {
+                if (this.selected?.id !== ticketId) return;
+                this.selected.comments = [...olderComments, ...(this.selected.comments ?? [])];
+                this.commentsOffset += olderComments.length;
+                this.commentsHaveOlder = olderComments.length === this.timelinePageSize;
+                this.loadingOlderComments = false;
+                this.changeDetector.markForCheck();
+                requestAnimationFrame(() => {
+                    if (this.selected?.id !== ticketId || !element) return;
+                    const scroller = element;
+                    scroller.scrollTop = previousTop + scroller.scrollHeight - previousHeight;
+                });
+            },
+            error: err => {
+                if (this.selected?.id !== ticketId) return;
+                this.loadingOlderComments = false;
+                this.error = err.message;
+                this.changeDetector.markForCheck();
+            },
+        });
+    }
+
+    private loadOlderHistory(element?: HTMLDivElement): void {
+        if (!this.selected || !this.historyHasOlder || this.loadingOlderHistory) return;
+        const ticketId = this.selected.id;
+        const previousHeight = element?.scrollHeight ?? 0;
+        const previousTop = element?.scrollTop ?? 0;
+        this.loadingOlderHistory = true;
+        this.ticketsApi.getTicketHistoryPage(ticketId, this.historyOffset, this.timelinePageSize).subscribe({
+            next: olderHistory => {
+                if (this.selected?.id !== ticketId) return;
+                this.selected.history = [...olderHistory.reverse(), ...(this.selected.history ?? [])];
+                this.historyOffset += olderHistory.length;
+                this.historyHasOlder = olderHistory.length === this.timelinePageSize;
+                this.loadingOlderHistory = false;
+                this.changeDetector.markForCheck();
+                requestAnimationFrame(() => {
+                    if (this.selected?.id !== ticketId || !element) return;
+                    const scroller = element;
+                    scroller.scrollTop = previousTop + scroller.scrollHeight - previousHeight;
+                });
+            },
+            error: err => {
+                if (this.selected?.id !== ticketId) return;
+                this.loadingOlderHistory = false;
+                this.error = err.message;
+                this.changeDetector.markForCheck();
             },
         });
     }
@@ -343,11 +590,13 @@ export class TicketQueueComponent implements OnInit {
             next: comment => {
                 if (this.selected?.id === ticketId) {
                     this.selected.comments = [...(this.selected.comments ?? []), comment];
-                    this.selected.history = [{ id: comment.id, event: comment.internal ? 'Внутренний комментарий добавлен' : 'Комментарий добавлен', actor: comment.author, createdAt: comment.createdAt }, ...(this.selected.history ?? [])];
+                    this.commentsOffset++;
                     this.commentText = '';
                     this.attachments = [];
                     this.internalComment = false;
                     if (this.attachmentInput) this.attachmentInput.value = '';
+                    this.changeDetector.markForCheck();
+                    this.scrollCommentsToBottom(ticketId);
                 }
                 this.isSendingComment = false;
                 this.changeDetector.markForCheck();
@@ -372,7 +621,25 @@ export class TicketQueueComponent implements OnInit {
     }
     escalate(): void {
         if (!this.selected) return;
-        this.ticketsApi.escalateTicket(this.selected.id, 'Инженер ТП').subscribe({ next: entry => { this.selected!.priority = entry.newPriority; this.selected!.status = 'В работе'; this.selected!.history = [{ id: entry.createdAt, event: `Эскалация ${entry.previousPriority} → ${entry.newPriority}; уведомлены ${entry.recipients.join(', ')}`, actor: entry.initiator, createdAt: entry.createdAt }, ...(this.selected!.history ?? [])]; this.notice = `Эскалация создана. Уведомление: ${entry.recipients.join(', ')}.`; this.changeDetector.markForCheck(); this.load(false); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } });
+        this.ticketsApi.escalateTicket(this.selected.id, 'Инженер ТП').subscribe({ next: entry => { this.selected!.priority = entry.newPriority; this.selected!.status = 'В работе'; this.selected!.history = [...(this.selected!.history ?? []), { id: entry.createdAt, event: `Эскалация ${entry.previousPriority} → ${entry.newPriority}; уведомлены ${entry.recipients.join(', ')}`, actor: entry.initiator, createdAt: entry.createdAt }]; this.notice = `Эскалация создана. Уведомление: ${entry.recipients.join(', ')}.`; this.changeDetector.markForCheck(); this.load(false); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } });
+    }
+    autoAssign(): void {
+        if (!this.selected || this.isAssigning) return;
+        this.isAssigning = true;
+        this.error = '';
+        this.ticketsApi.autoAssignTicket(this.selected.id).subscribe({
+            next: result => {
+                this.isAssigning = false;
+                this.notice = `Заявка ${result.ticketId} распределена: ${result.assigneeName} (открытых заявок: ${result.openTicketsCount}).`;
+                this.changeDetector.markForCheck();
+                this.load(false);
+            },
+            error: err => {
+                this.isAssigning = false;
+                this.error = err?.error?.detail ?? err.message;
+                this.changeDetector.markForCheck();
+            },
+        });
     }
     closeRepair(): void {
         if (!this.selected) return;
@@ -391,12 +658,24 @@ export class TicketQueueComponent implements OnInit {
     private load(resetSelection = true): void { this.ticketsApi.getTickets().subscribe({ next: tickets => { this.tickets = tickets; if (resetSelection) this.selected = null; this.changeDetector.markForCheck(); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } }); }
     private loadHistory(ticketId: string): void {
         this.loadingHistory = true;
-        this.ticketsApi.getTicketHistory(ticketId).subscribe({
+        this.loadingOlderHistory = false;
+        this.historyOffset = 0;
+        this.historyHasOlder = false;
+        if (this.selected?.id === ticketId) this.selected.history = [];
+        this.ticketsApi.getTicketHistoryPage(ticketId, 0, this.timelinePageSize).subscribe({
             next: history => {
                 if (this.selected?.id === ticketId) {
-                    this.selected.history = history;
+                    this.selected.history = history.reverse();
+                    this.historyOffset = history.length;
+                    this.historyHasOlder = history.length === this.timelinePageSize;
                     this.loadingHistory = false;
                     this.changeDetector.markForCheck();
+                    requestAnimationFrame(() => {
+                        if (this.selected?.id === ticketId && this.historyScroller) {
+                            const element = this.historyScroller.nativeElement;
+                            element.scrollTop = element.scrollHeight;
+                        }
+                    });
                 }
             },
             error: err => {

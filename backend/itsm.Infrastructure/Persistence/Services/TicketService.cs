@@ -11,6 +11,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 {
     private const string RepairTypeCode = "repair";
     private const string ClosedStatusCode = "closed";
+    private const string EscalatedStatusCode = "escalated";
+    private const string InProgressStatusCode = "in_progress";
     private const long MaxAttachmentSizeBytes = 10 * 1024 * 1024;
 
     public async Task<IReadOnlyList<TicketResponse>> GetQueueAsync(CancellationToken ct = default)
@@ -197,6 +199,36 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             NewValue = ticket.StatusId.ToString(),
             ChangedAt = now
         });
+        if (await IsAutoAssignmentEnabledAsync(ct)
+            && ticket.Type.Code != RepairTypeCode
+            && await PickLeastLoadedAgentAsync(excludeUserId: null, ct) is { } autoAssignee)
+        {
+            ticket.AssigneeId = autoAssignee.UserId;
+            ticket.AssigneeGroupId = null;
+            db.TicketAuditLogs.Add(new TicketAuditLog
+            {
+                TicketId = ticket.Id,
+                UserId = creatorId,
+                FieldName = "assigneeId",
+                OldValue = null,
+                NewValue = autoAssignee.UserId.ToString(),
+                ChangedAt = now
+            });
+            db.TicketAuditLogs.Add(new TicketAuditLog
+            {
+                TicketId = ticket.Id,
+                UserId = creatorId,
+                FieldName = "autoAssigned",
+                NewValue = JsonSerializer.Serialize(new
+                {
+                    assigneeId = autoAssignee.UserId,
+                    openTickets = autoAssignee.OpenTickets,
+                    strategy = "least-loaded"
+                }),
+                ChangedAt = now
+            });
+        }
+
         if (requesterId != creatorId)
         {
             db.TicketAuditLogs.Add(new TicketAuditLog
@@ -390,6 +422,139 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         return ToResponse(updatedTicket);
     }
 
+    public async Task<AutoAssignResponse?> AutoAssignAsync(int id, int actorId, CancellationToken ct = default)
+    {
+        var ticket = await TicketQuery().FirstOrDefaultAsync(item => item.Id == id, ct);
+        if (ticket is null)
+            return null;
+
+        if (ticket.Status.Code == ClosedStatusCode)
+            throw new InvalidOperationException("Закрытую заявку нельзя перераспределить.");
+
+        var candidate = await PickLeastLoadedAgentAsync(excludeUserId: null, ct)
+            ?? throw new InvalidOperationException("Нет доступных активных инженеров для назначения.");
+
+        var oldAssigneeId = ticket.AssigneeId;
+        if (oldAssigneeId == candidate.UserId)
+            return new AutoAssignResponse(
+                ticket.Id,
+                candidate.UserId,
+                candidate.FullName,
+                candidate.OpenTickets,
+                "Наименее загруженный инженер уже назначен на заявку.");
+
+        ticket.AssigneeId = candidate.UserId;
+        ticket.Assignee = await db.Users.FirstAsync(user => user.Id == candidate.UserId, ct);
+        ticket.AssigneeGroupId = null;
+        ticket.UpdatedAt = DateTimeOffset.UtcNow;
+        AddAudit(ticket, actorId, "assigneeId", oldAssigneeId?.ToString(), candidate.UserId.ToString());
+        AddAudit(
+            ticket,
+            actorId,
+            "autoAssigned",
+            null,
+            JsonSerializer.Serialize(new
+            {
+                assigneeId = candidate.UserId,
+                openTickets = candidate.OpenTickets,
+                strategy = "least-loaded"
+            }));
+
+        await db.SaveChangesAsync(ct);
+        return new AutoAssignResponse(
+            ticket.Id,
+            candidate.UserId,
+            candidate.FullName,
+            candidate.OpenTickets,
+            "Назначен наименее загруженный инженер.");
+    }
+
+    public async Task<AssignmentSettingResponse> GetAssignmentSettingAsync(CancellationToken ct = default)
+    {
+        var setting = await db.AssignmentSettings
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == 1, ct);
+        var manualAssignerName = setting?.ManualAssignerUserId is int manualAssignerId
+            ? await db.Users.Where(user => user.Id == manualAssignerId).Select(user => user.FullName).FirstOrDefaultAsync(ct)
+            : null;
+        var activeAgents = await CountActiveAgentsAsync(ct);
+
+        return new AssignmentSettingResponse(
+            setting?.Mode ?? "auto",
+            setting?.ManualAssignerUserId,
+            manualAssignerName,
+            activeAgents);
+    }
+
+    public async Task<AssignmentSettingResponse> UpdateAssignmentSettingAsync(
+        UpdateAssignmentSettingRequest request,
+        CancellationToken ct = default)
+    {
+        var setting = await db.AssignmentSettings.FirstOrDefaultAsync(item => item.Id == 1, ct);
+        if (setting is null)
+        {
+            setting = new AssignmentSetting { Id = 1, Mode = request.Mode };
+            db.AssignmentSettings.Add(setting);
+        }
+        else
+        {
+            setting.Mode = request.Mode;
+            setting.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+
+        await db.SaveChangesAsync(ct);
+        return await GetAssignmentSettingAsync(ct);
+    }
+
+    private async Task<bool> IsAutoAssignmentEnabledAsync(CancellationToken ct)
+    {
+        var mode = await db.AssignmentSettings
+            .Where(item => item.Id == 1)
+            .Select(item => item.Mode)
+            .FirstOrDefaultAsync(ct);
+
+        return string.Equals(mode ?? "auto", "auto", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task<int> CountActiveAgentsAsync(CancellationToken ct) =>
+        await db.Users.CountAsync(user => user.IsActive
+            && user.RoleMappings.Any(mapping => mapping.Role.Code == "agent"), ct);
+
+    private sealed record AgentCandidate(int UserId, string FullName, int OpenTickets);
+
+    private async Task<AgentCandidate?> PickLeastLoadedAgentAsync(int? excludeUserId, CancellationToken ct)
+    {
+        var closedStatusId = await db.TicketStatuses
+            .Where(status => status.Code == ClosedStatusCode)
+            .Select(status => (int?)status.Id)
+            .FirstOrDefaultAsync(ct);
+
+        var agents = await db.Users
+            .AsNoTracking()
+            .Where(user => user.IsActive
+                && user.RoleMappings.Any(mapping => mapping.Role.Code == "agent")
+                && (excludeUserId == null || user.Id != excludeUserId))
+            .Select(user => new
+            {
+                user.Id,
+                user.FullName,
+                OpenTickets = user.AssignedTickets.Count(ticket => closedStatusId == null || ticket.StatusId != closedStatusId),
+                LastAssignedAt = user.AssignedTickets
+                    .Where(ticket => closedStatusId == null || ticket.StatusId != closedStatusId)
+                    .OrderByDescending(ticket => ticket.CreatedAt)
+                    .Select(ticket => (DateTimeOffset?)ticket.CreatedAt)
+                    .FirstOrDefault()
+            })
+            .ToListAsync(ct);
+
+        return agents
+            .OrderBy(agent => agent.OpenTickets)
+            .ThenBy(agent => agent.LastAssignedAt ?? DateTimeOffset.MinValue)
+            .ThenBy(agent => agent.Id)
+            .Select(agent => new AgentCandidate(agent.Id, agent.FullName, agent.OpenTickets))
+            .FirstOrDefault();
+    }
+
     public async Task<TicketEscalationResponse?> EscalateAsync(
         int id,
         int actorId,
@@ -403,6 +568,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             throw new UnauthorizedAccessException("Эскалировать заявку может только ее автор или исполнитель.");
         if (ticket.Status.Code == ClosedStatusCode)
             throw new InvalidOperationException("Закрытую заявку нельзя эскалировать.");
+        if (ticket.Status.Code == EscalatedStatusCode)
+            throw new InvalidOperationException("Заявка уже эскалирована и ожидает принятия.");
 
         var escalationRule = await db.EscalationRules
             .FirstOrDefaultAsync(rule => rule.TicketTypeId == ticket.TypeId, ct);
@@ -455,6 +622,11 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         if (!notifiedUserIds.Contains(headSetting.UserId))
             notifiedUserIds.Add(headSetting.UserId);
 
+        var escalatedStatus = await db.TicketStatuses
+            .FirstOrDefaultAsync(status => status.Code == EscalatedStatusCode, ct)
+            ?? throw new InvalidOperationException("Не настроен статус «Эскалирована».");
+        var oldStatusId = ticket.StatusId;
+
         var now = DateTimeOffset.UtcNow;
         var fromCriticalityId = ticket.CriticalityLevelId;
         var toCriticalityId = nextCriticality?.Id ?? fromCriticalityId;
@@ -463,6 +635,10 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             ticket.CriticalityLevelId = toCriticalityId;
             AddAudit(ticket, actorId, "criticalityLevelId", fromCriticalityId?.ToString(), toCriticalityId?.ToString());
         }
+
+        ticket.StatusId = escalatedStatus.Id;
+        ticket.Status = escalatedStatus;
+        AddAudit(ticket, actorId, "statusId", oldStatusId.ToString(), escalatedStatus.Id.ToString());
 
         ticket.EscalationLevel++;
         ticket.UpdatedAt = now;
@@ -500,7 +676,144 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             escalation.FromCriticalityLevelId,
             escalation.ToCriticalityLevelId,
             notifiedUserIds,
-            escalation.EscalatedAt);
+            escalation.EscalatedAt,
+            escalation.AcceptedByUserId,
+            escalation.AcceptedAt,
+            escalation.Comment);
+    }
+
+    public async Task<IReadOnlyList<TicketEscalationResponse>?> GetTicketEscalationsAsync(int id, CancellationToken ct = default)
+    {
+        if (!await db.Tickets.AnyAsync(ticket => ticket.Id == id, ct))
+            return null;
+
+        var escalations = await db.TicketEscalations
+            .AsNoTracking()
+            .Where(escalation => escalation.TicketId == id)
+            .OrderByDescending(escalation => escalation.EscalatedAt)
+            .ThenByDescending(escalation => escalation.Id)
+            .ToListAsync(ct);
+
+        return escalations.Select(escalation => new TicketEscalationResponse(
+            escalation.Id,
+            escalation.TicketId,
+            escalation.InitiatorUserId,
+            escalation.Reason,
+            escalation.FromCriticalityLevelId,
+            escalation.ToCriticalityLevelId,
+            ParseNotifiedUserIds(escalation.NotifiedUserIds),
+            escalation.EscalatedAt,
+            escalation.AcceptedByUserId,
+            escalation.AcceptedAt,
+            escalation.Comment)).ToArray();
+    }
+
+    public async Task<IReadOnlyList<PendingEscalationResponse>?> GetPendingEscalationsAsync(CancellationToken ct = default)
+    {
+        var escalatedStatusId = await db.TicketStatuses
+            .Where(status => status.Code == EscalatedStatusCode)
+            .Select(status => (int?)status.Id)
+            .FirstOrDefaultAsync(ct);
+        if (escalatedStatusId is null)
+            return [];
+
+        var pending = await db.TicketEscalations
+            .AsNoTracking()
+            .Where(escalation => escalation.AcceptedAt == null
+                && escalation.Ticket.StatusId == escalatedStatusId)
+            .Include(escalation => escalation.Ticket).ThenInclude(ticket => ticket.Type)
+            .Include(escalation => escalation.Ticket).ThenInclude(ticket => ticket.Status)
+            .Include(escalation => escalation.Ticket).ThenInclude(ticket => ticket.Assignee)
+            .Include(escalation => escalation.Ticket).ThenInclude(ticket => ticket.CriticalityLevel)
+            .Include(escalation => escalation.Initiator)
+            .OrderByDescending(escalation => escalation.EscalatedAt)
+            .ThenByDescending(escalation => escalation.Id)
+            .ToListAsync(ct);
+
+        return pending.Select(ToPendingEscalation).ToArray();
+    }
+
+    public async Task<TicketEscalationResponse?> AcceptEscalationAsync(
+        int id,
+        AcceptEscalationRequest request,
+        int actorId,
+        bool isAdmin,
+        CancellationToken ct = default)
+    {
+        var ticket = await TicketQuery().FirstOrDefaultAsync(item => item.Id == id, ct);
+        if (ticket is null)
+            return null;
+
+        var openEscalation = await db.TicketEscalations
+            .Where(escalation => escalation.TicketId == ticket.Id && escalation.AcceptedAt == null)
+            .OrderByDescending(escalation => escalation.EscalatedAt)
+            .ThenByDescending(escalation => escalation.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (ticket.Status.Code != EscalatedStatusCode || openEscalation is null)
+            throw new InvalidOperationException("Заявка не находится в статусе «Эскалирована».");
+
+        var headSetting = await db.ServiceDeskHeadSettings
+            .FirstOrDefaultAsync(setting => setting.Id == 1, ct);
+        if (!isAdmin && headSetting?.UserId != actorId)
+            throw new UnauthorizedAccessException("Принять эскалацию может только руководитель службы поддержки или администратор.");
+
+        var isActiveAgent = await db.UserRoleMappings
+            .AnyAsync(mapping => mapping.UserId == actorId && mapping.Role.Code == "agent", ct);
+        if (!isActiveAgent)
+            throw new UnauthorizedAccessException("Принять эскалацию может только активный инженер технической поддержки.");
+
+        var inProgressStatus = await db.TicketStatuses
+            .FirstOrDefaultAsync(status => status.Code == InProgressStatusCode, ct)
+            ?? throw new InvalidOperationException("Не настроен статус «В работе».");
+
+        var now = DateTimeOffset.UtcNow;
+        var oldStatusId = ticket.StatusId;
+
+        openEscalation.AcceptedByUserId = actorId;
+        openEscalation.AcceptedAt = now;
+        openEscalation.Comment = NormalizeComment(request.Comment);
+
+        ticket.StatusId = inProgressStatus.Id;
+        ticket.Status = inProgressStatus;
+        ticket.AssigneeId = actorId;
+        ticket.Assignee = await db.Users.FirstAsync(user => user.Id == actorId, ct);
+        ticket.AssigneeGroupId = null;
+        ticket.UpdatedAt = now;
+
+        AddAudit(ticket, actorId, "statusId", oldStatusId.ToString(), inProgressStatus.Id.ToString());
+        AddAudit(ticket, actorId, "assigneeId", null, actorId.ToString());
+        AddAudit(ticket, actorId, "escalationAccepted", null, openEscalation.Id.ToString());
+
+        var initiatorNotified = openEscalation.InitiatorUserId is not null
+            && openEscalation.InitiatorUserId != actorId;
+        if (initiatorNotified)
+        {
+            db.Notifications.Add(new Notification
+            {
+                UserId = openEscalation.InitiatorUserId!.Value,
+                Type = "TicketEscalationAccepted",
+                Title = "Эскалация принята",
+                Body = $"Эскалация по заявке «{ticket.Title}» принята. Заявка передана в работу.",
+                TicketId = ticket.Id,
+                CreatedAt = now
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+
+        return new TicketEscalationResponse(
+            openEscalation.Id,
+            openEscalation.TicketId,
+            openEscalation.InitiatorUserId,
+            openEscalation.Reason,
+            openEscalation.FromCriticalityLevelId,
+            openEscalation.ToCriticalityLevelId,
+            ParseNotifiedUserIds(openEscalation.NotifiedUserIds),
+            openEscalation.EscalatedAt,
+            openEscalation.AcceptedByUserId,
+            openEscalation.AcceptedAt,
+            openEscalation.Comment);
     }
 
     public async Task<TicketAttachmentUploadResponse?> UploadAttachmentAsync(
@@ -590,6 +903,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         return content is null ? null : new TicketAttachmentFile(content, attachment.FileName);
     }
 
+    // перегрузка дениса
     public async Task<IReadOnlyList<TicketMessageResponse>?> GetMessagesAsync(
         int id,
         int userId,
@@ -611,6 +925,58 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         return messages.Select(ToMessageResponse).ToArray();
     }
 
+
+        var messages = await messagesQuery
+            .OrderBy(message => message.CreatedAt)
+            .ThenBy(message => message.Id)
+            .ToListAsync(ct);
+
+        return messages.Select(ToMessageResponse).ToArray();
+    }
+    
+    // перегрузка макара
+    public async Task<IReadOnlyList<TicketMessageResponse>?> GetMessagesAsync(
+        int id,
+        int userId,
+        bool isStaff,
+        CancellationToken ct = default,
+        int? skip = null,
+        int? take = null)
+    {
+        var ticketOwner = await db.Tickets
+            .Where(ticket => ticket.Id == id)
+            .Select(ticket => new { CreatorId = (int?)ticket.CreatorId, RequesterId = (int?)ticket.RequesterId })
+            .FirstOrDefaultAsync(ct);
+        if (ticketOwner is null || (!isStaff && ticketOwner.CreatorId != userId && ticketOwner.RequesterId != userId))
+            return null;
+
+        var messagesQuery = db.TicketMessages
+            .Where(message => message.TicketId == id && (isStaff || message.IsInternal != true))
+            .Include(message => message.Author)
+            .Include(message => message.Attachments);
+
+        if (take.HasValue)
+        {
+            var page = await messagesQuery
+                .OrderByDescending(message => message.CreatedAt)
+                .ThenByDescending(message => message.Id)
+                .Skip(skip ?? 0)
+                .Take(take.Value)
+                .ToListAsync(ct);
+            page.Reverse();
+            return page.Select(ToMessageResponse).ToArray();
+        }
+
+        var messages = await messagesQuery
+            .OrderBy(message => message.CreatedAt)
+            .ThenBy(message => message.Id)
+            .ToListAsync(ct);
+
+        return messages.Select(ToMessageResponse).ToArray();
+    }
+
+
+    // перегрузка дениса
     public async Task<IReadOnlyList<TicketHistoryResponse>?> GetHistoryAsync(
         int id,
         int userId,
@@ -634,6 +1000,44 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             .OrderByDescending(log => log.ChangedAt)
             .ThenByDescending(log => log.Id)
             .ToListAsync(ct);
+
+        return auditLogs.Select(log => new TicketHistoryResponse(
+            log.Id,
+            FormatAuditEvent(log),
+            log.User.FullName,
+            log.ChangedAt)).ToArray();
+    }
+    
+    // перегрузка макара
+    public async Task<IReadOnlyList<TicketHistoryResponse>?> GetHistoryAsync(
+        int id,
+        int userId,
+        bool isStaff,
+        CancellationToken ct = default,
+        int? skip = null,
+        int? take = null)
+    {
+        var ticket = await db.Tickets
+            .Where(item => item.Id == id && (isStaff || item.CreatorId == userId || item.RequesterId == userId))
+            .Select(item => new { item.Id, item.TenantId })
+            .FirstOrDefaultAsync(ct);
+        if (ticket is null)
+            return null;
+
+        IQueryable<TicketAuditLog> auditQuery = db.TicketAuditLogs
+            .Where(log => log.TicketId == id && log.Ticket.TenantId == ticket.TenantId)
+            .Include(log => log.User);
+
+        if (take.HasValue)
+            auditQuery = auditQuery
+                .OrderByDescending(log => log.ChangedAt)
+                .ThenByDescending(log => log.Id)
+                .Skip(skip ?? 0)
+                .Take(take.Value);
+        else
+            auditQuery = auditQuery.OrderByDescending(log => log.ChangedAt).ThenByDescending(log => log.Id);
+
+        var auditLogs = await auditQuery.ToListAsync(ct);
 
         return auditLogs.Select(log => new TicketHistoryResponse(
             log.Id,
@@ -959,6 +1363,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             "assigneeId" => "Исполнитель",
             "requesterId" => "Заявитель",
             "criticalityLevelId" => "Критичность",
+            "autoAssigned" => "Автораспределение",
+            "escalationAccepted" => "Эскалация принята",
             _ => log.FieldName
         };
         var change = log.OldValue is null
@@ -1002,4 +1408,51 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         message.SourceType,
         message.Attachments.Select(attachment => new TicketAttachmentResponse(attachment.Id, attachment.FileName)).ToArray(),
         message.CreatedAt);
+
+    private static PendingEscalationResponse ToPendingEscalation(TicketEscalation escalation)
+    {
+        var ticket = escalation.Ticket;
+
+        return new PendingEscalationResponse(
+            escalation.Id,
+            ticket.Id,
+            ticket.Title,
+            ticket.TypeId,
+            ticket.Type.Name,
+            ticket.StatusId,
+            ticket.Status.Name,
+            ticket.CriticalityLevelId,
+            ticket.CriticalityLevel?.Name,
+            ticket.EscalationLevel,
+            ticket.AssigneeId,
+            ticket.Assignee?.FullName,
+            escalation.InitiatorUserId,
+            escalation.Initiator?.FullName,
+            escalation.EscalatedAt,
+            escalation.AcceptedByUserId,
+            escalation.AcceptedAt);
+    }
+
+    private static string? NormalizeComment(string? comment)
+    {
+        if (string.IsNullOrWhiteSpace(comment))
+            return null;
+
+        return comment.Trim();
+    }
+
+    private static IReadOnlyList<int> ParseNotifiedUserIds(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return [];
+
+        try
+        {
+            return JsonSerializer.Deserialize<int[]>(raw) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
 }

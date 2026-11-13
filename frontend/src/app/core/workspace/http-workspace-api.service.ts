@@ -20,6 +20,8 @@ import {
     EscalationHistoryEntry,
     EscalationPolicy,
     Escalation,
+    AssignmentSetting,
+    AutoAssignResult,
     FormFieldDefinition,
     OverviewData,
     PortalTicketType,
@@ -147,6 +149,30 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             .post<BackendTicket>(`${this.baseUrl}/tickets/${ticketId}/assign`, { assigneeId })
             .pipe(map(toTicket));
     }
+    autoAssignTicket(ticketId: string) {
+        return this.http
+            .post<{ ticketId?: number; assigneeId?: number; assigneeName?: string; openTicketsCount?: number; reason?: string }>(
+                `${this.baseUrl}/tickets/${ticketId}/auto-assign`,
+                null,
+            )
+            .pipe(map(result => ({
+                ticketId: String(result.ticketId ?? ticketId),
+                assigneeId: result.assigneeId ?? 0,
+                assigneeName: result.assigneeName ?? '',
+                openTicketsCount: result.openTicketsCount ?? 0,
+                reason: result.reason ?? '',
+            } satisfies AutoAssignResult)));
+    }
+    getAssignmentSetting() {
+        return this.http
+            .get<BackendAssignmentSetting>(`${this.baseUrl}/tickets/assignment-setting`)
+            .pipe(map(toAssignmentSetting));
+    }
+    saveAssignmentSetting(mode: 'auto' | 'manual') {
+        return this.http
+            .put<BackendAssignmentSetting>(`${this.baseUrl}/tickets/assignment-setting`, { mode })
+            .pipe(map(toAssignmentSetting));
+    }
     changeTicketPriority(ticketId: string, priority: string) {
         return this.http
             .put<BackendTicket>(`${this.baseUrl}/tickets/${ticketId}`, { priority })
@@ -156,8 +182,21 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return this.http.get<BackendTicketMessage[]>(`${this.baseUrl}/tickets/${ticketId}/messages`)
             .pipe(map(messages => messages.map(toTicketComment)));
     }
+    getTicketCommentsPage(ticketId: string, skip: number, take: number) {
+        return this.http.get<BackendTicketMessage[]>(`${this.baseUrl}/tickets/${ticketId}/messages`, { params: { skip, take } })
+            .pipe(map(messages => messages.map(toTicketComment)));
+    }
     getTicketHistory(ticketId: string) {
         return this.http.get<BackendTicketHistory[]>(`${this.baseUrl}/tickets/${ticketId}/history`)
+            .pipe(map(history => history.map(item => ({
+                id: String(item.id),
+                event: item.event,
+                actor: item.actor,
+                createdAt: item.createdAt,
+            }))));
+    }
+    getTicketHistoryPage(ticketId: string, skip: number, take: number) {
+        return this.http.get<BackendTicketHistory[]>(`${this.baseUrl}/tickets/${ticketId}/history`, { params: { skip, take } })
             .pipe(map(history => history.map(item => ({
                 id: String(item.id),
                 event: item.event,
@@ -574,6 +613,22 @@ interface BackendTenantSettings {
     tenantMode?: AdminSettings['tenantMode'];
     passwordPolicy?: AdminSettings['passwordPolicy'];
     reportAccessRoles?: string[];
+}
+
+interface BackendAssignmentSetting {
+    mode?: string;
+    manualAssignerUserId?: number | null;
+    manualAssignerName?: string | null;
+    activeAgentsCount?: number;
+}
+
+function toAssignmentSetting(setting: BackendAssignmentSetting): AssignmentSetting {
+    return {
+        mode: setting.mode === 'manual' ? 'manual' : 'auto',
+        manualAssignerUserId: setting.manualAssignerUserId ?? null,
+        manualAssignerName: setting.manualAssignerName ?? null,
+        activeAgentsCount: setting.activeAgentsCount ?? 0,
+    };
 }
 
 interface BackendAsset {

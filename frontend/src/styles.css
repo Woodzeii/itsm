@@ -8,7 +8,31 @@
     --app-surface-2: #f1f5f9;
     --app-text: #111827;
     --app-muted: #778293;
+    --app-muted-strong: #536173;
     --app-border: #e2e6ed;
+    --app-divider: #edf0f4;
+    --app-input-bg: #ffffff;
+    --app-input-text: #263244;
+    --app-placeholder: #667085;
+    --app-hover: #f3f6fa;
+    --app-selected: #eaf1ff;
+    --app-error-bg: #fff1f0;
+    --app-error-border: #fecdca;
+    --app-error-text: #a93232;
+    --app-success-bg: #edf8f2;
+    --app-success-border: #b7e4ca;
+    --app-success-text: #176f52;
+    --app-warning-bg: #fff8e8;
+    --app-warning-border: #f0c77a;
+    --app-warning-text: #684b16;
+    --app-scrollbar-thumb: #aab4c2;
+    --app-scrollbar-thumb-hover: #78869a;
+    --app-selection-bg: #bfdbfe;
+    --app-control-border: #b8c5d6;
+    --app-control-hover: #dce8f7;
+    --app-control-active: #c9dcf5;
+    --app-action-bg: #2563eb;
+    --app-action-hover: #3b82f6;
 }
 
 html,
@@ -445,8 +469,32 @@ html[data-theme='dark'] {
     --app-surface: #111a2b;
     --app-surface-2: #162033;
     --app-text: #e5e7eb;
-    --app-muted: #94a3b8;
+    --app-muted: #cbd5e1;
+    --app-muted-strong: #d1d5db;
     --app-border: #263244;
+    --app-divider: #29364a;
+    --app-input-bg: #0f1728;
+    --app-input-text: #e5e7eb;
+    --app-placeholder: #a7b3c5;
+    --app-hover: #1b2940;
+    --app-selected: #1b3352;
+    --app-error-bg: #3b1d22;
+    --app-error-border: #7f1d1d;
+    --app-error-text: #fecaca;
+    --app-success-bg: #102a22;
+    --app-success-border: #14532d;
+    --app-success-text: #bbf7d0;
+    --app-warning-bg: #3d3018;
+    --app-warning-border: #6b5428;
+    --app-warning-text: #fde68a;
+    --app-scrollbar-thumb: #42516a;
+    --app-scrollbar-thumb-hover: #64748b;
+    --app-selection-bg: #1d4b7a;
+    --app-control-border: #52647e;
+    --app-control-hover: #253750;
+    --app-control-active: #304766;
+    --app-action-bg: #2563eb;
+    --app-action-hover: #3b82f6;
     --app-primary: #60a5fa;
     --app-accent: #34d399;
     color-scheme: dark;
@@ -554,34 +602,34 @@ html[data-theme='dark'] .workspace-note {
 html[data-theme='dark'] input,
 html[data-theme='dark'] select,
 html[data-theme='dark'] textarea {
-    background: #0f1728 !important;
+    background: var(--app-input-bg) !important;
     color: var(--app-text) !important;
     border-color: var(--app-border) !important;
 }
 
 html[data-theme='dark'] input::placeholder,
 html[data-theme='dark'] textarea::placeholder {
-    color: #64748b;
+    color: var(--app-placeholder);
 }
 
 html[data-theme='dark'] .item:hover {
-    background: #1a2638 !important;
+    background: var(--app-hover) !important;
 }
 
 html[data-theme='dark'] .item.active {
-    background: #1b3352 !important;
+    background: var(--app-selected) !important;
 }
 
 html[data-theme='dark'] .badge,
 html[data-theme='dark'] .tag {
-    background: #1f2b3d !important;
-    color: #cbd5e1;
+    background: var(--app-surface-2) !important;
+    color: var(--app-muted-strong);
 }
 
 html[data-theme='dark'] .tag.critical,
 html[data-theme='dark'] .tag.high {
-    background: #4a1f27 !important;
-    color: #fecdd3;
+    background: var(--app-error-bg) !important;
+    color: var(--app-error-text);
 }
 
 html[data-theme='dark'] table {
@@ -598,7 +646,28 @@ html[data-theme='dark'] td {
 }
 
 html[data-theme='dark'] tbody tr:hover {
-    background: #151f31;
+    background: var(--app-hover);
+}
+
+html[data-theme='dark'] app-ticket-queue tbody tr.active,
+html[data-theme='dark'] app-ticket-queue tbody tr.active:hover {
+    background: #1b3352 !important;
+}
+
+html[data-theme='dark'] app-ticket-queue tbody tr.active td {
+    color: #e2e8f0 !important;
+}
+
+html[data-theme='dark'] app-ticket-queue tbody tr.active td:first-child strong {
+    color: #93c5fd !important;
+}
+
+html[data-theme='dark'] app-ticket-queue tbody tr.active td:first-child > span {
+    color: #f1f5f9 !important;
+}
+
+html[data-theme='dark'] app-ticket-queue tbody tr.active td:first-child small {
+    color: #b6c2d2 !important;
 }
 
 html[data-theme='dark'] button.secondary,
@@ -620,7 +689,7 @@ html[data-theme='dark'] .icon-button:hover,
 html[data-theme='dark'] .secondary:hover,
 html[data-theme='dark'] .quiet:hover,
 html[data-theme='dark'] .outline:hover {
-    background: #1f2b3d !important;
+    background: var(--app-hover) !important;
     border-color: var(--app-primary) !important;
 }
 
@@ -628,18 +697,18 @@ html[data-theme='dark'] .error,
 html[data-theme='dark'] .err,
 html[data-theme='dark'] .notice.error,
 html[data-theme='dark'] .feedback.error {
-    background: #3b1d22 !important;
-    border-color: #7f1d1d !important;
-    color: #fecaca !important;
+    background: var(--app-error-bg) !important;
+    border-color: var(--app-error-border) !important;
+    color: var(--app-error-text) !important;
 }
 
 html[data-theme='dark'] .success,
 html[data-theme='dark'] .notice.success,
 html[data-theme='dark'] .feedback.success,
 html[data-theme='dark'] .ok {
-    background: #102a22 !important;
-    border-color: #14532d !important;
-    color: #bbf7d0 !important;
+    background: var(--app-success-bg) !important;
+    border-color: var(--app-success-border) !important;
+    color: var(--app-success-text) !important;
 }
 
 html[data-theme='dark'] .notice:not(.error):not(.success) {
@@ -651,7 +720,7 @@ html[data-theme='dark'] .notice:not(.error):not(.success) {
 html[data-theme='dark'] .avatar,
 html[data-theme='dark'] .option-icon,
 html[data-theme='dark'] .sidebar-profile {
-    background-color: #1f2b3d !important;
+    background-color: var(--app-surface-2) !important;
     border-color: var(--app-border) !important;
     color: var(--app-text);
 }
@@ -666,8 +735,8 @@ html[data-theme='dark'] .chat-message {
 }
 
 html[data-theme='dark'] .comments article.internal {
-    background: #2a2438 !important;
-    border-color: #4c3b63 !important;
+    background: var(--app-selected) !important;
+    border-color: var(--app-border) !important;
 }
 
 html[data-theme='dark'] .asset-row,
@@ -702,31 +771,31 @@ html[data-theme='dark'] .ticket-list {
 
 html[data-theme='dark'] .field-errors,
 html[data-theme='dark'] .password-errors {
-    background: #3b1d22 !important;
-    border-color: #7f1d1d !important;
-    color: #fecaca !important;
+    background: var(--app-error-bg) !important;
+    border-color: var(--app-error-border) !important;
+    color: var(--app-error-text) !important;
 }
 
 html[data-theme='dark'] .tag.attention {
-    background: #3d3018 !important;
-    color: #fde68a;
+    background: var(--app-warning-bg) !important;
+    color: var(--app-warning-text);
 }
 
 html[data-theme='dark'] td .status:not(.blocked),
 html[data-theme='dark'] .badge-on {
-    background: #123328 !important;
-    color: #86efac;
+    background: var(--app-success-bg) !important;
+    color: var(--app-success-text);
 }
 
 html[data-theme='dark'] td .status.blocked,
 html[data-theme='dark'] .badge-off {
-    background: #3b1d22 !important;
-    color: #fecaca;
+    background: var(--app-error-bg) !important;
+    color: var(--app-error-text);
 }
 
 html[data-theme='dark'] .icon-action {
-    background: #3b1d22 !important;
-    color: #fecaca !important;
+    background: var(--app-error-bg) !important;
+    color: var(--app-error-text) !important;
 }
 
 html[data-theme='dark'] .option {
@@ -736,7 +805,7 @@ html[data-theme='dark'] .option {
 
 html[data-theme='dark'] .option:hover:not(:disabled),
 html[data-theme='dark'] .option.selected {
-    background: #182740 !important;
+    background: var(--app-selected) !important;
     border-color: var(--app-primary) !important;
 }
 
@@ -768,7 +837,7 @@ html[data-theme='dark'] .admin-nav a {
 
 html[data-theme='dark'] .admin-nav a.active,
 html[data-theme='dark'] .admin-nav a:hover {
-    background: #1b3352 !important;
+    background: var(--app-selected) !important;
     color: var(--app-text) !important;
 }
 
@@ -789,8 +858,738 @@ html[data-theme='dark'] .role-switch:hover {
     color: var(--app-primary) !important;
 }
 
+html[data-theme='dark'] app-layout :is(.app-shell, .sidebar, .main-panel, .topbar, .sidebar-profile) {
+    background-color: var(--app-surface) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-layout :is(.brand, .top-divider) {
+    border-color: var(--app-divider) !important;
+    background-color: var(--app-divider);
+}
+
+html[data-theme='dark'] app-layout :is(.brand-copy strong, .user-meta strong, .breadcrumb strong) {
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-layout :is(.brand-copy small, .nav-caption, .workspace-note, .user-meta small, .profile-more, .breadcrumb, .chevron) {
+    color: var(--app-muted) !important;
+}
+
+html[data-theme='dark'] app-layout .nav a {
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-layout .nav a:is(:hover, .active) {
+    background: var(--app-selected) !important;
+    color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] app-root :is(
+    .panel, .card, .list, .detail, .metric, .queue, .ticket-detail, .quick-panel,
+    .recent-panel, .performance, .users-toolbar, .users-filters, .form-card,
+    .tenant-card, .security-card, .asset-card, .portal-card, .filters, .ticket-facts,
+    .history, .comments, .report-list article, .admin-nav, .section, .empty-detail,
+    .detail-header, .modal, .dialog, .user-card, .account-card, .list-editor,
+    .add-field, .field-main, .field-options, .asset-row, .ticket-row, .ticket-summary,
+    .conversation, .timeline, .toolbar, .tabs, .card-form, .request-form, .repair-form,
+    .setup-section, .security-grid, .sla-grid, .sla-level, .escalation-list,
+    .account-list, .account-grid, .detail-grid, .transition-matrix, .calendar-settings,
+    .holiday-list span, .search, .message, .movement-list, .ticket-list, .escalation,
+    .create-value-form, .users-table, .users-table tbody tr, .owner-badge,
+    .create, .edit, .role-option, .option, .attachment, .attachment-card, .file-card,
+    .upload-card, .filter-panel, .form-section
+) {
+    background-color: var(--app-surface) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-root :is(
+    .filters, .toolbar, .ticket-facts, .calendar-settings, .field-main, .field-options,
+    .search, .message, .empty-detail, .sidebar-profile, .item:hover, .item.active,
+    .users-table tbody tr:hover, .users-table tbody tr.active, tbody tr:hover,
+    .ticket-row:hover, .asset-row:hover, .escalation:hover
+) {
+    background-color: var(--app-hover) !important;
+}
+
+html[data-theme='dark'] app-root :is(
+    p, small, label, th, td, time, .muted, .subtitle, .hint, .empty, .eyebrow,
+    .meta, .caption, .nav-caption, .workspace-note, .field-note, .breadcrumb,
+    .ticket-summary small, .history article small, .table-note, .help-text,
+    .description, .status-description, .date, .count-label, .option-copy small,
+    .intro, [class*="muted"], [class*="subtitle"], [class*="hint"]
+) {
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-root :is(h1, h2, h3, h4, h5, strong, legend, .title, .option-copy strong) {
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(input, select, textarea, option) {
+    background-color: var(--app-input-bg) !important;
+    color: var(--app-input-text) !important;
+    border-color: var(--app-border) !important;
+    color-scheme: dark;
+}
+
+html[data-theme='dark'] app-root :is(input, textarea)::placeholder {
+    color: var(--app-placeholder) !important;
+    opacity: 1;
+}
+
+html[data-theme='dark'] app-root :is(input, select, textarea):focus-visible {
+    outline: 2px solid var(--app-primary) !important;
+    outline-offset: 2px;
+    border-color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] app-root :is(th, td, .foot, .toolbar, .panel-header, .brand, .topbar, .history, .comments) {
+    border-color: var(--app-divider) !important;
+}
+
+html[data-theme='dark'] app-root tbody tr:hover,
+html[data-theme='dark'] app-root :is(.item:hover, .asset-row:hover, .ticket-row:hover, .option:hover:not(:disabled)) {
+    background-color: var(--app-hover) !important;
+}
+
+html[data-theme='dark'] app-root :is(.item.active, .option.selected, .admin-nav a.active, .admin-nav a:hover) {
+    background-color: var(--app-selected) !important;
+    border-color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] app-root :is(button.secondary, button.quiet, button.outline, .secondary, .quiet, .outline, .icon-button, .role-switch, .mobile-filters-toggle, .retry) {
+    background-color: var(--app-surface-2) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-root :is(button.secondary, button.quiet, button.outline, .secondary, .quiet, .outline, .icon-button, .role-switch, .mobile-filters-toggle, .retry):is(:hover, :focus-visible) {
+    background-color: var(--app-hover) !important;
+    border-color: var(--app-primary) !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(button, [role='button']):not(.primary):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button) {
+    background-color: var(--app-surface-2) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-root :is(button, [role='button']):not(.primary):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button):is(:hover, :focus-visible) {
+    background-color: var(--app-hover) !important;
+    border-color: var(--app-primary) !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(.tag, .badge, .priority, .status:not(.blocked), .stage, .owner-badge) {
+    background-color: var(--app-surface-2) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-root :is(.error, .err, .notice.error, .feedback.error) {
+    background-color: var(--app-error-bg) !important;
+    border-color: var(--app-error-border) !important;
+    color: var(--app-error-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(.success, .notice.success, .feedback.success, .ok) {
+    background-color: var(--app-success-bg) !important;
+    border-color: var(--app-success-border) !important;
+    color: var(--app-success-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(.error, .err, .success, .notice, .feedback) :is(p, small, strong) {
+    color: inherit !important;
+}
+
+html[data-theme='dark'] app-root :is(.tag.critical, .tag.high, .priority.high, .badge-off, .status.blocked, .icon-action, .escalate-button, .count, .danger, .remove, .delete) {
+    background-color: var(--app-error-bg) !important;
+    border-color: var(--app-error-border) !important;
+    color: var(--app-error-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(.tag.attention, .quota-warning) {
+    background-color: var(--app-warning-bg) !important;
+    border-color: var(--app-warning-border) !important;
+    color: var(--app-warning-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(.tag.attention) {
+    background-color: var(--app-warning-bg) !important;
+    border-color: var(--app-warning-border) !important;
+    color: var(--app-warning-text) !important;
+}
+
+html[data-theme='dark'] app-root :is(.badge-on, td .status:not(.blocked)) {
+    background-color: #123328 !important;
+    border-color: #14532d !important;
+    color: #bbf7d0 !important;
+}
+
+html[data-theme='dark'] app-root :is(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--app-primary);
+    outline-offset: 2px;
+}
+
+html[data-theme='dark'] app-root :is(button, a, .option, tbody tr) {
+    transition: background-color .16s ease, border-color .16s ease, color .16s ease;
+}
+
+html[data-theme='dark'] ::selection {
+    background: var(--app-selection-bg);
+    color: #f8fafc;
+}
+
+html[data-theme='dark'] ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+html[data-theme='dark'] ::-webkit-scrollbar-track {
+    background: var(--app-bg);
+}
+
+html[data-theme='dark'] ::-webkit-scrollbar-thumb {
+    background: var(--app-scrollbar-thumb);
+    border: 2px solid var(--app-bg);
+    border-radius: 8px;
+}
+
+html[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+    background: var(--app-scrollbar-thumb-hover);
+}
+
+html[data-theme='dark'] .mat-mdc-select-panel,
+html[data-theme='dark'] .mat-mdc-menu-panel,
+html[data-theme='dark'] .mat-mdc-dialog-surface,
+html[data-theme='dark'] .mdc-menu-surface,
+html[data-theme='dark'] .mat-mdc-tooltip {
+    background-color: var(--app-surface-2) !important;
+    color: var(--app-text) !important;
+    border-color: var(--app-border) !important;
+}
+
+html[data-theme='dark'] .mat-mdc-option,
+html[data-theme='dark'] .mat-mdc-menu-item,
+html[data-theme='dark'] .mat-mdc-select-value,
+html[data-theme='dark'] .mat-mdc-form-field {
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-root *,
+html[data-theme='dark'] .cdk-overlay-container * {
+    border-color: var(--app-divider) !important;
+}
+
+html[data-theme='dark'] app-root .admin-nav a.active,
+html[data-theme='dark'] app-root .tabs button.active,
+html[data-theme='dark'] app-root .option.selected,
+html[data-theme='dark'] app-root :is(input, select, textarea):focus-visible {
+    border-color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] app-root :is(.error, .err, .field-errors, .password-errors, .notice.error, .feedback.error) {
+    border-color: var(--app-error-border) !important;
+}
+
+html[data-theme='dark'] app-root :is(.success, .notice.success, .feedback.success, .badge-on, td .status:not(.blocked)) {
+    border-color: var(--app-success-border) !important;
+}
+
+html[data-theme='dark'] app-root :is(.quota-warning, .tag.attention) {
+    border-color: var(--app-warning-border) !important;
+}
+
+html[data-theme='dark'] app-root button:not(:disabled):not([aria-disabled='true']):not(.primary):not(.primary-button):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button):not(.tabs button),
+html[data-theme='dark'] app-root [role='button']:not([aria-disabled='true']):not(.primary):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button) {
+    box-shadow: inset 0 0 0 1px var(--app-control-border);
+    cursor: pointer;
+    font-weight: 600;
+    transition: background-color .16s ease, box-shadow .16s ease, color .16s ease, transform .16s ease;
+}
+
+html[data-theme='dark'] app-root button:not(:disabled):not([aria-disabled='true']):not(.primary):not(.primary-button):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button):not(.tabs button):hover,
+html[data-theme='dark'] app-root [role='button']:not([aria-disabled='true']):not(.primary):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button):hover {
+    background-color: var(--app-control-hover) !important;
+    box-shadow: inset 0 0 0 1px var(--app-primary), 0 2px 8px rgb(0 0 0 / 22%);
+    color: var(--app-text) !important;
+    transform: translateY(-1px);
+}
+
+html[data-theme='dark'] app-root button:not(:disabled):not([aria-disabled='true']):not(.primary):not(.primary-button):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button):not(.tabs button):active,
+html[data-theme='dark'] app-root [role='button']:not([aria-disabled='true']):not(.primary):not(.danger):not(.icon-action):not(.remove):not(.delete):not(.escalate-button):active {
+    background-color: var(--app-control-active) !important;
+    transform: translateY(0);
+}
+
+html[data-theme='dark'] app-root button.primary,
+html[data-theme='dark'] app-root .primary-button,
+html[data-theme='dark'] app-root a.primary {
+    background-color: var(--app-action-bg) !important;
+    border: 1px solid #6ea2ff !important;
+    box-shadow: 0 2px 8px rgb(37 99 235 / 30%);
+    color: #ffffff !important;
+    cursor: pointer;
+    font-weight: 650;
+    transition: background-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+html[data-theme='dark'] app-root :is(button.primary, .primary-button, a.primary):not(:disabled):hover {
+    background-color: var(--app-action-hover) !important;
+    box-shadow: 0 4px 12px rgb(37 99 235 / 40%);
+    transform: translateY(-1px);
+}
+
+html[data-theme='dark'] app-root :is(button.primary, .primary-button, a.primary):active {
+    transform: translateY(0);
+}
+
+html[data-theme='dark'] app-root :is(button, [role='button']):disabled,
+html[data-theme='dark'] app-root :is(button, [role='button'])[aria-disabled='true'] {
+    box-shadow: none !important;
+    cursor: not-allowed !important;
+    opacity: .5;
+}
+
+html[data-theme='dark'] app-root .item {
+    cursor: pointer;
+    transition: background-color .16s ease, box-shadow .16s ease, color .16s ease;
+}
+
+html[data-theme='dark'] app-root .item:hover {
+    box-shadow: inset 3px 0 0 var(--app-primary);
+}
+
+html[data-theme='dark'] app-root .item.active {
+    box-shadow: inset 3px 0 0 var(--app-primary);
+}
+
+html[data-theme='dark'] app-asset-classes .item,
+html[data-theme='dark'] app-dictionaries .item {
+    display: flex;
+    width: 100%;
+    min-height: 58px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 7px;
+    padding: 10px 12px;
+    border: 1px solid var(--app-control-border) !important;
+    border-left: 3px solid var(--app-control-border) !important;
+    border-radius: 8px;
+    background: var(--app-surface-2) !important;
+    box-shadow: none;
+    color: var(--app-text) !important;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color .16s ease, border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+html[data-theme='dark'] app-asset-classes .item:hover,
+html[data-theme='dark'] app-dictionaries .item:hover {
+    border-color: var(--app-primary) !important;
+    background: var(--app-control-hover) !important;
+    box-shadow: 0 3px 10px rgb(0 0 0 / 24%);
+    transform: translateY(-1px);
+}
+
+html[data-theme='dark'] app-asset-classes .item.active,
+html[data-theme='dark'] app-dictionaries .item.active {
+    border-color: var(--app-primary) !important;
+    border-left-width: 4px !important;
+    background: var(--app-control-active) !important;
+    box-shadow: inset 0 0 0 1px rgb(96 165 250 / 18%);
+}
+
+html[data-theme='dark'] app-asset-classes .item:focus-visible,
+html[data-theme='dark'] app-dictionaries .item:focus-visible {
+    outline: 2px solid var(--app-primary) !important;
+    outline-offset: 2px;
+}
+
+html[data-theme='dark'] app-asset-classes .item-action,
+html[data-theme='dark'] app-dictionaries .item-action {
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    border: 1px solid var(--app-control-border);
+    border-radius: 12px;
+    background: var(--app-selected);
+    color: var(--app-text);
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+html[data-theme='dark'] app-asset-classes .item.active .item-action,
+html[data-theme='dark'] app-dictionaries .item.active .item-action {
+    border-color: var(--app-primary);
+    background: var(--app-primary);
+    color: #0b1220;
+}
+
+html[data-theme='dark'] app-root a[href]:not(.primary-button):not(.primary) {
+    cursor: pointer;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
+}
+
+html[data-theme='dark'] app-root a[href]:not(.primary-button):not(.primary):hover {
+    color: var(--app-primary) !important;
+}
+
+html[data-theme='dark'] app-root :is(button, a[href], [role='button'], .item):focus-visible {
+    outline: 2px solid var(--app-primary) !important;
+    outline-offset: 2px;
+}
+
+html[data-theme='dark'] app-root .timeline article:not(:last-child)::before {
+    background-color: var(--app-divider) !important;
+}
+
+html[data-theme='dark'] app-root hr,
+html[data-theme='dark'] .mat-divider,
+html[data-theme='dark'] .mat-mdc-divider,
+html[data-theme='dark'] .mdc-list-divider {
+    border-color: var(--app-divider) !important;
+    background-color: var(--app-divider) !important;
+}
+
 html[data-theme='dark'] .qr-code {
     background: #ffffff;
     padding: 8px;
     border-radius: 10px;
+}
+
+html[data-theme='dark'] app-ticket-queue .activity-modal {
+    border-color: var(--app-border);
+    background: var(--app-surface);
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-ticket-queue .activity-modal-header,
+html[data-theme='dark'] app-ticket-queue .modal-comment-composer {
+    border-color: var(--app-divider);
+    background: var(--app-surface);
+}
+
+html[data-theme='dark'] app-ticket-queue .activity-modal-subtitle,
+html[data-theme='dark'] app-ticket-queue .history-entry small,
+html[data-theme='dark'] app-ticket-queue .timeline-end,
+html[data-theme='dark'] app-ticket-queue .activity-open-action {
+    color: var(--app-muted);
+}
+
+html[data-theme='dark'] app-ticket-queue .activity-open {
+    border-color: var(--app-divider);
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-ticket-queue .activity-open-action {
+    color: var(--app-primary);
+}
+
+html[data-theme='dark'] app-ticket-queue .history-entry {
+    border-color: var(--app-divider);
+}
+
+html[data-theme='dark'] app-ticket-queue .history-entry-marker {
+    background: var(--app-surface);
+    box-shadow: 0 0 0 3px var(--app-surface-2);
+}
+
+html[data-theme='dark'] app-ticket-queue .comments-modal-content .timeline-entry {
+    border-color: var(--app-border);
+    background: var(--app-surface-2);
+}
+
+html[data-theme='dark'] app-ticket-queue .comments-modal-content .timeline-entry.internal {
+    border-color: #6b5428;
+    background: #3d3018;
+}
+
+html[data-theme='dark'] app-ticket-queue .modal-comment-composer textarea {
+    border-color: var(--app-border);
+    background: #0f1728;
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-ticket-queue .modal-jump-latest {
+    border-color: var(--app-primary);
+    background: var(--app-surface-2);
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-ticket-queue .file-picker {
+    border-color: var(--app-border);
+    background: var(--app-surface-2);
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-ticket-queue .file-picker:hover {
+    border-color: var(--app-primary);
+    background: #1f2b3d;
+}
+
+html[data-theme='dark'] app-ticket-queue .timeline-entry .timeline-author {
+    color: var(--app-text) !important;
+    font-size: 13px !important;
+}
+
+html[data-theme='dark'] app-ticket-queue .timeline-entry .timeline-message {
+    color: #f1f5f9 !important;
+    font-size: 15px !important;
+    line-height: 1.65;
+}
+
+html[data-theme='dark'] app-ticket-queue .timeline-meta,
+html[data-theme='dark'] app-ticket-queue .history-entry .timeline-meta {
+    color: #b6c2d2 !important;
+    font-size: 12px !important;
+    font-weight: 500;
+}
+
+html[data-theme='dark'] app-ticket-queue .history-event {
+    color: #f1f5f9 !important;
+    font-size: 14px !important;
+    font-weight: 650;
+}
+
+app-ticket-queue .activity-open {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 0 0 8px;
+    padding: 3px 0 8px;
+    border: 0;
+    border-bottom: 1px solid #dfe5ee;
+    background: transparent;
+    color: #27364a;
+    text-align: left;
+    cursor: pointer;
+}
+
+app-ticket-queue .activity-open > span:first-child { font-size: 12px; font-weight: 700; }
+app-ticket-queue .activity-open-action { display: inline-flex; align-items: center; gap: 4px; color: #3269b7; font-size: 9px; font-weight: 650; }
+app-ticket-queue .activity-open:hover .activity-open-action { text-decoration: underline; text-underline-offset: 3px; }
+app-ticket-queue .activity-open:focus-visible { outline: 2px solid #3475d1; outline-offset: 3px; border-radius: 3px; }
+
+app-ticket-queue .activity-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(7, 13, 24, .68);
+    backdrop-filter: blur(4px);
+    animation: activity-backdrop-in .16s ease both;
+}
+
+app-ticket-queue .activity-modal {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: min(920px, 100%);
+    height: min(780px, 88vh);
+    min-height: 360px;
+    overflow: hidden;
+    border: 1px solid #d6deea;
+    border-radius: 14px;
+    background: #fff;
+    color: #202734;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, .32);
+    animation: activity-panel-in .2s ease both;
+}
+
+app-ticket-queue .activity-modal-header {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 28px 16px;
+    border-bottom: 1px solid #e3e9f1;
+    background: #f8faff;
+}
+
+app-ticket-queue .activity-modal > .activity-modal-header {
+    padding-inline: 28px !important;
+}
+
+app-ticket-queue .activity-modal-header h2 { font-size: 20px; }
+app-ticket-queue .activity-modal-subtitle { margin: 6px 0 0; color: #66758a; font-size: 12px; }
+app-ticket-queue .activity-modal-close { flex: 0 0 auto; width: 34px; height: 34px; font-size: 21px; }
+app-ticket-queue .activity-modal-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding: 16px 24px; }
+app-ticket-queue .history-modal-content { display: grid; align-content: start; }
+
+app-ticket-queue .history-entry {
+    display: grid;
+    grid-template-columns: 12px minmax(0, 1fr);
+    align-items: start;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid #e8edf4;
+    animation: timeline-entry-in .2s ease both;
+}
+
+app-ticket-queue .history-entry-marker { width: 9px; height: 9px; margin-top: 4px; border: 2px solid #3475d1; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px #eaf2ff; }
+app-ticket-queue .history-entry div { display: grid; gap: 5px; }
+app-ticket-queue .history-entry strong { font-size: 12px; }
+app-ticket-queue .history-entry small,
+app-ticket-queue .timeline-end { color: #718096; font-size: 10px; }
+app-ticket-queue .timeline-end { margin: 14px 0 3px; text-align: center; }
+app-ticket-queue .comments-modal-content { padding-bottom: 12px; }
+
+app-ticket-queue .comments-modal-content .timeline-entry {
+    margin: 0 0 11px;
+    padding: 13px 15px;
+    border: 1px solid #e0e7f0;
+    border-radius: 9px;
+    background: #f7f9fc;
+    animation: timeline-entry-in .2s ease both;
+}
+
+app-ticket-queue .comments-modal-content .timeline-entry.internal { border-color: #ead7af; background: #fff9ed; }
+app-ticket-queue .comments-modal-content .timeline-entry strong { font-size: 12px; }
+app-ticket-queue .comments-modal-content .timeline-entry p { font-size: 12px; }
+
+app-ticket-queue .modal-comment-composer {
+    position: relative;
+    flex: 0 0 auto;
+    margin: 0;
+    padding: 16px 28px 20px;
+    border-top: 1px solid #e3e9f1;
+    background: #fff;
+    box-shadow: 0 -5px 16px rgba(15, 23, 42, .04);
+}
+
+app-ticket-queue .activity-modal > .modal-comment-composer {
+    width: 100%;
+    margin: 0 !important;
+    padding: 16px 28px 20px !important;
+}
+
+app-ticket-queue .modal-comment-composer .composer-options {
+    gap: 10px;
+    padding-inline: 10px;
+}
+
+app-ticket-queue .modal-comment-composer textarea { min-height: 74px; }
+app-ticket-queue .modal-jump-latest { position: absolute; right: 30px; bottom: 112px; }
+
+@keyframes activity-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes activity-panel-in { from { opacity: 0; transform: translateY(8px) scale(.99); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+@media (max-width: 600px) {
+    app-ticket-queue .activity-modal-backdrop { padding: 8px; }
+    app-ticket-queue .activity-modal { width: 100%; height: 94vh; min-height: 0; border-radius: 10px; }
+    app-ticket-queue .activity-modal > .activity-modal-header { padding: 15px 20px 12px !important; }
+    app-ticket-queue .activity-modal-header h2 { font-size: 17px; }
+    app-ticket-queue .activity-modal-content { padding: 12px 14px; }
+    app-ticket-queue .activity-modal > .modal-comment-composer { padding: 12px 20px 16px !important; }
+    app-ticket-queue .modal-comment-composer .composer-options { padding-inline: 6px; }
+    app-ticket-queue .modal-jump-latest { right: 24px; bottom: 138px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    app-ticket-queue .activity-modal-backdrop,
+    app-ticket-queue .activity-modal,
+    app-ticket-queue .history-entry,
+    app-ticket-queue .comments-modal-content .timeline-entry { animation: none; }
+}
+
+app-ticket-queue .timeline-entry .timeline-author {
+    display: block;
+    margin-bottom: 5px;
+    color: #344256;
+    font-size: 13px;
+    font-weight: 650;
+}
+
+app-ticket-queue .timeline-entry .timeline-message {
+    margin: 0 0 9px;
+    color: #202b3a;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+app-ticket-queue .timeline-meta {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 7px;
+    color: #66758a;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.5;
+    font-variant-numeric: tabular-nums;
+}
+
+app-ticket-queue .history-event {
+    color: #202b3a;
+    font-size: 14px;
+    font-weight: 650;
+    line-height: 1.5;
+}
+
+app-ticket-queue .file-picker {
+    position: relative;
+    display: inline-flex;
+    min-height: 34px;
+    align-items: center;
+    justify-content: center;
+    padding: 0 11px;
+    overflow: hidden;
+    border: 1px solid #d5deea;
+    border-radius: 6px;
+    background: #f5f8fc;
+    color: #344256;
+    font-size: 10px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: border-color .15s ease, background .15s ease;
+}
+
+app-ticket-queue .file-picker:hover { border-color: #8bb2ef; background: #edf4ff; }
+app-ticket-queue .file-picker:focus-within { outline: 2px solid #3475d1; outline-offset: 2px; }
+app-ticket-queue .file-picker input[type="file"] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+html[data-theme='dark'] app-ticket-queue .comment-composer {
+    border-color: var(--app-divider) !important;
+    background: var(--app-surface) !important;
+}
+
+html[data-theme='dark'] app-ticket-queue .comment-composer textarea {
+    border-color: var(--app-border) !important;
+    background: #0f1728 !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-ticket-queue .activity-heading span,
+html[data-theme='dark'] app-ticket-queue .timeline-loading {
+    color: #cbd5e1 !important;
+}
+
+html[data-theme='dark'] app-ticket-queue .jump-latest {
+    border-color: var(--app-primary) !important;
+    background: #1b3352 !important;
+    color: var(--app-text) !important;
 }
