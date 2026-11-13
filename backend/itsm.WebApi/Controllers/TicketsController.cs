@@ -14,11 +14,21 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     private const long MaxAttachmentSizeBytes = 10 * 1024 * 1024;
 
     [HttpGet]
-    [Authorize(Roles = "admin,tenant_owner,agent")]
+    [Authorize(Roles = "admin,tenant_owner,agent,manager")]
     [EndpointSummary("Получить очередь заявок")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketResponse>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<TicketResponse>>> GetQueue(CancellationToken ct)
-        => Ok(await service.GetQueueAsync(ct));
+    {
+        if (IsManager())
+        {
+            if (!TryGetUserId(out var managerId))
+                return Unauthorized();
+
+            return Ok(await service.GetManagerQueueAsync(managerId, ct));
+        }
+
+        return Ok(await service.GetQueueAsync(ct));
+    }
 
     [HttpGet("mine")]
     [EndpointSummary("Получить заявки текущего пользователя")]
@@ -53,7 +63,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
-        var ticket = await service.GetByIdAsync(id, userId, IsStaff(), ct);
+        var ticket = await service.GetByIdAsync(id, userId, IsStaff(), ct, IsManager());
         return ticket is null ? NotFound() : Ok(ticket);
     }
 
@@ -203,7 +213,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
-        var messages = await service.GetMessagesAsync(id, userId, IsStaff(), ct);
+        var messages = await service.GetMessagesAsync(id, userId, IsStaff(), ct, IsManager());
         return messages is null ? NotFound() : Ok(messages);
     }
 
@@ -216,7 +226,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
-        var history = await service.GetHistoryAsync(id, userId, IsStaff(), ct);
+        var history = await service.GetHistoryAsync(id, userId, IsStaff(), ct, IsManager());
         return history is null ? NotFound() : Ok(history);
     }
 
@@ -298,7 +308,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
-        var attachment = await service.OpenAttachmentAsync(id, attachmentId, userId, IsStaff(), ct);
+        var attachment = await service.OpenAttachmentAsync(id, attachmentId, userId, IsStaff(), ct, IsManager());
         if (attachment is null)
             return NotFound();
 
@@ -337,6 +347,8 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
 
     private bool IsStaff() =>
         User.IsInRole("admin") || User.IsInRole("tenant_owner") || User.IsInRole("agent");
+
+    private bool IsManager() => User.IsInRole("manager");
 
     private IReadOnlyCollection<string> UserRoles() =>
         User.FindAll(ClaimTypes.Role).Select(claim => claim.Value).ToArray();
