@@ -21,7 +21,7 @@ import { downloadTicketAttachment as saveTicketAttachment } from '../../core/wor
         <div class="toolbar"><div><h2>Мои заявки</h2><p>Здесь отображаются только ваши обращения</p></div><button class="primary" type="button" (click)="openCreate()">＋ Создать заявку</button></div>
         <section class="ticket-list">
           @for (ticket of tickets; track ticket.id) {
-            <button class="ticket-row" type="button" (click)="openTicket(ticket)"><span class="ticket-id">{{ ticket.id }}</span><span class="ticket-summary"><strong>{{ ticket.title }}</strong><small>{{ ticket.type }} · {{ ticket.createdOn || ticket.createdAt }}</small></span><span class="status">{{ ticket.status }}</span><span class="priority">{{ ticket.priority }}</span><span class="open" aria-hidden="true">→</span></button>
+            <button class="ticket-row" type="button" (click)="openTicket(ticket)"><span class="ticket-id">{{ ticket.ticketNumber || ticket.id }}</span><span class="ticket-summary"><strong>{{ ticket.title }}</strong><small>{{ ticket.type }} · {{ ticket.createdOn || ticket.createdAt }}</small></span><span class="status">{{ ticket.status }}</span><span class="priority">{{ ticket.priority }}</span><span class="open" aria-hidden="true">→</span></button>
           }
           @if (!tickets.length) { <p class="empty">У вас пока нет заявок.</p> }
         </section>
@@ -220,7 +220,7 @@ export class SelfServicePortalComponent implements OnInit {
                 this.tickets = [ticket, ...this.tickets];
                
                 this.view = 'detail';
-                this.notice = `Заявка ${ticket.id} зарегистрирована.`; this.openTicket(ticket);
+                this.notice = `Заявка ${ticket.ticketNumber || ticket.id} зарегистрирована.`; this.openTicket(ticket);
                 this.isSubmitting = false;
                 this.changeDetector.markForCheck();
             },

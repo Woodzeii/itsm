@@ -15,9 +15,18 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
     private const string InProgressStatusCode = "in_progress";
     private const long MaxAttachmentSizeBytes = 10 * 1024 * 1024;
 
-    public async Task<IReadOnlyList<TicketResponse>> GetQueueAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<TicketResponse>> GetQueueAsync(CancellationToken ct = default, string? search = null)
     {
-        var tickets = await TicketQuery()
+        var query = TicketQuery();
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = $"%{search.Trim()}%";
+            query = query.Where(ticket =>
+                EF.Functions.ILike(ticket.TicketNumber, term)
+                || EF.Functions.ILike(ticket.Title, term));
+        }
+
+        var tickets = await query
             .OrderByDescending(ticket => ticket.CreatedAt)
             .ToListAsync(ct);
 
@@ -144,6 +153,9 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         }
 
         var now = DateTimeOffset.UtcNow;
+        var tenantId = db.GetCurrentTenantId();
+        var ticketNumber = await GenerateTicketNumberAsync(tenantId, ct);
+
         var ticket = new Ticket
         {
             Title = request.Title.Trim(),
@@ -153,7 +165,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             Priority = request.Priority.Trim(),
             CreatorId = creatorId,
             RequesterId = requesterId,
-            TenantId = db.GetCurrentTenantId(),
+            TenantId = tenantId,
+            TicketNumber = ticketNumber,
             AssetId = request.AssetId,
             CustomFieldsData = CloneObject(request.CustomFieldsData),
             CreatedAt = now,
@@ -742,6 +755,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         return new TicketEscalationResponse(
             escalation.Id,
             escalation.TicketId,
+            escalation.Ticket.TicketNumber,
             escalation.InitiatorUserId,
             escalation.Reason,
             escalation.FromCriticalityLevelId,
@@ -761,6 +775,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         var escalations = await db.TicketEscalations
             .AsNoTracking()
             .Where(escalation => escalation.TicketId == id)
+            .Include(escalation => escalation.Ticket)
             .OrderByDescending(escalation => escalation.EscalatedAt)
             .ThenByDescending(escalation => escalation.Id)
             .ToListAsync(ct);
@@ -768,6 +783,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         return escalations.Select(escalation => new TicketEscalationResponse(
             escalation.Id,
             escalation.TicketId,
+            escalation.Ticket.TicketNumber,
             escalation.InitiatorUserId,
             escalation.Reason,
             escalation.FromCriticalityLevelId,
@@ -876,6 +892,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         return new TicketEscalationResponse(
             openEscalation.Id,
             openEscalation.TicketId,
+            ticket.TicketNumber,
             openEscalation.InitiatorUserId,
             openEscalation.Reason,
             openEscalation.FromCriticalityLevelId,
@@ -1115,6 +1132,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
     public async Task<IReadOnlyList<AssetTicketHistoryItem>?> GetAssetTicketHistoryAsync(
         int assetId,
+        string? search,
         int? typeId,
         int? statusId,
         int? criticalityLevelId,
@@ -1131,6 +1149,14 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         var query = TicketQuery()
             .Where(ticket => ticket.AssetId == assetId
                 || db.TicketAssetMappings.Any(mapping => mapping.TicketId == ticket.Id && mapping.AssetId == assetId));
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = $"%{search.Trim()}%";
+            query = query.Where(ticket =>
+                EF.Functions.ILike(ticket.TicketNumber, term)
+                || EF.Functions.ILike(ticket.Title, term));
+        }
 
         if (typeId.HasValue)
             query = query.Where(ticket => ticket.TypeId == typeId.Value);
@@ -1154,6 +1180,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         var tickets = await query.OrderByDescending(ticket => ticket.CreatedAt).ToListAsync(ct);
         return tickets.Select(ticket => new AssetTicketHistoryItem(
             ticket.Id,
+            ticket.TicketNumber,
             ticket.TypeId,
             ticket.Type.Name,
             ticket.Title,
@@ -1265,6 +1292,40 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             rule.IsActive);
     }
 
+    public async Task<int?> ResolveTicketIdAsync(string ticketNumberOrId, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(ticketNumberOrId))
+            return null;
+
+        var value = ticketNumberOrId.Trim();
+        var normalized = value.ToUpperInvariant();
+
+        var byNumber = await db.Tickets
+            .AsNoTracking()
+            .Where(ticket => ticket.TicketNumber == normalized)
+            .Select(ticket => (int?)ticket.Id)
+            .FirstOrDefaultAsync(ct);
+        if (byNumber is not null)
+            return byNumber;
+
+        return int.TryParse(value, out var numericId)
+            ? await db.Tickets.AsNoTracking().Where(ticket => ticket.Id == numericId).Select(ticket => (int?)ticket.Id).FirstOrDefaultAsync(ct)
+            : null;
+    }
+
+    private async Task<string> GenerateTicketNumberAsync(int tenantId, CancellationToken ct)
+    {
+        // Коллизии маловероятны, но проверяем явно, чтобы отдать понятную ошибку,
+        // а не нарушение уникального индекса.
+        var taken = await db.Tickets
+            .IgnoreQueryFilters()
+            .Where(ticket => ticket.TenantId == tenantId)
+            .Select(ticket => ticket.TicketNumber)
+            .ToHashSetAsync(ct);
+
+        return TicketNumberGenerator.GenerateUnique(taken.Contains);
+    }
+
     private IQueryable<Ticket> TicketQuery() =>
         db.Tickets
             .Include(ticket => ticket.Type)
@@ -1332,6 +1393,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
     private static TicketResponse ToResponse(Ticket ticket) => new(
         ticket.Id,
+        ticket.TicketNumber,
         ticket.Title,
         ticket.Description,
         ticket.TypeId,
@@ -1373,6 +1435,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         return new PendingEscalationResponse(
             escalation.Id,
             ticket.Id,
+            ticket.TicketNumber,
             ticket.Title,
             ticket.TypeId,
             ticket.Type.Name,

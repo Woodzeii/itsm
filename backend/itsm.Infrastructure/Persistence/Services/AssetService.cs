@@ -510,6 +510,7 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
 
         return tickets.Select(ticket => new AssetTicketHistoryItem(
             ticket.Id,
+            ticket.TicketNumber,
             ticket.TypeId,
             ticket.Type.Name,
             ticket.Title,
