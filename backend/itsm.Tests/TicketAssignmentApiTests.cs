@@ -68,6 +68,18 @@ public class TicketAssignmentApiTests
     }
 
     [Fact]
+    public async Task ManagerCanReadTicketTypeAndStatusLookups()
+    {
+        var managerClient = CreateClient("i.ivanov", "manager");
+
+        var lookups = await managerClient.GetFromJsonAsync<TicketLookupsResponse>("/api/tickets/lookups");
+
+        lookups.Should().NotBeNull();
+        lookups!.Types.Should().Contain(type => type.Code == "repair");
+        lookups.Statuses.Should().Contain(status => status.Code == "closed");
+    }
+
+    [Fact]
     public async Task CreatedTicketIsAutoAssignedInAutoMode()
     {
         var adminClient = CreateClient("admin", "admin");

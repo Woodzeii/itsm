@@ -20,7 +20,8 @@ public sealed record AssetDto(
     int? DepartmentId,
     string? DepartmentName,
     DateTimeOffset? LicenseExpirationDate,
-    DateTimeOffset CreatedAt);
+    DateTimeOffset CreatedAt,
+    IReadOnlyDictionary<string, string> Attributes);
 
 /// <summary>Карточка актива с историей, движениями и связанными заявками.</summary>
 public sealed record AssetDetailDto(
@@ -41,6 +42,7 @@ public sealed record CreateAssetRequest
     public int? LocationId { get; init; }
     public int? DepartmentId { get; init; }
     public int? AssignedUserId { get; init; }
+    public Dictionary<string, string>? Attributes { get; init; }
     public string? LifecycleStage { get; init; }
     public DateTimeOffset? LicenseExpirationDate { get; init; }
 }
@@ -57,6 +59,7 @@ public sealed record UpdateAssetRequest
     public int? LocationId { get; init; }
     public int? DepartmentId { get; init; }
     public DateTimeOffset? LicenseExpirationDate { get; init; }
+    public Dictionary<string, string>? Attributes { get; init; }
 }
 
 /// <summary>Движение актива.</summary>

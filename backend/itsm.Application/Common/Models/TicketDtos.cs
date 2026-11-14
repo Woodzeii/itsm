@@ -58,6 +58,12 @@ public sealed record ChangeTicketStatusRequest
     public string? RepairResolution { get; init; }
 
     public RepairOutcome? RepairOutcome { get; init; }
+
+    [Range(1, int.MaxValue)]
+    public int? RepairToUserId { get; init; }
+
+    [Range(1, int.MaxValue)]
+    public int? RepairToWarehouseId { get; init; }
 }
 
 /// <summary>Possible asset lifecycle outcomes after completing a repair ticket.</summary>
@@ -201,6 +207,14 @@ public sealed record AssetTicketHistoryItem(
     string? CriticalityName,
     DateTimeOffset CreatedAt,
     DateTimeOffset? ClosedAt);
+
+public sealed record TicketLookupsResponse(
+    IReadOnlyList<TicketTypeLookup> Types,
+    IReadOnlyList<TicketStatusLookup> Statuses);
+
+public sealed record TicketTypeLookup(int Id, string Code, string Name);
+
+public sealed record TicketStatusLookup(int Id, string Code, string Name);
 
 /// <summary>Details recorded for a manual ticket escalation.</summary>
 public sealed record TicketEscalationResponse(

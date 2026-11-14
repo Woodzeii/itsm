@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { concatMap, from, toArray } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { AssetClassApiService } from '../../core/asset-class/asset-class.service';
 import {
@@ -22,13 +23,24 @@ import {
           <p class="subtitle">Настройка классов и их атрибутов (АКТ-05, АКТ-07)</p>
         </div>
         @if (isAdmin) {
-          <div class="create-form">
-            <input [(ngModel)]="newCode" placeholder="code (a-z, _)" />
-            <input [(ngModel)]="newName" placeholder="Название" />
-            <button (click)="createClass()" [disabled]="!newCode || !newName">Создать класс</button>
+          <div class="header-actions">
+            <button type="button" class="secondary" (click)="addBasicClasses()" [disabled]="addingBasicClasses">
+              {{ addingBasicClasses ? 'Добавление…' : 'Добавить базовые классы активов' }}
+            </button>
+            <button type="button" (click)="showCreateForm = !showCreateForm">
+              {{ showCreateForm ? 'Отмена' : 'Создать класс активов' }}
+            </button>
           </div>
         }
       </header>
+
+      @if (isAdmin && showCreateForm) {
+        <form class="create-form" (ngSubmit)="createClass()">
+          <input name="classCode" [(ngModel)]="newCode" placeholder="code (a-z, _)" required />
+          <input name="className" [(ngModel)]="newName" placeholder="Название" required />
+          <button type="submit" [disabled]="!newCode.trim() || !newName.trim()">Создать класс</button>
+        </form>
+      }
 
       @if (errorMessage) {
         <div class="error">{{ errorMessage }}</div>
@@ -65,8 +77,9 @@ import {
                 <h2>{{ selected.name }}</h2>
                 <small>code: {{ selected.code }} · id: {{ selected.id }} · активов: {{ selected.assetsCount }} · атрибутов: {{ selected.attributesCount }}</small>
               </div>
-              @if (isAdmin) {
-                <div class="actions">
+              <div class="actions">
+                @if (isAdmin) {
+                  <button class="secondary" (click)="startEditingClass()">Изменить класс</button>
                   @if (selected.isActive) {
                     <button class="secondary" (click)="deactivate()">Деактивировать</button>
                   } @else {
@@ -77,9 +90,17 @@ import {
                   } @else {
                     <span class="hint">Удаление запрещено: есть активы</span>
                   }
-                </div>
-              }
+                }
+              </div>
             </div>
+
+            @if (isAdmin && editingClassName) {
+              <form class="edit-class-form" (ngSubmit)="saveClassName()">
+                <input name="editClassName" [(ngModel)]="editClassName" placeholder="Название класса" required />
+                <button type="submit" [disabled]="!editClassName.trim()">Сохранить</button>
+                <button type="button" class="secondary" (click)="editingClassName = false">Отмена</button>
+              </form>
+            }
 
             <h3 class="section-title">Атрибуты класса ({{ attributes.length }})</h3>
 
@@ -146,7 +167,8 @@ import {
       .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 16px; flex-wrap: wrap; }
       h1 { margin: 0; }
       .subtitle { margin: 4px 0 0; color: #6b7280; font-size: 0.9rem; }
-      .create-form, .create-attr-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      .header-actions, .create-form, .edit-class-form, .create-attr-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      .create-form, .edit-class-form { margin-bottom: 16px; }
       input, select { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; }
       .chk { display: flex; align-items: center; gap: 4px; font-size: 0.9rem; color: #374151; }
       button { padding: 8px 14px; border: none; border-radius: 8px; background: #3f51b5; color: white; cursor: pointer; }
@@ -187,6 +209,9 @@ export class AssetClassesComponent implements OnInit {
     attributes: AssetClassAttributeDto[] = [];
 
     isAdmin = false;
+    addingBasicClasses = false;
+    editingClassName = false;
+    editClassName = '';
     errorMessage = '';
     successMessage = '';
 
@@ -195,6 +220,7 @@ export class AssetClassesComponent implements OnInit {
     // Форма класса
     newCode = '';
     newName = '';
+    showCreateForm = false;
 
     // Форма атрибута
     newAttrCode = '';
@@ -247,11 +273,66 @@ export class AssetClassesComponent implements OnInit {
             next: created => {
                 this.newCode = '';
                 this.newName = '';
+                this.showCreateForm = false;
                 this.successMessage = `Класс «${created.name}» создан`;
                 this.loadAll();
             },
             error: err => {
                 this.errorMessage = `Ошибка: ${err.status} ${err.error?.message ?? ''}`;
+                this.cdr.detectChanges();
+            },
+        });
+    }
+
+    addBasicClasses(): void {
+        this.clearMessages();
+        const existingCodes = new Set(this.classes.map(assetClass => assetClass.code));
+        const missingClasses = BASIC_ASSET_CLASSES.filter(assetClass => !existingCodes.has(assetClass.code));
+        if (!missingClasses.length) {
+            this.successMessage = 'Базовые классы уже добавлены';
+            return;
+        }
+
+        this.addingBasicClasses = true;
+        from(missingClasses).pipe(
+            concatMap(assetClass => this.api.create(assetClass)),
+            toArray(),
+        ).subscribe({
+            next: created => {
+                this.addingBasicClasses = false;
+                this.successMessage = `Добавлено базовых классов: ${created.length}`;
+                this.loadAll();
+            },
+            error: err => {
+                this.addingBasicClasses = false;
+                this.errorMessage = `Не удалось добавить базовые классы: ${err.status} ${err.error?.message ?? ''}`;
+                this.loadAll();
+                this.cdr.detectChanges();
+            },
+        });
+    }
+
+    startEditingClass(): void {
+        if (!this.selected) return;
+        this.clearMessages();
+        this.editClassName = this.selected.name;
+        this.editingClassName = true;
+    }
+
+    saveClassName(): void {
+        if (!this.selected || !this.editClassName.trim()) return;
+        this.clearMessages();
+        this.api.update(this.selected.id, { name: this.editClassName.trim() }).subscribe({
+            next: updated => {
+                this.editingClassName = false;
+                this.editClassName = '';
+                this.loadAll();
+                this.select({ ...this.selected!, name: updated.name });
+                this.successMessage = `Класс переименован в «${updated.name}»`;
+                this.cdr.detectChanges();
+            },
+            error: err => {
+                this.errorMessage = `Не удалось изменить класс: ${err.status} ${err.error?.message ?? ''}`;
                 this.cdr.detectChanges();
             },
         });
@@ -367,3 +448,15 @@ export class AssetClassesComponent implements OnInit {
         return this.dataTypes.find(t => t.value === value)?.label ?? value;
     }
 }
+
+const BASIC_ASSET_CLASSES = [
+    { code: 'server', name: 'Серверы' },
+    { code: 'laptop', name: 'Ноутбуки' },
+    { code: 'monoblock', name: 'Моноблоки' },
+    { code: 'monitor', name: 'Мониторы' },
+    { code: 'desktop', name: 'Рабочие станции' },
+    { code: 'printer', name: 'Принтеры и МФУ' },
+    { code: 'network_equipment', name: 'Сетевое оборудование' },
+    { code: 'ups', name: 'Источники бесперебойного питания' },
+    { code: 'projector', name: 'Проекторы' },
+];

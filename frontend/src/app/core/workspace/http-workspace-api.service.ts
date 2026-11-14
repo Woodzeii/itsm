@@ -224,7 +224,17 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     getAssetDetails(assetId: string) {
         return this.http
             .get<BackendAssetDetail>(`${this.baseUrl}/assets/${assetId}`)
-            .pipe(map(detail => toAssetDetails(detail)));
+            .pipe(map(detail => {
+                for (const ticket of detail.relatedTickets ?? []) {
+                    if (ticket.typeName && ticket.typeId != null) {
+                        this.typeIds.set(ticket.typeName.toLocaleLowerCase(), ticket.typeId);
+                    }
+                    if (ticket.statusName && ticket.statusId != null) {
+                        this.statusIds.set(ticket.statusName.toLocaleLowerCase(), ticket.statusId);
+                    }
+                }
+                return toAssetDetails(detail);
+            }));
     }
     createAsset(request: CreateAssetRequest) {
         const assetClassId = request.assetClassId ?? this.resolveAssetClassId(request.className);
@@ -240,7 +250,7 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             warehouseId: request.warehouseId ?? null,
             locationId: request.locationId ?? null,
             departmentId: request.departmentId ?? null,
-            assignedUserId: request.assignedUserId ?? null,
+            attributes: request.attributes ?? null,
         };
 
         return this.http.post<BackendAsset>(`${this.baseUrl}/assets`, body).pipe(
@@ -256,6 +266,7 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             warehouseId: changes.warehouseId,
             locationId: changes.locationId,
             departmentId: changes.departmentId,
+            attributes: changes.attributes ?? null,
         };
 
         return this.http.put<BackendAsset>(`${this.baseUrl}/assets/${assetId}`, body).pipe(
@@ -275,7 +286,8 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             toWarehouseId: request.toWarehouseId ?? null,
             toLocationId: request.toLocationId ?? null,
             toDepartmentId: request.toDepartmentId ?? null,
-            comment: request.comment?.trim() || null,
+            comment: request.comment?.trim()
+                || (request.from.trim() && request.to.trim() ? `${request.from.trim()} → ${request.to.trim()}` : null),
         };
 
         return this.http.post(`${this.baseUrl}/assets/${assetId}/movements`, body).pipe(
@@ -283,37 +295,42 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         );
     }
     createRepairTicket(assetId: string, title: string) {
-        const typeId = this.typeIds.get('тикет на ремонт') ?? this.typeIds.get('ремонт');
-        if (!typeId) {
-            return throwError(() => new Error(
-                'Не удалось определить typeId ремонтной заявки: загрузите очередь заявок.',
-            ));
-        }
+        return this.getTicketLookups().pipe(
+            switchMap(lookups => {
+                const repairType = lookups.types.find(type => type.code.toLocaleLowerCase() === 'repair');
+                if (!repairType) {
+                    return throwError(() => new Error('В backend не найден тип заявки на ремонт.'));
+                }
 
-        return this.createTicket({
-            title,
-            requester: '',
-            typeId,
-            priority: 'Средний',
-            assetId,
-        });
+                return this.createTicket({
+                    title,
+                    requester: '',
+                    typeId: repairType.id,
+                    priority: 'Средний',
+                    assetId,
+                });
+            }),
+        );
     }
     closeRepairTicket(ticketId: string, request: RepairCloseRequest) {
-        const statusId = this.statusIds.get('закрыта')
-            ?? [...this.statusIds.entries()].find(([name]) => name.includes('закрыт'))?.[1];
-        if (!statusId) {
-            return throwError(() => new Error(
-                'Не удалось определить статус закрытия: загрузите очередь заявок.',
-            ));
-        }
+        return this.getTicketLookups().pipe(
+            switchMap(lookups => {
+                const closedStatus = lookups.statuses.find(status => status.code.toLocaleLowerCase() === 'closed');
+                if (!closedStatus) {
+                    return throwError(() => new Error('В backend не найден закрытый статус заявки.'));
+                }
 
-        return this.http
-            .put<BackendTicket>(`${this.baseUrl}/tickets/${ticketId}/status`, {
-                statusId,
-                repairResolution: request.workDescription,
-                repairOutcome: repairOutcome(request.result),
-            })
-            .pipe(map(toTicket));
+                return this.http
+                    .put<BackendTicket>(`${this.baseUrl}/tickets/${ticketId}/status`, {
+                        statusId: closedStatus.id,
+                        repairResolution: request.workDescription,
+                        repairOutcome: repairOutcome(request.result),
+                        repairToUserId: request.result === 'В эксплуатацию' ? request.repairToUserId ?? null : null,
+                        repairToWarehouseId: request.result === 'На склад' ? request.repairToWarehouseId ?? null : null,
+                    })
+                    .pipe(map(toTicket));
+            }),
+        );
     }
     getForms() { return this.unsupported<TicketFormDefinition[]>('ticket forms'); }
     saveForm(_form: TicketFormDefinition) { return this.unsupported<TicketFormDefinition>('ticket forms'); }
@@ -376,6 +393,20 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
                 { messageBody: message, isInternal: internal, attachments: attachmentIds },
             )),
             map(toTicketComment),
+        );
+    }
+
+    private getTicketLookups() {
+        return this.http.get<BackendTicketLookups>(`${this.baseUrl}/tickets/lookups`).pipe(
+            map(lookups => {
+                for (const type of lookups.types) {
+                    this.typeIds.set(type.name.toLocaleLowerCase(), type.id);
+                }
+                for (const status of lookups.statuses) {
+                    this.statusIds.set(status.name.toLocaleLowerCase(), status.id);
+                }
+                return lookups;
+            }),
         );
     }
 
@@ -651,6 +682,7 @@ interface BackendAsset {
     departmentName?: string | null;
     licenseExpirationDate?: string | null;
     createdAt?: string;
+    attributes?: Record<string, string> | null;
 }
 
 interface BackendAssetDetail {
@@ -669,13 +701,40 @@ interface BackendAssetDetail {
         id: number;
         movementType?: string;
         movementTypeName?: string;
+        fromUserId?: number | null;
         fromUserName?: string | null;
+        toUserId?: number | null;
         toUserName?: string | null;
+        fromWarehouseId?: number | null;
+        toWarehouseId?: number | null;
+        fromLocationId?: number | null;
+        toLocationId?: number | null;
+        fromDepartmentId?: number | null;
+        toDepartmentId?: number | null;
         performedByName?: string;
         performedAt?: string;
         comment?: string | null;
     }[];
-    relatedTickets?: BackendTicket[];
+    relatedTickets?: BackendAssetTicket[];
+}
+
+interface BackendAssetTicket {
+    id: number;
+    typeId: number;
+    typeName: string;
+    title: string;
+    creatorId: number;
+    creatorName: string;
+    requesterId?: number | null;
+    requesterName?: string | null;
+    assigneeId?: number | null;
+    assigneeName?: string | null;
+    statusId: number;
+    statusName: string;
+    criticalityLevelId?: number | null;
+    criticalityName?: string | null;
+    createdAt: string;
+    closedAt?: string | null;
 }
 
 interface BackendTicket {
@@ -699,6 +758,11 @@ interface BackendTicket {
     updatedAt?: string;
     slaReactionDeadline?: string | null;
     slaResolutionDeadline?: string | null;
+}
+
+interface BackendTicketLookups {
+    types: { id: number; code: string; name: string }[];
+    statuses: { id: number; code: string; name: string }[];
 }
 
 interface BackendTicketMessage {
@@ -731,8 +795,7 @@ interface BackendTicketEscalation {
 }
 
 const ASSET_MOVEMENT_TYPES: Record<string, string> = {
-    'Передача сотруднику': 'transfer',
-    'Перемещение': 'relocate',
+    'Перемещение между складами': 'relocate',
     'Выдача со склада': 'issue',
     'Возврат на склад': 'return',
 };
@@ -749,17 +812,17 @@ function toAssetRecord(asset: BackendAsset): AssetRecord {
     const stage = asset.lifecycleStage ?? 'Purchased';
 
     return {
-        id: asset.inventoryNumber ?? String(asset.id),
+        id: asset.inventoryNumber ?? '',
         recordId: String(asset.id),
         name: asset.name ?? '',
-        owner: asset.assignedUserName ?? '',
+        owner: asset.assignedUserName ?? (asset.assignedUserId != null ? `Сотрудник #${asset.assignedUserId}` : '—'),
         status: asset.lifecycleStageName ?? stage,
         type: asset.assetClassName ?? asset.category ?? '',
         className: asset.assetClassName ?? undefined,
         lifecycle: ASSET_LIFECYCLE_LABELS[stage] ?? (stage as AssetLifecycle),
-        warehouse: asset.warehouseName ?? undefined,
-        location: asset.locationName ?? undefined,
-        department: asset.departmentName ?? undefined,
+        warehouse: asset.warehouseName ?? (asset.warehouseId != null ? `Склад #${asset.warehouseId}` : undefined),
+        location: asset.locationName ?? (asset.locationId != null ? `Место #${asset.locationId}` : undefined),
+        department: asset.departmentName ?? (asset.departmentId != null ? `Подразделение #${asset.departmentId}` : undefined),
         inventoryNumber: asset.inventoryNumber ?? undefined,
         serialNumber: asset.serialNumber ?? undefined,
         assetClassId: asset.assetClassId ?? undefined,
@@ -767,6 +830,7 @@ function toAssetRecord(asset: BackendAsset): AssetRecord {
         locationId: asset.locationId ?? null,
         departmentId: asset.departmentId ?? null,
         assignedUserId: asset.assignedUserId ?? null,
+        attributes: asset.attributes ?? {},
     };
 }
 
@@ -780,16 +844,78 @@ function toAssetDetails(detail: BackendAssetDetail): AssetDetails {
             details: entry.details ?? '',
             createdAt: entry.createdAt ?? '',
         })),
-        movements: (detail.movements ?? []).map(movement => ({
-            id: String(movement.id),
-            kind: movement.movementTypeName ?? movement.movementType ?? '',
-            movementType: movement.movementType,
-            from: movement.fromUserName ?? '—',
-            to: movement.toUserName ?? '—',
-            actor: movement.performedByName ?? '',
-            createdAt: movement.performedAt ?? '',
-        })),
-        relatedTickets: (detail.relatedTickets ?? []).map(toTicket),
+        movements: (detail.movements ?? []).map(movement => {
+            const [fromComment, toComment] = movement.comment?.includes(' → ')
+                ? movement.comment.split(' → ', 2)
+                : [];
+            return {
+                id: String(movement.id),
+                kind: movement.movementTypeName ?? movement.movementType ?? '',
+                movementType: movement.movementType,
+                from: fromComment ?? movementTarget(
+                    movement.fromUserName,
+                    movement.fromUserId,
+                    movement.fromWarehouseId,
+                    movement.fromLocationId,
+                    movement.fromDepartmentId,
+                ),
+                to: toComment ?? movementTarget(
+                    movement.toUserName,
+                    movement.toUserId,
+                    movement.toWarehouseId,
+                    movement.toLocationId,
+                    movement.toDepartmentId,
+                ),
+                actor: movement.performedByName ?? '',
+                createdAt: movement.performedAt ?? '',
+                fromUserId: movement.fromUserId,
+                toUserId: movement.toUserId,
+                fromWarehouseId: movement.fromWarehouseId,
+                toWarehouseId: movement.toWarehouseId,
+                fromLocationId: movement.fromLocationId,
+                toLocationId: movement.toLocationId,
+                fromDepartmentId: movement.fromDepartmentId,
+                toDepartmentId: movement.toDepartmentId,
+            };
+        }),
+        relatedTickets: (detail.relatedTickets ?? []).map(toAssetTicket),
+    };
+}
+
+function movementTarget(
+    userName?: string | null,
+    userId?: number | null,
+    warehouseId?: number | null,
+    locationId?: number | null,
+    departmentId?: number | null,
+): string {
+    if (userName) return userName;
+    if (userId != null) return `Сотрудник #${userId}`;
+    if (warehouseId != null) return `Склад #${warehouseId}`;
+    if (locationId != null) return `Место #${locationId}`;
+    if (departmentId != null) return `Подразделение #${departmentId}`;
+    return '—';
+}
+
+function toAssetTicket(ticket: BackendAssetTicket): Ticket {
+    return {
+        id: String(ticket.id),
+        title: ticket.title,
+        requester: ticket.requesterName ?? ticket.creatorName,
+        team: '',
+        priority: ticket.criticalityName ?? '',
+        status: ticket.statusName,
+        createdAt: ticket.createdAt,
+        slaRemaining: '',
+        type: ticket.typeName,
+        typeId: ticket.typeId,
+        statusId: ticket.statusId,
+        assignee: ticket.assigneeName ?? undefined,
+        assigneeId: ticket.assigneeId ?? undefined,
+        createdOn: ticket.createdAt,
+        closedOn: ticket.closedAt ?? undefined,
+        requesterId: ticket.requesterId ?? undefined,
+        creatorName: ticket.creatorName,
     };
 }
 

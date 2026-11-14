@@ -131,6 +131,9 @@
     "/api/tickets": {
       "$ref": "./modules/service-desk-core.json#/paths/~1api~1tickets"
     },
+    "/api/tickets/lookups": {
+      "$ref": "./modules/service-desk-core.json#/paths/~1api~1tickets~1lookups"
+    },
     "/api/tickets/{id}": {
       "$ref": "./modules/service-desk-core.json#/paths/~1api~1tickets~1{id}"
     },
@@ -263,6 +266,9 @@
       },
       "CreateAssetRequest": {
         "$ref": "./components/schemas.json#/components/schemas/CreateAssetRequest"
+      },
+      "TicketLookupsResponse": {
+        "$ref": "./components/schemas.json#/components/schemas/TicketLookupsResponse"
       },
       "UpdateAssetRequest": {
         "$ref": "./components/schemas.json#/components/schemas/UpdateAssetRequest"

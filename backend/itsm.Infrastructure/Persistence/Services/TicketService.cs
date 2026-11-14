@@ -42,6 +42,22 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             .Select(type => new PortalTicketTypeResponse(type.Id, type.Name))
             .ToArrayAsync(ct);
 
+    public async Task<TicketLookupsResponse> GetLookupsAsync(CancellationToken ct = default)
+    {
+        var types = await db.TicketTypes
+            .AsNoTracking()
+            .OrderBy(type => type.Id)
+            .Select(type => new TicketTypeLookup(type.Id, type.Code ?? string.Empty, type.Name))
+            .ToArrayAsync(ct);
+        var statuses = await db.TicketStatuses
+            .AsNoTracking()
+            .OrderBy(status => status.SortOrder)
+            .ThenBy(status => status.Id)
+            .Select(status => new TicketStatusLookup(status.Id, status.Code ?? string.Empty, status.Name))
+            .ToArrayAsync(ct);
+        return new TicketLookupsResponse(types, statuses);
+    }
+
     public async Task<IReadOnlyList<RequesterOptionResponse>> GetRequesterOptionsAsync(CancellationToken ct = default) =>
         await db.Users
             .AsNoTracking()
@@ -99,6 +115,12 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
         if (isRepair && asset!.LifecycleStage is not (AssetLifecycleStages.InStock or AssetLifecycleStages.InUse))
             throw new InvalidOperationException("Заявку на ремонт можно создать только для актива на складе или в эксплуатации.");
+        if (isRepair && asset!.LifecycleStage == AssetLifecycleStages.InStock && asset.WarehouseId is null)
+            throw new InvalidOperationException("Для заявки на ремонт актив на складе должен быть привязан к складу.");
+        if (isRepair && asset!.LifecycleStage == AssetLifecycleStages.InUse
+            && (asset.AssignedUserId is not int assignedUserId
+                || !await db.Users.AnyAsync(user => user.Id == assignedUserId && user.IsActive, ct)))
+            throw new InvalidOperationException("Для заявки на ремонт актив в эксплуатации должен быть закреплен за активным сотрудником.");
 
         var initialStatusId = await db.TicketStatuses
             .Where(status => status.Code == "new")
@@ -321,14 +343,78 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
             var asset = await db.Assets.FirstOrDefaultAsync(item => item.Id == ticket.AssetId, ct)
                 ?? throw new InvalidOperationException("У заявки на ремонт отсутствует связанный актив.");
+            if (asset.LifecycleStage != AssetLifecycleStages.InRepair)
+                throw new InvalidOperationException("Закрыть заявку на ремонт можно только для актива на этапе «В ремонте».");
 
-            var newStage = request.RepairOutcome.Value switch
+            string newStage;
+            switch (request.RepairOutcome.Value)
             {
-                RepairOutcome.ReturnToExploitation => AssetLifecycleStages.InUse,
-                RepairOutcome.TransferToWarehouse => AssetLifecycleStages.InStock,
-                RepairOutcome.Retire => AssetLifecycleStages.Decommissioned,
-                _ => throw new ArgumentOutOfRangeException(nameof(request.RepairOutcome))
-            };
+                case RepairOutcome.ReturnToExploitation:
+                    if (request.RepairToWarehouseId is not null)
+                        throw new ArgumentException("Для возврата в эксплуатацию нельзя указывать склад назначения.");
+
+                    var existingAssigneeIsActive = asset.AssignedUserId is int existingAssigneeId
+                        && await db.Users.AnyAsync(user => user.Id == existingAssigneeId && user.IsActive, ct);
+                    if (existingAssigneeIsActive && request.RepairToUserId is int requestedAssigneeId
+                        && requestedAssigneeId != asset.AssignedUserId)
+                        throw new ArgumentException("Для возврата в эксплуатацию будет сохранен текущий сотрудник актива.");
+
+                    var exploitationAssigneeId = existingAssigneeIsActive
+                        ? asset.AssignedUserId
+                        : request.RepairToUserId;
+                    if (exploitationAssigneeId is not int exploitationUserId)
+                        throw new ArgumentException("Для возврата в эксплуатацию укажите сотрудника.");
+                    if (!existingAssigneeIsActive
+                        && !await db.Users.AnyAsync(user => user.Id == exploitationUserId && user.IsActive, ct))
+                        throw new ArgumentException("Сотрудник для возврата актива не найден.");
+
+                    asset.AssignedUserId = exploitationUserId;
+                    asset.WarehouseId = null;
+                    newStage = AssetLifecycleStages.InUse;
+                    break;
+
+                case RepairOutcome.TransferToWarehouse:
+                    if (request.RepairToUserId is not null)
+                        throw new ArgumentException("Для возврата на склад нельзя указывать сотрудника.");
+
+                    var existingWarehouseIsValid = asset.WarehouseId is int existingWarehouseId
+                        && await db.DictionaryValues.AnyAsync(value =>
+                            value.Id == existingWarehouseId
+                            && !value.IsArchived
+                            && value.Dictionary.Code == "warehouses", ct);
+                    if (existingWarehouseIsValid && request.RepairToWarehouseId is int requestedWarehouseId
+                        && requestedWarehouseId != asset.WarehouseId)
+                        throw new ArgumentException("Для возврата на склад будет сохранен текущий склад актива.");
+
+                    var warehouseId = existingWarehouseIsValid
+                        ? asset.WarehouseId
+                        : request.RepairToWarehouseId;
+                    if (warehouseId is not int returnWarehouseId)
+                        throw new ArgumentException("Для возврата на склад укажите склад.");
+                    if (!existingWarehouseIsValid
+                        && !await db.DictionaryValues.AnyAsync(value =>
+                            value.Id == returnWarehouseId
+                            && !value.IsArchived
+                            && value.Dictionary.Code == "warehouses", ct))
+                        throw new ArgumentException("Склад для возврата актива не найден.");
+
+                    asset.WarehouseId = returnWarehouseId;
+                    asset.AssignedUserId = null;
+                    newStage = AssetLifecycleStages.InStock;
+                    break;
+
+                case RepairOutcome.Retire:
+                    if (request.RepairToUserId is not null || request.RepairToWarehouseId is not null)
+                        throw new ArgumentException("Для списания нельзя указывать сотрудника или склад назначения.");
+
+                    asset.AssignedUserId = null;
+                    asset.WarehouseId = null;
+                    newStage = AssetLifecycleStages.Decommissioned;
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(request.RepairOutcome));
+            }
 
             var oldStage = asset.LifecycleStage;
             asset.LifecycleStage = newStage;
@@ -343,7 +429,9 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
                 Details = JsonSerializer.Serialize(new
                 {
                     repairOutcome = request.RepairOutcome.Value.ToString(),
-                    repairResolution = request.RepairResolution.Trim()
+                    repairResolution = request.RepairResolution.Trim(),
+                    assignedUserId = asset.AssignedUserId,
+                    warehouseId = asset.WarehouseId
                 }),
                 Comment = request.RepairResolution.Trim(),
                 ChangedAt = DateTimeOffset.UtcNow
@@ -358,9 +446,12 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
                 CreatedAt = DateTimeOffset.UtcNow
             });
         }
-        else if (!isRepair && (request.RepairResolution is not null || request.RepairOutcome is not null))
+        else if (request.RepairResolution is not null
+            || request.RepairOutcome is not null
+            || request.RepairToUserId is not null
+            || request.RepairToWarehouseId is not null)
         {
-            throw new ArgumentException("Результат ремонта можно передавать только для заявки на ремонт.");
+            throw new ArgumentException("Результат ремонта и назначения можно передавать только при закрытии заявки на ремонт.");
         }
 
         var oldStatusId = ticket.StatusId;

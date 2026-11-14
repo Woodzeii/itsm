@@ -76,6 +76,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("assigned_user_id");
 
+                    b.Property<string>("AttributesJson")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("attributes_json");
+
                     b.Property<string>("Category")
                         .HasColumnType("text")
                         .HasColumnName("category");

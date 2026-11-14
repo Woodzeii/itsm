@@ -328,6 +328,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.HasIndex(x => x.LifecycleStage);
             entity.Property(x => x.LifecycleStage).HasDefaultValue("Purchased");
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
+            entity.Property(x => x.AttributesJson).HasColumnType("jsonb");
 
             entity.HasOne(x => x.AssignedUser).WithMany(u => u.AssignedAssets).HasForeignKey(x => x.AssignedUserId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.AssetClass).WithMany(c => c.Assets).HasForeignKey(x => x.AssetClassId).OnDelete(DeleteBehavior.Restrict);

@@ -35,6 +35,26 @@
         }
       }
     },
+    "/api/tickets/lookups": {
+      "get": {
+        "tags": [
+          "Tickets"
+        ],
+        "summary": "Получить типы и статусы заявок",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketLookupsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/tickets/{id}": {
       "get": {
         "tags": [
@@ -1040,6 +1060,9 @@
       },
       "ServiceDeskHeadSetting": {
         "$ref": "../components/schemas.json#/components/schemas/ServiceDeskHeadSetting"
+      },
+      "TicketLookupsResponse": {
+        "$ref": "../components/schemas.json#/components/schemas/TicketLookupsResponse"
       },
       "SetServiceDeskHeadRequest": {
         "$ref": "../components/schemas.json#/components/schemas/SetServiceDeskHeadRequest"

@@ -47,11 +47,27 @@
           "name",
           "assetClassId"
         ],
+        "anyOf": [
+          {
+            "required": [
+              "inventoryNumber"
+            ]
+          },
+          {
+            "required": [
+              "serialNumber"
+            ]
+          }
+        ],
         "properties": {
           "inventoryNumber": {
             "type": "string",
             "nullable": true,
-            "description": "Необязателен только на этапе «Закуплен»."
+            "description": "Для создания на складе обязателен вместе с warehouseId."
+          },
+          "serialNumber": {
+            "type": "string",
+            "nullable": true
           },
           "name": {
             "type": "string"
@@ -62,26 +78,81 @@
           "warehouseId": {
             "type": "integer",
             "nullable": true,
-            "description": "Если inventoryNumber задан, поле обязательно: актив сразу создается на этапе «На складе» (АКТ-19). Без inventoryNumber актив создается на этапе «Закуплен»."
+            "description": "Вместе с inventoryNumber создаёт актив на этапе «На складе»; без одного из этих полей актив остаётся на этапе «Закуплен». Склад можно менять только движением."
           },
-          "customAttributes": {
+          "locationId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "departmentId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "attributes": {
             "type": "object",
-            "additionalProperties": true
+            "nullable": true,
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "licenseExpirationDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         }
       },
       "UpdateAssetRequest": {
         "type": "object",
-        "required": [
-          "name"
-        ],
         "properties": {
           "name": {
-            "type": "string"
+            "type": "string",
+            "nullable": true
           },
-          "customAttributes": {
+          "inventoryNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "serialNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "assetClassId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "warehouseId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Нельзя менять этим запросом; для перемещения используйте POST /api/assets/{id}/movements."
+          },
+          "locationId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "departmentId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "attributes": {
             "type": "object",
-            "additionalProperties": true
+            "nullable": true,
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "licenseExpirationDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
           }
         }
       },
@@ -94,23 +165,75 @@
           "movementType": {
             "type": "string",
             "enum": [
-              "TransferToEmployee",
-              "Relocation",
-              "WarehouseIssue",
-              "WarehouseReturn"
+              "issue",
+              "return",
+              "relocate"
             ]
           },
-          "fromSourceId": {
+          "toUserId": {
             "type": "integer",
             "nullable": true
           },
-          "toDestinationId": {
+          "toWarehouseId": {
             "type": "integer",
             "nullable": true
           },
-          "assignedUserId": {
+          "toLocationId": {
             "type": "integer",
             "nullable": true
+          },
+          "toDepartmentId": {
+            "type": "integer",
+            "nullable": true
+          },
+          "comment": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "TicketLookupsResponse": {
+        "type": "object",
+        "properties": {
+          "types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketTypeLookup"
+            }
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketStatusLookup"
+            }
+          }
+        }
+      },
+      "TicketTypeLookup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "TicketStatusLookup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },
@@ -392,6 +515,16 @@
               "Retire"
             ],
             "description": "Обязателен при закрытии тикета на ремонт. Автоматически переводит актив соответственно в «В эксплуатации», «На складе» или «Списан» (АКТ-12)."
+          },
+          "repairToUserId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Обязателен для возврата в эксплуатацию, если у актива нет прежнего активного сотрудника."
+          },
+          "repairToWarehouseId": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Обязателен для возврата на склад, если у актива нет прежнего действующего склада."
           }
         }
       },

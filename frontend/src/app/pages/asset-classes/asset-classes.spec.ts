@@ -39,6 +39,7 @@ describe('AssetClassesComponent live API', () => {
         getAll: ReturnType<typeof vi.fn>;
         getById: ReturnType<typeof vi.fn>;
         create: ReturnType<typeof vi.fn>;
+        update: ReturnType<typeof vi.fn>;
         deactivate: ReturnType<typeof vi.fn>;
         activate: ReturnType<typeof vi.fn>;
         delete: ReturnType<typeof vi.fn>;
@@ -51,6 +52,7 @@ describe('AssetClassesComponent live API', () => {
             getAll: vi.fn().mockReturnValue(of([assetClass])),
             getById: vi.fn().mockReturnValue(of(detail)),
             create: vi.fn().mockReturnValue(of(assetClass)),
+            update: vi.fn().mockReturnValue(of(assetClass)),
             deactivate: vi.fn().mockReturnValue(of({ ...assetClass, isActive: false })),
             activate: vi.fn().mockReturnValue(of(assetClass)),
             delete: vi.fn().mockReturnValue(of(void 0)),
@@ -83,6 +85,21 @@ describe('AssetClassesComponent live API', () => {
         expect((fixture.nativeElement as HTMLElement).textContent).toContain('ОЗУ');
     });
 
+    it('shows controls for base classes and creating a custom class', () => {
+        const fixture = TestBed.createComponent(AssetClassesComponent);
+        fixture.detectChanges();
+
+        const element = fixture.nativeElement as HTMLElement;
+        expect(element.textContent).toContain('Добавить базовые классы активов');
+        const createButton = Array.from(element.querySelectorAll('button'))
+            .find(button => button.textContent?.includes('Создать класс активов'));
+        expect(createButton).toBeDefined();
+
+        createButton!.click();
+        fixture.detectChanges();
+        expect(element.querySelector('input[placeholder="code (a-z, _)"]')).not.toBeNull();
+    });
+
     it('creates a class through the live API', () => {
         const fixture = TestBed.createComponent(AssetClassesComponent);
         fixture.detectChanges();
@@ -94,6 +111,33 @@ describe('AssetClassesComponent live API', () => {
 
         expect(api.create).toHaveBeenCalledWith({ code: 'printer', name: 'Принтеры' });
         expect(api.getAll).toHaveBeenCalledTimes(2);
+    });
+
+    it('adds only missing basic asset classes through the backend API', () => {
+        const fixture = TestBed.createComponent(AssetClassesComponent);
+        fixture.detectChanges();
+        const component = fixture.componentInstance;
+        component.classes = [{ ...assetClass, code: 'server' }];
+
+        component.addBasicClasses();
+
+        expect(api.create).toHaveBeenCalledTimes(8);
+        expect(api.create).toHaveBeenCalledWith({ code: 'laptop', name: 'Ноутбуки' });
+        expect(api.create).toHaveBeenCalledWith({ code: 'monoblock', name: 'Моноблоки' });
+        expect(component.successMessage).toBe('Добавлено базовых классов: 8');
+    });
+
+    it('renames a selected class through the backend API', () => {
+        const fixture = TestBed.createComponent(AssetClassesComponent);
+        fixture.detectChanges();
+        const component = fixture.componentInstance;
+        component.selected = detail;
+        component.editClassName = 'Портативные компьютеры';
+
+        component.saveClassName();
+
+        expect(api.update).toHaveBeenCalledWith(1, { name: 'Портативные компьютеры' });
+        expect(component.successMessage).toBe('Класс переименован в «Ноутбуки»');
     });
 
     it('creates an attribute for the selected class', () => {

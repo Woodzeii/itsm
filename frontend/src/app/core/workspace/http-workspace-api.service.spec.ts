@@ -2,6 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { environment } from '../../../environments/environment';
+import { AssetDetails } from './workspace.models';
 import { HttpWorkspaceApiService } from './http-workspace-api.service';
 
 describe('HttpWorkspaceApiService backend contract', () => {
@@ -410,6 +411,37 @@ describe('HttpWorkspaceApiService backend contract', () => {
         http.expectOne(`${environment.apiBaseUrl}/assets/15`).flush({ asset: { id: 15, name: 'Ноутбук' } });
     });
 
+    it('keeps the backend record id separate from an optional inventory number', () => {
+        let assets: { id: string; recordId?: string; serialNumber?: string }[] | undefined;
+        service.getAssets().subscribe(result => assets = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/assets`);
+        expect(request.request.method).toBe('GET');
+        request.flush([{ id: 15, serialNumber: 'SN-15', name: 'Ноутбук', lifecycleStage: 'Purchased' }]);
+
+        expect(assets).toEqual([{
+            id: '',
+            recordId: '15',
+            name: 'Ноутбук',
+            owner: '—',
+            status: 'Purchased',
+            type: '',
+            className: undefined,
+            lifecycle: 'Закуплен',
+            warehouse: undefined,
+            location: undefined,
+            department: undefined,
+            inventoryNumber: undefined,
+            serialNumber: 'SN-15',
+            assetClassId: undefined,
+            warehouseId: null,
+            locationId: null,
+            departmentId: null,
+            assignedUserId: null,
+            attributes: {},
+        }]);
+    });
+
     it('creates an asset with the backend contract and returns its detail', () => {
         let detail: { recordId?: string; name: string } | undefined;
         service.createAsset({
@@ -432,7 +464,7 @@ describe('HttpWorkspaceApiService backend contract', () => {
             warehouseId: 1,
             locationId: null,
             departmentId: null,
-            assignedUserId: null,
+            attributes: null,
         });
         request.flush({ id: 15, name: 'Ноутбук Dell', inventoryNumber: 'INV-9001' });
 
@@ -445,7 +477,7 @@ describe('HttpWorkspaceApiService backend contract', () => {
     });
 
     it('registers an asset movement using backend movement types and reloads the card', () => {
-        service.moveAsset('15', { kind: 'Выдача со склада', from: '', to: 'Анна Белова', toUserId: 7 }).subscribe();
+        service.moveAsset('15', { kind: 'Выдача со склада', from: 'Склад #3', to: 'Анна Белова', toUserId: 7 }).subscribe();
 
         const request = http.expectOne(`${environment.apiBaseUrl}/assets/15/movements`);
         expect(request.request.method).toBe('POST');
@@ -455,10 +487,120 @@ describe('HttpWorkspaceApiService backend contract', () => {
             toWarehouseId: null,
             toLocationId: null,
             toDepartmentId: null,
-            comment: null,
+            comment: 'Склад #3 → Анна Белова',
         });
         request.flush({ id: 1, assetId: 15, movementType: 'issue' });
         http.expectOne(`${environment.apiBaseUrl}/assets/15`).flush({ asset: { id: 15, name: 'Ноутбук' } });
+    });
+
+    it('sends repair destination details when closing a repair ticket', () => {
+        service.closeRepairTicket('42', {
+            result: 'На склад',
+            workDescription: 'Заменен блок питания.',
+            repairToWarehouseId: 19,
+        }).subscribe();
+
+        const lookups = http.expectOne(`${environment.apiBaseUrl}/tickets/lookups`);
+        expect(lookups.request.method).toBe('GET');
+        lookups.flush({ types: [], statuses: [{ id: 5, code: 'closed', name: 'Закрыта' }] });
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/status`);
+        expect(request.request.method).toBe('PUT');
+        expect(request.request.body).toEqual({
+            statusId: 5,
+            repairResolution: 'Заменен блок питания.',
+            repairOutcome: 'TransferToWarehouse',
+            repairToUserId: null,
+            repairToWarehouseId: 19,
+        });
+        request.flush({ id: 42, statusId: 5, statusName: 'Закрыта' });
+    });
+
+    it('creates a repair ticket using the backend repair-type lookup', () => {
+        service.createRepairTicket('15', 'Диагностика').subscribe();
+
+        const lookups = http.expectOne(`${environment.apiBaseUrl}/tickets/lookups`);
+        expect(lookups.request.method).toBe('GET');
+        lookups.flush({ types: [{ id: 5, code: 'repair', name: 'Тикет на ремонт' }], statuses: [] });
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets`);
+        expect(request.request.method).toBe('POST');
+        expect(request.request.body).toEqual({
+            title: 'Диагностика',
+            description: 'Диагностика',
+            typeId: 5,
+            priority: 'Средний',
+            assetId: 15,
+            requesterId: null,
+            customFieldsData: null,
+        });
+        request.flush({ id: 42, title: 'Диагностика', typeId: 5, typeName: 'Тикет на ремонт' });
+    });
+
+    it('maps asset detail values, movement destinations, and the backend asset-ticket history shape', () => {
+        let detail: AssetDetails | undefined;
+        service.getAssetDetails('15').subscribe(result => detail = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/assets/15`);
+        expect(request.request.method).toBe('GET');
+        request.flush({
+            asset: {
+                id: 15,
+                inventoryNumber: 'INV-15',
+                name: 'Ноутбук',
+                assetClassName: 'Ноутбуки',
+                lifecycleStage: 'InUse',
+                assignedUserId: 7,
+                attributes: { ram: '16' },
+            },
+            movements: [{
+                id: 3,
+                movementType: 'issue',
+                movementTypeName: 'Выдача со склада',
+                fromWarehouseId: 2,
+                toUserId: 7,
+                toUserName: 'Анна Белова',
+                performedByName: 'Оператор',
+                performedAt: '2026-11-12T10:00:00Z',
+                comment: 'Склад #2 → Анна Белова',
+            }],
+            relatedTickets: [{
+                id: 42,
+                typeId: 5,
+                typeName: 'Тикет на ремонт',
+                title: 'Диагностика',
+                creatorId: 1,
+                creatorName: 'Оператор',
+                requesterId: 1,
+                requesterName: 'Оператор',
+                assigneeId: 7,
+                assigneeName: 'Анна Белова',
+                statusId: 2,
+                statusName: 'В работе',
+                criticalityLevelId: 3,
+                criticalityName: 'Средний',
+                createdAt: '2026-11-12T09:00:00Z',
+                closedAt: null,
+            }],
+        });
+
+        expect(detail).toMatchObject({
+            attributes: { ram: '16' },
+            movements: [{
+                from: 'Склад #2',
+                to: 'Анна Белова',
+                fromWarehouseId: 2,
+                toUserId: 7,
+            }],
+            relatedTickets: [{
+                id: '42',
+                type: 'Тикет на ремонт',
+                priority: 'Средний',
+                status: 'В работе',
+                createdOn: '2026-11-12T09:00:00Z',
+                closedOn: undefined,
+            }],
+        });
     });
 
     it('posts portal messages as public JSON to the ticket messages endpoint', () => {

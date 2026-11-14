@@ -32,20 +32,18 @@ public static class AssetLifecycleStages
 /// </summary>
 public static class AssetMovementTypes
 {
-    public const string Transfer = "transfer";     // Передача другому сотруднику
-    public const string Relocate = "relocate";     // Перемещение в другое место/подразделение
+    public const string Relocate = "relocate";     // Перемещение между складами
     public const string Issue = "issue";           // Выдача со склада
     public const string Return = "return";         // Возврат на склад
 
     public static readonly IReadOnlyList<string> All = new[]
     {
-        Transfer, Relocate, Issue, Return
+        Relocate, Issue, Return
     };
 
     public static string GetRussianName(string type) => type switch
     {
-        Transfer => "Передача другому сотруднику",
-        Relocate => "Перемещение",
+        Relocate => "Перемещение между складами",
         Issue => "Выдача со склада",
         Return => "Возврат на склад",
         _ => type

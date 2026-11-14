@@ -365,16 +365,16 @@ export class MockWorkspaceApiService extends WorkspaceApi {
 
     updateAsset(assetId: string, changes: Partial<CreateAssetRequest>): Observable<AssetDetails> {
         const asset = this.findAsset(assetId);
+        if (changes.warehouseId != null && changes.warehouseId !== asset.warehouseId)
+            return this.fail('Склад можно изменить только через движение актива.');
+        if (changes.assignedUserId != null && changes.assignedUserId !== asset.assignedUserId)
+            return this.fail('Сотрудника можно назначить только при выдаче актива со склада.');
+        if (changes.id === '' && asset.lifecycle !== 'Закуплен' && !asset.serialNumber)
+            return this.fail('Для актива после закупки необходим инвентарный номер.');
         const oldValues = { name: asset.name, owner: asset.owner, location: asset.location, department: asset.department };
         const oldAttributes = { ...(asset.attributes ?? {}) };
         if (changes.id && changes.id !== asset.id && this.assets.some(item => item.id === changes.id)) return this.fail('Идентификатор актива должен быть уникальным.');
-        if (changes.id && !asset.id && !changes.warehouse?.trim()) return this.fail('При присвоении идентификатора обязательно указать склад.');
         Object.assign(asset, changes);
-        if (changes.id && asset.lifecycle === 'Закуплен') {
-            asset.lifecycle = 'На складе';
-            asset.status = 'На складе';
-            this.addAssetHistory(asset, 'Присвоен идентификатор, актив принят на склад', 'Инженер ТП', `${changes.id} · ${changes.warehouse}`);
-        }
         for (const [key, value] of Object.entries(changes)) {
             const previous = oldValues[key as keyof typeof oldValues];
             if (previous !== undefined && previous !== value) this.addAssetHistory(asset, `Изменен атрибут «${key}»`, 'Инженер ТП', `${previous} → ${value}`);
@@ -393,15 +393,18 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     }
 
     createAsset(request: CreateAssetRequest): Observable<AssetDetails> {
-        const lifecycle: AssetLifecycle = request.id ? 'На складе' : 'Закуплен';
+        if (!request.id && !request.serialNumber) return this.fail('Укажите инвентарный или серийный номер актива.');
+        if (request.warehouseId && !request.id) return this.fail('Для размещения актива на складе укажите инвентарный номер.');
+        if (request.assignedUserId) return this.fail('Сотрудника можно назначить только при выдаче актива со склада.');
+        const lifecycle: AssetLifecycle = request.id && request.warehouseId ? 'На складе' : 'Закуплен';
         const asset: AssetDetails = {
             recordId: request.id || this.id('asset'), id: request.id || '', name: request.name, type: request.type, className: request.className,
-            owner: request.owner || '—', status: lifecycle, lifecycle, warehouse: request.warehouse || '—',
+            owner: '—', status: lifecycle, lifecycle, warehouse: request.warehouse || (request.warehouseId ? 'Склад' : '—'),
             location: request.location || '—', department: request.department || '—', attributes: request.attributes ?? {},
+            serialNumber: request.serialNumber, warehouseId: request.warehouseId ?? null,
             history: [], movements: [], relatedTickets: [],
         };
         if (asset.id && this.assets.some(item => item.id === asset.id)) return this.fail('Идентификатор актива должен быть уникальным.');
-        if (asset.id && !request.warehouse) return this.fail('Для актива с идентификатором обязательно указать склад.');
         this.assets.unshift(asset);
         this.addAssetHistory(asset, `Создан актив на этапе «${lifecycle}»`, asset.id || 'Закупка', `${asset.className}: ${asset.name}`);
         return of({ ...asset });
@@ -412,16 +415,27 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         if (asset.lifecycle === 'Списан') return this.fail('Списанный актив нельзя перемещать.');
         if (request.kind === 'Выдача со склада') {
             if (asset.lifecycle !== 'На складе') return this.fail('Выдать можно только актив со склада.');
+            if (!request.toUserId) return this.fail('Для выдачи укажите ID сотрудника.');
             asset.lifecycle = 'В эксплуатации';
             asset.owner = request.to;
+            asset.assignedUserId = request.toUserId;
+            asset.warehouseId = null;
         } else if (request.kind === 'Возврат на склад') {
             if (asset.lifecycle !== 'В эксплуатации') return this.fail('Вернуть на склад можно только актив в эксплуатации.');
+            if (!request.toWarehouseId) return this.fail('Для возврата укажите ID склада.');
             asset.lifecycle = 'На складе';
             asset.owner = 'Склад';
-        } else if (request.kind === 'Передача сотруднику') {
-            asset.owner = request.to;
+            asset.assignedUserId = null;
+            asset.warehouseId = request.toWarehouseId;
         } else if (request.kind === 'Перемещение') {
-            asset.location = request.to;
+            return this.fail('Перемещение допустимо только между складами.');
+        } else if (request.kind === 'Перемещение между складами') {
+            if (asset.lifecycle !== 'На складе') return this.fail('Перемещать между складами можно только актив на складе.');
+            if (!request.toWarehouseId) return this.fail('Для перемещения укажите ID склада.');
+            if (request.toWarehouseId === asset.warehouseId) return this.fail('Склад назначения должен отличаться от текущего.');
+            asset.warehouseId = request.toWarehouseId;
+        } else {
+            return this.fail(`Неизвестный тип движения актива: ${request.kind}.`);
         }
         asset.status = asset.lifecycle ?? asset.status;
         const movement: AssetMovement = { id: this.id('movement'), ...request, actor: 'Инженер ТП', createdAt: this.now() };
@@ -433,6 +447,8 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     createRepairTicket(assetId: string, title: string): Observable<Ticket> {
         const asset = this.findAsset(assetId);
         if (!['На складе', 'В эксплуатации'].includes(asset.lifecycle ?? '')) return this.fail('Ремонт доступен для активов на складе или в эксплуатации.');
+        if (asset.lifecycle === 'На складе' && !asset.warehouseId) return this.fail('Для ремонта актив на складе должен быть привязан к складу.');
+        if (asset.lifecycle === 'В эксплуатации' && !asset.assignedUserId) return this.fail('Для ремонта актив должен быть закреплен за сотрудником.');
         const ticket = this.createTicket({ title, requester: 'Инженер ТП', type: 'Тикет на ремонт', priority: 'Средний', assetId }).pipe();
         const created = this.tickets[0];
         asset.lifecycle = 'В ремонте';
@@ -448,6 +464,20 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         if (ticket.status === 'Закрыта') return this.fail('Закрытая заявка не может быть открыта повторно.');
         const asset = this.findAsset(ticket.assetId);
         const lifecycle: AssetLifecycle = request.result === 'В эксплуатацию' ? 'В эксплуатации' : request.result === 'На склад' ? 'На складе' : 'Списан';
+        if (request.result === 'В эксплуатацию') {
+            const userId = asset.assignedUserId ?? request.repairToUserId;
+            if (!userId) return this.fail('Для возврата в эксплуатацию укажите ID сотрудника.');
+            asset.assignedUserId = userId;
+            asset.warehouseId = null;
+        } else if (request.result === 'На склад') {
+            const warehouseId = asset.warehouseId ?? request.repairToWarehouseId;
+            if (!warehouseId) return this.fail('Для возврата на склад укажите ID склада.');
+            asset.warehouseId = warehouseId;
+            asset.assignedUserId = null;
+        } else {
+            asset.warehouseId = null;
+            asset.assignedUserId = null;
+        }
         asset.lifecycle = lifecycle;
         asset.status = lifecycle;
         ticket.status = 'Закрыта';

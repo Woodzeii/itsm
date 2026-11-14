@@ -119,6 +119,12 @@ export interface AssetMovement {
     movementType?: string;
     fromUserId?: number | null;
     toUserId?: number | null;
+    fromWarehouseId?: number | null;
+    toWarehouseId?: number | null;
+    fromLocationId?: number | null;
+    toLocationId?: number | null;
+    fromDepartmentId?: number | null;
+    toDepartmentId?: number | null;
 }
 
 export interface AssetDetails extends AssetRecord {
@@ -282,6 +288,8 @@ export interface PortalTicketRequest extends CreateTicketRequest {
 export interface RepairCloseRequest {
     result: 'В эксплуатацию' | 'На склад' | 'Списать';
     workDescription: string;
+    repairToUserId?: number | null;
+    repairToWarehouseId?: number | null;
 }
 
 export interface CreatePortalAccountRequest {
