@@ -34,6 +34,10 @@ import { AuthService } from '../../core/auth/auth.service';
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 20H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg>
             <span>Эскалации</span>
           </a>
+          <a routerLink="/knowledge-base" routerLinkActive="active">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21V5.5Z"/><path d="M4 17.5A2.5 2.5 0 0 1 6.5 15H20M8 7h8m-8 4h8"/></svg>
+            <span>База знаний</span>
+          </a>
           @if (isAdmin) {
             <a routerLink="/dictionaries" routerLinkActive="active">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H5A2.5 2.5 0 0 1 2.5 17V7A2.5 2.5 0 0 1 5 4.5Z"/><path d="M7.5 8.5h9m-9 4h9m-9 4h5"/></svg>

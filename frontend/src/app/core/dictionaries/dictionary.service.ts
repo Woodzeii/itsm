@@ -9,6 +9,7 @@ import {
     DictionaryDto,
     DictionaryValueDto,
     UpdateDictionaryRequest,
+    UpdateDictionaryValueRequest,
 } from './dictionary.models';
 
 const API = `${environment.apiBaseUrl}/dictionaries`;
@@ -55,6 +56,17 @@ export class DictionaryApiService {
 
     createValue(dictionaryCode: string, req: CreateDictionaryValueRequest): Observable<DictionaryValueDto> {
         return this.http.post<DictionaryValueDto>(`${API}/${encodeURIComponent(dictionaryCode)}/values`, req);
+    }
+
+    updateValue(
+        dictionaryCode: string,
+        valueCode: string,
+        req: UpdateDictionaryValueRequest,
+    ): Observable<DictionaryValueDto> {
+        return this.http.put<DictionaryValueDto>(
+            `${API}/${encodeURIComponent(dictionaryCode)}/values/${encodeURIComponent(valueCode)}`,
+            req,
+        );
     }
 
     archiveValue(dictionaryCode: string, valueCode: string): Observable<DictionaryValueDto> {

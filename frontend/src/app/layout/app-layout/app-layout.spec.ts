@@ -52,6 +52,17 @@ describe('AppLayoutComponent role switch', () => {
         expect(button!.textContent).toContain('Сменить роль');
     });
 
+    it('shows the knowledge base alongside the separate dictionary and asset class links', () => {
+        const fixture = TestBed.createComponent(AppLayoutComponent);
+        fixture.detectChanges();
+        const labels = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('nav a span'))
+            .map(element => element.textContent?.trim());
+
+        expect(labels).toContain('База знаний');
+        expect(labels).toContain('Справочники');
+        expect(labels).toContain('Классы активов');
+    });
+
     it('opens the role selection screen in switch mode', () => {
         const navigate = vi.spyOn(router, 'navigateByUrl').mockResolvedValue(true);
         const fixture = TestBed.createComponent(AppLayoutComponent);

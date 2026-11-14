@@ -14,11 +14,19 @@ import { DictionaryDto, DictionaryValueDto } from '../../core/dictionaries/dicti
       <header class="page-header">
         <h1>Справочники</h1>
         @if (isAdmin) {
-          <div class="create-form">
-            <input [(ngModel)]="newCode" placeholder="code (a-z, _)" />
-            <input [(ngModel)]="newName" placeholder="Название" />
-            <button (click)="createDictionary()" [disabled]="!newCode || !newName">Создать</button>
-          </div>
+          <section class="form-panel">
+            <h2 title="Именованный список вариантов для выбора в системе (например, Склады или Места). Код используется для идентификации в API.">Создать новый справочник</h2>
+            <p class="hint">Создание справочника не добавляет поле в форму актива автоматически — для этого требуется настройка модуля.</p>
+            <div class="create-form">
+              <label>Код
+                <input [(ngModel)]="newCode" placeholder="Например, warehouses" />
+              </label>
+              <label>Название
+                <input [(ngModel)]="newName" placeholder="Название справочника" />
+              </label>
+              <button (click)="createDictionary()" [disabled]="!newCode.trim() || !newName.trim()">Создать</button>
+            </div>
+          </section>
         }
       </header>
 
@@ -28,13 +36,13 @@ import { DictionaryDto, DictionaryValueDto } from '../../core/dictionaries/dicti
 
       <div class="layout">
         <aside class="list">
-          <h3>Список</h3>
+          <h2>Список справочников</h2>
           @for (d of dictionaries; track d.code) {
             <button type="button" class="item" [class.active]="selected?.code === d.code"
               [attr.aria-pressed]="selected?.code === d.code" (click)="select(d)">
               <div>
                 <strong>{{ d.name }}</strong>
-                <small>{{ d.code }}{{ d.isArchived ? ' · архив' : '' }}</small>
+                <small>{{ d.code }}{{ d.isArchived ? ' · в архиве' : '' }}</small>
               </div>
               <span class="badge">{{ d.valuesCount }}</span>
               <span class="item-action">{{ selected?.code === d.code ? 'Выбран' : 'Открыть' }}</span>
@@ -50,7 +58,10 @@ import { DictionaryDto, DictionaryValueDto } from '../../core/dictionaries/dicti
             <div class="detail-header">
               <div>
                 <h2>{{ selected.name }}</h2>
-                <small>{{ selected.code }} · {{ selected.isArchived ? 'архивный' : 'активный' }} · {{ selected.isSystem ? 'системный' : 'пользовательский' }}</small>
+                <small>{{ selected.code }} · {{ selected.isArchived ? 'в архиве' : 'активный' }} · {{ selected.isSystem ? 'системный' : 'пользовательский' }}</small>
+                <p class="hint" title="Конкретный вариант выбора внутри справочника (например, Основной склад). Код является неизменяемым ключом, а название видят пользователи.">
+                  Запись справочника: код — неизменяемый ключ, название видно пользователям.
+                </p>
               </div>
               @if (isAdmin) {
                 @if (selected.isArchived) {
@@ -65,39 +76,62 @@ import { DictionaryDto, DictionaryValueDto } from '../../core/dictionaries/dicti
             </div>
 
             @if (isAdmin && !selected.isArchived) {
-              <div class="create-value-form">
-                <input [(ngModel)]="newValueCode" placeholder="code" />
-                <input [(ngModel)]="newValueName" placeholder="Название" />
-                <input type="number" [(ngModel)]="newValueSort" placeholder="Sort" />
-                <button (click)="createValue()" [disabled]="!newValueCode || !newValueName">Добавить</button>
-              </div>
+              <section class="form-panel">
+                <h3>Добавить запись в справочник {{ selected.name }}</h3>
+                <p class="hint" title="Конкретный вариант выбора внутри справочника (например, Основной склад). Код является неизменяемым ключом, а название видят пользователи.">
+                  Запись справочника: код неизменяем, название видят пользователи.
+                </p>
+                <div class="create-value-form">
+                  <label>Код
+                    <input [(ngModel)]="newValueCode" placeholder="Например, main" />
+                  </label>
+                  <label>Название
+                    <input [(ngModel)]="newValueName" placeholder="Название записи" />
+                  </label>
+                  <label>Порядок
+                    <input type="number" [(ngModel)]="newValueSort" placeholder="Порядок" />
+                  </label>
+                  <button (click)="createValue()" [disabled]="!newValueCode.trim() || !newValueName.trim()">Добавить</button>
+                </div>
+                <p class="hint">Эта запись станет доступна для выбора в карточках активов.</p>
+              </section>
             }
 
             <table>
               <thead>
                 <tr>
-                  <th>Code</th>
-                  <th>Name</th>
-                  <th>Sort</th>
-                  <th>Archived</th>
-                  @if (isAdmin) { <th></th> }
+                  <th>Код</th>
+                  <th>Название</th>
+                  <th>Порядок</th>
+                  <th>Статус</th>
+                  @if (isAdmin) { <th>Действия</th> }
                 </tr>
               </thead>
               <tbody>
                 @for (v of values; track v.code) {
                   <tr>
                     <td>{{ v.code }}</td>
-                    <td>{{ v.name }}</td>
-                    <td>{{ v.sortOrder }}</td>
-                    <td>{{ v.isArchived ? 'да' : 'нет' }}</td>
+                    @if (editingValueCode === v.code) {
+                      <td><input aria-label="Название записи" [(ngModel)]="editValueName" /></td>
+                      <td><input aria-label="Порядок записи" type="number" [(ngModel)]="editValueSort" /></td>
+                    } @else {
+                      <td>{{ v.name }}</td>
+                      <td>{{ v.sortOrder }}</td>
+                    }
+                    <td>{{ v.isArchived ? 'В архиве' : 'Активна' }}</td>
                     @if (isAdmin) {
                       <td class="actions">
-                        @if (!v.isArchived) {
-                          <button (click)="archiveValue(v)">Архивировать</button>
-                        }
-                        @if (v.isArchived) {
-                          <button (click)="restoreValue(v)">Восстановить</button>
-                          <button class="danger" (click)="deleteValue(v)">Удалить</button>
+                        @if (editingValueCode === v.code) {
+                          <button (click)="updateValue(v)" [disabled]="!editValueName.trim()">Сохранить</button>
+                          <button class="secondary" (click)="cancelEditValue()">Отмена</button>
+                        } @else {
+                          <button class="secondary" (click)="startEditValue(v)">Изменить</button>
+                          @if (!v.isArchived) {
+                            <button (click)="archiveValue(v)">Архивировать</button>
+                          } @else {
+                            <button (click)="restoreValue(v)">Восстановить</button>
+                            <button class="danger" (click)="deleteValue(v)">Удалить</button>
+                          }
                         }
                       </td>
                     }
@@ -106,7 +140,7 @@ import { DictionaryDto, DictionaryValueDto } from '../../core/dictionaries/dicti
               </tbody>
             </table>
           } @else {
-            <p class="empty">Выберите справочник слева</p>
+            <p class="empty">Выберите справочник в списке слева.</p>
           }
         </main>
       </div>
@@ -115,10 +149,13 @@ import { DictionaryDto, DictionaryValueDto } from '../../core/dictionaries/dicti
     styles: [
         `
       .dict-page { padding: 24px; font-family: Arial, sans-serif; }
-      .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 16px; }
-      h1 { margin: 0; }
-      .create-form { display: flex; gap: 8px; }
-      input { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; }
+      .page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; gap: 16px; }
+      h1 { margin: 0; } h2, h3 { margin: 0 0 10px; }
+      .form-panel { padding: 14px; border: 1px solid #e5e7eb; border-radius: 10px; background: #f9fafb; }
+      .create-form, .create-value-form { display: flex; align-items: end; gap: 8px; }
+      label { display: grid; gap: 5px; color: #4b5563; font-size: .85rem; }
+      input { min-width: 0; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; }
+      .hint { margin: 0 0 10px; color: #6b7280; font-size: .82rem; }
       button { padding: 8px 14px; border: none; border-radius: 8px; background: #3f51b5; color: white; cursor: pointer; }
       button:disabled { opacity: 0.5; cursor: not-allowed; }
       button.danger { background: #dc2626; }
@@ -132,11 +169,12 @@ import { DictionaryDto, DictionaryValueDto } from '../../core/dictionaries/dicti
       .item small { display: block; color: #6b7280; font-size: 0.8rem; }
       .badge { background: #e5e7eb; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; }
       .detail-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px; }
-      .create-value-form { display: flex; gap: 8px; margin-bottom: 16px; }
+      .create-value-form { margin-bottom: 8px; }
       table { width: 100%; border-collapse: collapse; }
       th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
       th { background: #f9fafb; font-weight: 600; }
       .actions { display: flex; gap: 6px; }
+      button.secondary { background: #64748b; }
       .error { color: #b91c1c; padding: 10px; background: #fef2f2; border-radius: 8px; margin-bottom: 12px; }
       .empty { color: #6b7280; }
     `,
@@ -160,6 +198,9 @@ export class DictionariesComponent implements OnInit {
     newValueCode = '';
     newValueName = '';
     newValueSort = 0;
+    editingValueCode: string | null = null;
+    editValueName = '';
+    editValueSort = 0;
 
     ngOnInit(): void {
         this.isAdmin = this.auth.isAdmin();
@@ -240,6 +281,37 @@ export class DictionariesComponent implements OnInit {
             },
             error: err => {
                 this.errorMessage = `Ошибка: ${err.status} ${err.error?.message ?? ''}`;
+                this.cdr.detectChanges();
+            },
+        });
+    }
+
+    startEditValue(value: DictionaryValueDto): void {
+        this.editingValueCode = value.code;
+        this.editValueName = value.name;
+        this.editValueSort = value.sortOrder;
+    }
+
+    cancelEditValue(): void {
+        this.editingValueCode = null;
+        this.editValueName = '';
+        this.editValueSort = 0;
+    }
+
+    updateValue(value: DictionaryValueDto): void {
+        if (!this.selected) return;
+        this.errorMessage = '';
+        this.api.updateValue(this.selected.code, value.code, {
+            name: this.editValueName.trim(),
+            sortOrder: this.editValueSort,
+        }).subscribe({
+            next: updated => {
+                this.values = this.values.map(item => item.code === updated.code ? updated : item);
+                this.cancelEditValue();
+                this.cdr.detectChanges();
+            },
+            error: err => {
+                this.errorMessage = `Не удалось сохранить запись: ${err.status} ${err.error?.message ?? ''}`;
                 this.cdr.detectChanges();
             },
         });

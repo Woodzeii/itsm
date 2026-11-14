@@ -66,6 +66,15 @@ describe('DictionaryApiService', () => {
         request.flush({ dictionaryCode: 'priority', code: 'high', name: 'Высокий', isArchived: false, sortOrder: 1 });
     });
 
+    it('updates a dictionary value without changing its code', () => {
+        api.updateValue('priority', 'high', { name: 'Высокий приоритет', sortOrder: 2 }).subscribe();
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/dictionaries/priority/values/high`);
+        expect(request.request.method).toBe('PUT');
+        expect(request.request.body).toEqual({ name: 'Высокий приоритет', sortOrder: 2 });
+        request.flush({ dictionaryCode: 'priority', code: 'high', name: 'Высокий приоритет', isArchived: false, sortOrder: 2 });
+    });
+
     it('archives and deletes values through backend endpoints', () => {
         api.archiveValue('priority', 'high').subscribe();
         const archive = http.expectOne(`${environment.apiBaseUrl}/dictionaries/priority/values/high/archive`);

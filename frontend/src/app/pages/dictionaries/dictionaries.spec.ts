@@ -33,6 +33,7 @@ describe('DictionariesComponent live API', () => {
         create: ReturnType<typeof vi.fn>;
         delete: ReturnType<typeof vi.fn>;
         createValue: ReturnType<typeof vi.fn>;
+        updateValue: ReturnType<typeof vi.fn>;
         archiveValue: ReturnType<typeof vi.fn>;
         deleteValue: ReturnType<typeof vi.fn>;
     };
@@ -44,6 +45,7 @@ describe('DictionariesComponent live API', () => {
             create: vi.fn().mockReturnValue(of(dictionary)),
             delete: vi.fn().mockReturnValue(of(void 0)),
             createValue: vi.fn().mockReturnValue(of(activeValue)),
+            updateValue: vi.fn().mockReturnValue(of({ ...activeValue, name: 'Повышенный', sortOrder: 2 })),
             archiveValue: vi.fn().mockReturnValue(of({ ...activeValue, isArchived: true })),
             deleteValue: vi.fn().mockReturnValue(of(void 0)),
         };
@@ -96,5 +98,28 @@ describe('DictionariesComponent live API', () => {
 
         expect(api.archiveValue).toHaveBeenCalledWith('priority', 'high');
         expect(api.getValues).toHaveBeenCalledWith('priority', true);
+    });
+
+    it('updates a value name and order while keeping its code', () => {
+        const fixture = TestBed.createComponent(DictionariesComponent);
+        const component = fixture.componentInstance;
+        component.selected = dictionary;
+        component.values = [activeValue];
+        component.startEditValue(activeValue);
+        component.editValueName = 'Повышенный';
+        component.editValueSort = 2;
+
+        component.updateValue(activeValue);
+
+        expect(api.updateValue).toHaveBeenCalledWith('priority', 'high', {
+            name: 'Повышенный',
+            sortOrder: 2,
+        });
+        expect(component.values[0]).toEqual({
+            ...activeValue,
+            name: 'Повышенный',
+            sortOrder: 2,
+        });
+        expect(component.editingValueCode).toBeNull();
     });
 });

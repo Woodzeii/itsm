@@ -36,3 +36,8 @@ export interface CreateDictionaryValueRequest {
     name: string;
     sortOrder: number;
 }
+
+export interface UpdateDictionaryValueRequest {
+    name: string;
+    sortOrder: number;
+}
