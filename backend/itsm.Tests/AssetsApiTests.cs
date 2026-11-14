@@ -104,6 +104,61 @@ public class AssetsApiTests
     }
 
     [Fact]
+    public async Task CreateAsset_WithWarehouseButWithoutInventoryNumber_ReturnsBadRequest()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassId = await CreateAssetClassAsync();
+        var warehouseId = await CreateWarehouseAsync();
+
+        var response = await client.PostAsJsonAsync("/api/assets", new
+        {
+            name = "Актив только с серийным номером",
+            serialNumber = $"SN-{Guid.NewGuid():N}",
+            assetClassId,
+            warehouseId
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateAsset_CannotChooseLifecycleStageOrAssignedUser()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassId = await CreateAssetClassAsync();
+        var employeeId = await CreateEmployeeAsync();
+
+        var stageResponse = await client.PostAsJsonAsync("/api/assets", new
+        {
+            name = "Актив с заданным этапом",
+            inventoryNumber = $"INV-{Guid.NewGuid():N}",
+            assetClassId,
+            lifecycleStage = AssetLifecycleStages.InUse
+        });
+        var assignedResponse = await client.PostAsJsonAsync("/api/assets", new
+        {
+            name = "Актив с назначенным сотрудником",
+            inventoryNumber = $"INV-{Guid.NewGuid():N}",
+            assetClassId,
+            assignedUserId = employeeId
+        });
+
+        stageResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        assignedResponse.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task CreateAsset_WithoutWarehouseStartsAsPurchased()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassId = await CreateAssetClassAsync();
+
+        var created = await CreateAssetAsync(client, assetClassId, $"INV-{Guid.NewGuid():N}");
+
+        created.LifecycleStage.Should().Be(AssetLifecycleStages.Purchased);
+    }
+
+    [Fact]
     public async Task CreateAsset_WithUnknownAssetClass_ReturnsBadRequest()
     {
         var client = await CreateAgentClientAsync();
@@ -137,6 +192,62 @@ public class AssetsApiTests
     }
 
     [Fact]
+    public async Task UpdateAsset_CannotChangeWarehouseWithoutMovement()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassId = await CreateAssetClassAsync();
+        var currentWarehouseId = await CreateWarehouseAsync();
+        var newWarehouseId = await CreateWarehouseAsync();
+        var created = await CreateAssetAsync(client, assetClassId, $"INV-{Guid.NewGuid():N}", currentWarehouseId);
+
+        var response = await client.PutAsJsonAsync($"/api/assets/{created.Id}", new
+        {
+            warehouseId = newWarehouseId
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.Conflict);
+    }
+
+    [Fact]
+    public async Task RelocateAsset_BetweenWarehousesKeepsItInStock()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassId = await CreateAssetClassAsync();
+        var currentWarehouseId = await CreateWarehouseAsync();
+        var targetWarehouseId = await CreateWarehouseAsync();
+        var created = await CreateAssetAsync(client, assetClassId, $"INV-{Guid.NewGuid():N}", currentWarehouseId);
+
+        var movement = await client.PostAsJsonAsync($"/api/assets/{created.Id}/movements", new
+        {
+            movementType = AssetMovementTypes.Relocate,
+            toWarehouseId = targetWarehouseId
+        });
+        var detail = await client.GetFromJsonAsync<AssetDetailDto>($"/api/assets/{created.Id}");
+
+        movement.StatusCode.Should().Be(HttpStatusCode.OK);
+        detail!.Asset.LifecycleStage.Should().Be(AssetLifecycleStages.InStock);
+        detail.Asset.WarehouseId.Should().Be(targetWarehouseId);
+    }
+
+    [Fact]
+    public async Task TransferMovement_IsNotAllowedByLifecycle()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassId = await CreateAssetClassAsync();
+        var warehouseId = await CreateWarehouseAsync();
+        var employeeId = await CreateEmployeeAsync();
+        var created = await CreateAssetAsync(client, assetClassId, $"INV-{Guid.NewGuid():N}", warehouseId);
+
+        var movement = await client.PostAsJsonAsync($"/api/assets/{created.Id}/movements", new
+        {
+            movementType = "transfer",
+            toUserId = employeeId
+        });
+
+        movement.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task IssuedAsset_ChangesLifecycleStageAndWritesHistory()
     {
         var client = await CreateAgentClientAsync();
@@ -159,6 +270,35 @@ public class AssetsApiTests
         detail.Asset.AssignedUserId.Should().Be(employeeId);
         detail.History.Should().Contain(item => item.ActionType == AssetHistoryActionTypes.StageChanged);
         detail.History.Should().Contain(item => item.ActionType == AssetHistoryActionTypes.Movement);
+    }
+
+    [Fact]
+    public async Task IssuedAsset_CanReturnToWarehouseThroughMovement()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassId = await CreateAssetClassAsync();
+        var initialWarehouseId = await CreateWarehouseAsync();
+        var returnWarehouseId = await CreateWarehouseAsync();
+        var employeeId = await CreateEmployeeAsync();
+        var created = await CreateAssetAsync(client, assetClassId, $"INV-{Guid.NewGuid():N}", initialWarehouseId);
+
+        var issue = await client.PostAsJsonAsync($"/api/assets/{created.Id}/movements", new
+        {
+            movementType = AssetMovementTypes.Issue,
+            toUserId = employeeId
+        });
+        var returned = await client.PostAsJsonAsync($"/api/assets/{created.Id}/movements", new
+        {
+            movementType = AssetMovementTypes.Return,
+            toWarehouseId = returnWarehouseId
+        });
+        var detail = await client.GetFromJsonAsync<AssetDetailDto>($"/api/assets/{created.Id}");
+
+        issue.StatusCode.Should().Be(HttpStatusCode.OK);
+        returned.StatusCode.Should().Be(HttpStatusCode.OK);
+        detail!.Asset.LifecycleStage.Should().Be(AssetLifecycleStages.InStock);
+        detail.Asset.AssignedUserId.Should().BeNull();
+        detail.Asset.WarehouseId.Should().Be(returnWarehouseId);
     }
 
     [Fact]
@@ -262,10 +402,17 @@ public class AssetsApiTests
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ItsmDbContext>();
-        return await db.DictionaryValues
-            .Where(value => value.Dictionary.Code == "warehouses" && !value.IsArchived)
-            .Select(value => value.Id)
-            .FirstAsync();
+        var warehouseDictionary = await db.Dictionaries.SingleAsync(dictionary => dictionary.Code == "warehouses");
+        var warehouse = new DictionaryValue
+        {
+            DictionaryId = warehouseDictionary.Id,
+            Code = $"test-{Guid.NewGuid():N}",
+            Name = "Тестовый склад",
+            SortOrder = 0
+        };
+        db.DictionaryValues.Add(warehouse);
+        await db.SaveChangesAsync();
+        return warehouse.Id;
     }
 
     private async Task<int> CreateEmployeeAsync()

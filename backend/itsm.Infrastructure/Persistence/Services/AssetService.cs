@@ -55,6 +55,11 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
 
     public async Task<AssetDto> CreateAsync(CreateAssetRequest request, int actorId, CancellationToken ct = default)
     {
+        if (request.LifecycleStage is not null)
+            throw new ArgumentException("Этап жизненного цикла назначается сервером.");
+        if (request.AssignedUserId is not null)
+            throw new ArgumentException("Сотрудника можно назначить только при выдаче актива со склада.");
+
         var assetClass = await db.AssetClasses
             .Where(item => item.Id == request.AssetClassId)
             .Select(item => new { item.Id, item.IsActive })
@@ -67,10 +72,12 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         var serialNumber = NormalizeIdentifier(request.SerialNumber);
         if (inventoryNumber is null && serialNumber is null)
             throw new ArgumentException("Укажите инвентарный или серийный номер актива.");
+        if (request.WarehouseId is not null && inventoryNumber is null)
+            throw new ArgumentException("Для размещения актива на складе укажите инвентарный номер.");
 
-        var stage = request.LifecycleStage ?? (request.WarehouseId is not null
+        var stage = inventoryNumber is not null && request.WarehouseId is not null
             ? AssetLifecycleStages.InStock
-            : AssetLifecycleStages.Purchased);
+            : AssetLifecycleStages.Purchased;
 
         await ValidateIdentifiersAreFreeAsync(inventoryNumber, serialNumber, exceptAssetId: null, ct);
         await ValidateAssignmentsAsync(request.WarehouseId, request.LocationId, request.DepartmentId, request.AssignedUserId, ct);
@@ -132,6 +139,16 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
             return null;
 
         var changes = new List<(string Field, string? OldValue, string? NewValue)>();
+        var resultingInventoryNumber = request.InventoryNumber is null
+            ? asset.InventoryNumber
+            : NormalizeIdentifier(request.InventoryNumber);
+        var resultingSerialNumber = request.SerialNumber is null
+            ? asset.SerialNumber
+            : NormalizeIdentifier(request.SerialNumber);
+        if (resultingInventoryNumber is null && resultingSerialNumber is null)
+            throw new ArgumentException("У актива должен оставаться инвентарный или серийный номер.");
+        if (asset.LifecycleStage != AssetLifecycleStages.Purchased && resultingInventoryNumber is null)
+            throw new InvalidOperationException("Для актива после закупки необходим инвентарный номер.");
 
         if (request.Name is not null && request.Name.Trim() != asset.Name)
         {
@@ -182,13 +199,10 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
             asset.AssetClassId = assetClass.Id;
         }
 
-        await ValidateAssignmentsAsync(request.WarehouseId, request.LocationId, request.DepartmentId, null, ct);
-
         if (request.WarehouseId is int warehouseId && warehouseId != asset.WarehouseId)
-        {
-            changes.Add(("warehouseId", asset.WarehouseId?.ToString(), warehouseId.ToString()));
-            asset.WarehouseId = warehouseId;
-        }
+            throw new InvalidOperationException("Склад можно изменить только через движение актива.");
+
+        await ValidateAssignmentsAsync(null, request.LocationId, request.DepartmentId, null, ct);
 
         if (request.LocationId is int locationId && locationId != asset.LocationId)
         {
@@ -302,8 +316,12 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
                 if (asset.LifecycleStage != AssetLifecycleStages.InStock)
                     throw new InvalidOperationException(
                         $"Выдача со склада доступна только для актива на складе (текущий этап: {AssetLifecycleStages.GetRussianName(asset.LifecycleStage)}).");
+                if (asset.WarehouseId is null)
+                    throw new InvalidOperationException("Для выдачи актив должен быть привязан к складу.");
                 if (request.ToUserId is not int issuedTo || issuedTo <= 0)
                     throw new ArgumentException("Для выдачи со склада укажите сотрудника, которому выдается актив.");
+                if (request.ToWarehouseId is not null || request.ToLocationId is not null || request.ToDepartmentId is not null)
+                    throw new ArgumentException("Для выдачи укажите только сотрудника-получателя.");
 
                 await ValidateUserIsActiveAsync(issuedTo, "Сотрудник для выдачи не найден.", ct);
                 asset.LifecycleStage = AssetLifecycleStages.InUse;
@@ -315,8 +333,12 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
                 if (asset.LifecycleStage != AssetLifecycleStages.InUse)
                     throw new InvalidOperationException(
                         $"Возврат на склад доступен только для актива в эксплуатации (текущий этап: {AssetLifecycleStages.GetRussianName(asset.LifecycleStage)}).");
+                if (asset.AssignedUserId is null)
+                    throw new InvalidOperationException("Для возврата актив должен быть закреплен за сотрудником.");
                 if (request.ToWarehouseId is not int returnWarehouse || returnWarehouse <= 0)
                     throw new ArgumentException("Для возврата на склад укажите склад.");
+                if (request.ToUserId is not null || request.ToLocationId is not null || request.ToDepartmentId is not null)
+                    throw new ArgumentException("Для возврата укажите только склад-получатель.");
 
                 await ValidateWarehouseAsync(returnWarehouse, ct);
                 asset.LifecycleStage = AssetLifecycleStages.InStock;
@@ -324,29 +346,21 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
                 asset.WarehouseId = returnWarehouse;
                 break;
 
-            case AssetMovementTypes.Transfer:
-                if (asset.LifecycleStage != AssetLifecycleStages.InUse)
-                    throw new InvalidOperationException(
-                        $"Передача доступна только для актива в эксплуатации (текущий этап: {AssetLifecycleStages.GetRussianName(asset.LifecycleStage)}).");
-                if (request.ToUserId is not int newOwner || newOwner <= 0)
-                    throw new ArgumentException("Для передачи укажите нового ответственного.");
-
-                await ValidateUserIsActiveAsync(newOwner, "Новый ответственный не найден.", ct);
-                asset.AssignedUserId = newOwner;
-                break;
-
             case AssetMovementTypes.Relocate:
-                if (asset.LifecycleStage is not (AssetLifecycleStages.InUse or AssetLifecycleStages.InStock))
+                if (asset.LifecycleStage != AssetLifecycleStages.InStock)
                     throw new InvalidOperationException(
-                        $"Перемещение доступно только для актива в эксплуатации или на складе (текущий этап: {AssetLifecycleStages.GetRussianName(asset.LifecycleStage)}).");
-                if (request.ToLocationId is null && request.ToDepartmentId is null)
-                    throw new ArgumentException("Для перемещения укажите новое место или подразделение.");
+                        $"Перемещение между складами доступно только для актива на складе (текущий этап: {AssetLifecycleStages.GetRussianName(asset.LifecycleStage)}).");
+                if (asset.WarehouseId is null)
+                    throw new InvalidOperationException("Для перемещения актив должен быть привязан к складу.");
+                if (request.ToWarehouseId is not int newWarehouse || newWarehouse <= 0)
+                    throw new ArgumentException("Для перемещения укажите склад назначения.");
+                if (newWarehouse == asset.WarehouseId)
+                    throw new ArgumentException("Склад назначения должен отличаться от текущего склада.");
+                if (request.ToUserId is not null || request.ToLocationId is not null || request.ToDepartmentId is not null)
+                    throw new ArgumentException("Для перемещения укажите только склад назначения.");
 
-                await ValidateAssignmentsAsync(null, request.ToLocationId, request.ToDepartmentId, null, ct);
-                if (request.ToLocationId is int locationId)
-                    asset.LocationId = locationId;
-                if (request.ToDepartmentId is int departmentId)
-                    asset.DepartmentId = departmentId;
+                await ValidateWarehouseAsync(newWarehouse, ct);
+                asset.WarehouseId = newWarehouse;
                 break;
 
             default:

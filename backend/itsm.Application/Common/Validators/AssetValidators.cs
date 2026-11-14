@@ -25,8 +25,12 @@ public sealed class CreateAssetRequestValidator : AbstractValidator<CreateAssetR
             .MaximumLength(100);
 
         RuleFor(request => request.LifecycleStage)
-            .Must(stage => stage is null || AssetLifecycleStages.All.Contains(stage))
-            .WithMessage("Неизвестный этап жизненного цикла актива.");
+            .Must(stage => stage is null)
+            .WithMessage("Этап жизненного цикла назначается сервером.");
+
+        RuleFor(request => request.AssignedUserId)
+            .Must(userId => userId is null)
+            .WithMessage("Сотрудника можно назначить только при выдаче актива со склада.");
     }
 }
 

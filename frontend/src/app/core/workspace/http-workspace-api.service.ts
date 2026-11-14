@@ -240,7 +240,6 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             warehouseId: request.warehouseId ?? null,
             locationId: request.locationId ?? null,
             departmentId: request.departmentId ?? null,
-            assignedUserId: request.assignedUserId ?? null,
         };
 
         return this.http.post<BackendAsset>(`${this.baseUrl}/assets`, body).pipe(
@@ -312,6 +311,8 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
                 statusId,
                 repairResolution: request.workDescription,
                 repairOutcome: repairOutcome(request.result),
+                repairToUserId: request.result === 'В эксплуатацию' ? request.repairToUserId ?? null : null,
+                repairToWarehouseId: request.result === 'На склад' ? request.repairToWarehouseId ?? null : null,
             })
             .pipe(map(toTicket));
     }
@@ -731,8 +732,7 @@ interface BackendTicketEscalation {
 }
 
 const ASSET_MOVEMENT_TYPES: Record<string, string> = {
-    'Передача сотруднику': 'transfer',
-    'Перемещение': 'relocate',
+    'Перемещение между складами': 'relocate',
     'Выдача со склада': 'issue',
     'Возврат на склад': 'return',
 };

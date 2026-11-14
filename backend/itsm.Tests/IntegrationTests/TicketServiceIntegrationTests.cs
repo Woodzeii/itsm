@@ -348,7 +348,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
             engineer.Id,
             ["agent"]));
 
-        var closed = await service.ChangeStatusAsync(
+        await Assert.ThrowsAsync<ArgumentException>(() => service.ChangeStatusAsync(
             ticket.Id,
             new ChangeTicketStatusRequest
             {
@@ -357,14 +357,137 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
                 RepairOutcome = RepairOutcome.ReturnToExploitation
             },
             engineer.Id,
+            ["agent"]));
+
+        var employee = await CreateUserAsync(scope.Db);
+        var closed = await service.ChangeStatusAsync(
+            ticket.Id,
+            new ChangeTicketStatusRequest
+            {
+                StatusId = 5,
+                RepairResolution = "Заменен блок питания.",
+                RepairOutcome = RepairOutcome.ReturnToExploitation,
+                RepairToUserId = employee.Id
+            },
+            engineer.Id,
             ["agent"]);
 
         Assert.Equal("Закрыта", closed!.StatusName);
-        Assert.Equal(AssetLifecycleStages.InUse, (await scope.Db.Assets.FindAsync(asset.Id))!.LifecycleStage);
+        var updatedAsset = (await scope.Db.Assets.FindAsync(asset.Id))!;
+        Assert.Equal(AssetLifecycleStages.InUse, updatedAsset.LifecycleStage);
+        Assert.Equal(employee.Id, updatedAsset.AssignedUserId);
+        Assert.Null(updatedAsset.WarehouseId);
         Assert.NotNull(await scope.Db.Tickets.Where(item => item.Id == ticket.Id)
             .Select(item => item.ActualResolutionTime).SingleAsync());
         Assert.Contains(await scope.Db.TicketMessages.Where(message => message.TicketId == ticket.Id).ToListAsync(),
             message => message.MessageBody == "Заменен блок питания." && message.SourceType == "system");
+    }
+
+    [Fact]
+    public async Task RepairTicketClosureToWarehouseRequiresAndStoresWarehouse()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var engineer = await CreateUserAsync(scope.Db, "agent");
+        var asset = await CreateAssetAsync(scope.Db, AssetLifecycleStages.InUse);
+        var ticket = await service.CreateAsync(
+            NewTicketRequest(typeId: 5, assetId: asset.Id),
+            engineer.Id,
+            isStaff: true,
+            isEngineer: true);
+
+        scope.Db.TicketStatusTransitions.Add(new TicketStatusTransition
+        {
+            FromStatusId = ticket.StatusId,
+            ToStatusId = 5
+        });
+        await scope.Db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.ChangeStatusAsync(
+            ticket.Id,
+            new ChangeTicketStatusRequest
+            {
+                StatusId = 5,
+                RepairResolution = "Ремонт завершен.",
+                RepairOutcome = RepairOutcome.TransferToWarehouse
+            },
+            engineer.Id,
+            ["agent"]));
+
+        var warehouseId = await CreateWarehouseAsync(scope.Db);
+        await service.ChangeStatusAsync(
+            ticket.Id,
+            new ChangeTicketStatusRequest
+            {
+                StatusId = 5,
+                RepairResolution = "Ремонт завершен.",
+                RepairOutcome = RepairOutcome.TransferToWarehouse,
+                RepairToWarehouseId = warehouseId
+            },
+            engineer.Id,
+            ["agent"]);
+
+        var updatedAsset = (await scope.Db.Assets.FindAsync(asset.Id))!;
+        Assert.Equal(AssetLifecycleStages.InStock, updatedAsset.LifecycleStage);
+        Assert.Equal(warehouseId, updatedAsset.WarehouseId);
+        Assert.Null(updatedAsset.AssignedUserId);
+    }
+
+    [Fact]
+    public async Task RepairTicketClosureReusesExistingAssigneeAndWarehouse()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var engineer = await CreateUserAsync(scope.Db, "agent");
+        var inUseAsset = await CreateAssetAsync(scope.Db, AssetLifecycleStages.InUse);
+        var existingAssigneeId = inUseAsset.AssignedUserId;
+        var exploitationTicket = await service.CreateAsync(
+            NewTicketRequest(typeId: 5, assetId: inUseAsset.Id),
+            engineer.Id,
+            isStaff: true,
+            isEngineer: true);
+        var inStockAsset = await CreateAssetAsync(scope.Db, AssetLifecycleStages.InStock);
+        var existingWarehouseId = inStockAsset.WarehouseId;
+        var warehouseTicket = await service.CreateAsync(
+            NewTicketRequest(typeId: 5, assetId: inStockAsset.Id),
+            engineer.Id,
+            isStaff: true,
+            isEngineer: true);
+
+        scope.Db.TicketStatusTransitions.Add(new TicketStatusTransition
+        {
+            FromStatusId = exploitationTicket.StatusId,
+            ToStatusId = 5
+        });
+        await scope.Db.SaveChangesAsync();
+
+        await service.ChangeStatusAsync(
+            exploitationTicket.Id,
+            new ChangeTicketStatusRequest
+            {
+                StatusId = 5,
+                RepairResolution = "Ремонт завершен.",
+                RepairOutcome = RepairOutcome.ReturnToExploitation
+            },
+            engineer.Id,
+            ["agent"]);
+        await service.ChangeStatusAsync(
+            warehouseTicket.Id,
+            new ChangeTicketStatusRequest
+            {
+                StatusId = 5,
+                RepairResolution = "Ремонт завершен.",
+                RepairOutcome = RepairOutcome.TransferToWarehouse
+            },
+            engineer.Id,
+            ["agent"]);
+
+        var updatedInUseAsset = (await scope.Db.Assets.FindAsync(inUseAsset.Id))!;
+        var updatedInStockAsset = (await scope.Db.Assets.FindAsync(inStockAsset.Id))!;
+        Assert.Equal(AssetLifecycleStages.InUse, updatedInUseAsset.LifecycleStage);
+        Assert.Equal(existingAssigneeId, updatedInUseAsset.AssignedUserId);
+        Assert.Equal(AssetLifecycleStages.InStock, updatedInStockAsset.LifecycleStage);
+        Assert.Equal(existingWarehouseId, updatedInStockAsset.WarehouseId);
     }
 
     [Fact]
@@ -1011,9 +1134,43 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
             LifecycleStage = stage,
             TenantId = db.GetCurrentTenantId()
         };
+        if (stage == AssetLifecycleStages.InStock)
+            asset.WarehouseId = await CreateWarehouseAsync(db);
+        else if (stage == AssetLifecycleStages.InUse)
+            asset.AssignedUserId = (await CreateUserAsync(db)).Id;
+
         db.Assets.Add(asset);
         await db.SaveChangesAsync();
         return asset;
+    }
+
+    private static async Task<int> CreateWarehouseAsync(ItsmDbContext db)
+    {
+        var tenantId = db.GetCurrentTenantId();
+        var dictionary = await db.Dictionaries.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => item.TenantId == tenantId && item.Code == "warehouses");
+        if (dictionary is null)
+        {
+            dictionary = new itsm.Domain.Entities.Dictionary
+            {
+                TenantId = tenantId,
+                Code = "warehouses",
+                Name = "Склады",
+                IsSystem = true
+            };
+            db.Dictionaries.Add(dictionary);
+            await db.SaveChangesAsync();
+        }
+
+        var warehouse = new DictionaryValue
+        {
+            DictionaryId = dictionary.Id,
+            Code = $"test-{Guid.NewGuid():N}",
+            Name = "Тестовый склад"
+        };
+        db.DictionaryValues.Add(warehouse);
+        await db.SaveChangesAsync();
+        return warehouse.Id;
     }
 
     private static async Task<Ticket> CreateTicketAsync(

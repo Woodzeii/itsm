@@ -432,7 +432,6 @@ describe('HttpWorkspaceApiService backend contract', () => {
             warehouseId: 1,
             locationId: null,
             departmentId: null,
-            assignedUserId: null,
         });
         request.flush({ id: 15, name: 'Ноутбук Dell', inventoryNumber: 'INV-9001' });
 
@@ -459,6 +458,28 @@ describe('HttpWorkspaceApiService backend contract', () => {
         });
         request.flush({ id: 1, assetId: 15, movementType: 'issue' });
         http.expectOne(`${environment.apiBaseUrl}/assets/15`).flush({ asset: { id: 15, name: 'Ноутбук' } });
+    });
+
+    it('sends repair destination details when closing a repair ticket', () => {
+        service.getTickets().subscribe();
+        http.expectOne(`${environment.apiBaseUrl}/tickets`).flush([{ id: 42, statusId: 5, statusName: 'Закрыта' }]);
+
+        service.closeRepairTicket('42', {
+            result: 'На склад',
+            workDescription: 'Заменен блок питания.',
+            repairToWarehouseId: 19,
+        }).subscribe();
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/tickets/42/status`);
+        expect(request.request.method).toBe('PUT');
+        expect(request.request.body).toEqual({
+            statusId: 5,
+            repairResolution: 'Заменен блок питания.',
+            repairOutcome: 'TransferToWarehouse',
+            repairToUserId: null,
+            repairToWarehouseId: 19,
+        });
+        request.flush({ id: 42, statusId: 5, statusName: 'Закрыта' });
     });
 
     it('posts portal messages as public JSON to the ticket messages endpoint', () => {
