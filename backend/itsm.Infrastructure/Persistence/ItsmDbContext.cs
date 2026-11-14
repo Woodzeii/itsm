@@ -372,6 +372,9 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.ToTable("tickets");
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => x.TenantId);
+            entity.Property(x => x.TicketNumber).HasMaxLength(16).IsRequired();
+            entity.HasIndex(x => new { x.TenantId, x.TicketNumber }).IsUnique();
+            entity.HasIndex(x => x.TicketNumber);
             entity.Property(x => x.CustomFieldsData).HasColumnType("jsonb");
             entity.Property(x => x.IsReactionEscalated).HasDefaultValue(false);
             entity.Property(x => x.IsResolutionEscalated).HasDefaultValue(false);

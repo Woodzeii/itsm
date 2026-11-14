@@ -103,6 +103,7 @@ public sealed record CreateTicketMessageRequest
 /// <summary>Ticket details returned by the API.</summary>
 public sealed record TicketResponse(
     int Id,
+    string TicketNumber,
     string Title,
     string? Description,
     int TypeId,
@@ -192,6 +193,7 @@ public sealed record UpdateEscalationRuleRequest
 /// <summary>Ticket summary returned in an asset's ticket history.</summary>
 public sealed record AssetTicketHistoryItem(
     int Id,
+    string TicketNumber,
     int TypeId,
     string TypeName,
     string Title,
@@ -220,6 +222,7 @@ public sealed record TicketStatusLookup(int Id, string Code, string Name);
 public sealed record TicketEscalationResponse(
     int Id,
     int TicketId,
+    string TicketNumber,
     int? InitiatorUserId,
     string Reason,
     int? FromCriticalityLevelId,
@@ -257,6 +260,7 @@ public sealed record AutoAssignResponse(
 public sealed record PendingEscalationResponse(
     int EscalationId,
     int TicketId,
+    string TicketNumber,
     string Title,
     int TicketTypeId,
     string TicketTypeName,

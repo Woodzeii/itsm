@@ -16,6 +16,7 @@ export interface Ticket {
     type?: string;
     typeId?: number;
     statusId?: number;
+    ticketNumber?: string;
     assignee?: string;
     assigneeId?: number;
     createdOn?: string;
@@ -164,6 +165,7 @@ export interface AssetMovementRequest {
 
 export interface Escalation {
     id: string;
+    ticketNumber?: string;
     title: string;
     team: string;
     priority: string;

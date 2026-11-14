@@ -739,6 +739,7 @@ interface BackendAssetTicket {
 
 interface BackendTicket {
     id?: number;
+    ticketNumber?: string;
     title?: string;
     description?: string | null;
     typeId?: number;
@@ -925,6 +926,7 @@ function toTicket(ticket: BackendTicket): Ticket {
 
     return {
         id: String(ticket.id ?? ''),
+        ticketNumber: ticket.ticketNumber ?? undefined,
         title: ticket.title ?? '',
         requester: ticket.requesterName ?? ticket.creatorName ?? '',
         team: '',
