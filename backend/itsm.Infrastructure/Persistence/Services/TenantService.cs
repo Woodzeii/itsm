@@ -163,8 +163,31 @@ public class TenantService : ITenantService
         firstAdmin.RoleMappings.Add(new UserRoleMapping { RoleId = tenantOwnerRoleId.Value });
         tenant.Users.Add(firstAdmin);
 
+        await using var transaction = _db.Database.IsRelational()
+            ? await _db.Database.BeginTransactionAsync(ct)
+            : null;
+
         _db.Tenants.Add(tenant);
         await _db.SaveChangesAsync(ct);
+
+        _db.TicketTypes.Add(new TicketType
+        {
+            TenantId = tenant.Id,
+            Code = "incident",
+            Name = "Инцидент",
+            IsPortalAvailable = true
+        });
+        _db.TicketStatuses.Add(new TicketStatus
+        {
+            TenantId = tenant.Id,
+            Code = "new",
+            Name = "Открыта",
+            IsSlaPausing = false,
+            SortOrder = 1
+        });
+        await _db.SaveChangesAsync(ct);
+        if (transaction is not null)
+            await transaction.CommitAsync(ct);
 
         return (await GetByIdAsync(tenant.Id, ct))!;
     }

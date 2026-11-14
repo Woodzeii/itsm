@@ -61,6 +61,30 @@ public class TenantServiceTests
     }
 
     [Fact]
+    public async Task Create_SeedsPortalIncidentTypeAndInitialStatusForNewTenant()
+    {
+        var (service, db) = Create();
+        var tenant = await service.CreateAsync(new CreateTenantRequest
+        {
+            Name = "Example Company",
+            FirstAdminLogin = "company.admin",
+            FirstAdminEmail = "admin@example.test",
+            FirstAdminFullName = "Company Administrator",
+            FirstAdminPassword = "Passw0rd1"
+        });
+
+        db.SetTenantId(tenant.Id);
+        var type = await db.TicketTypes.SingleAsync();
+        var status = await db.TicketStatuses.SingleAsync();
+
+        type.Code.Should().Be("incident");
+        type.Name.Should().Be("Инцидент");
+        type.IsPortalAvailable.Should().BeTrue();
+        status.Code.Should().Be("new");
+        status.Name.Should().Be("Открыта");
+    }
+
+    [Fact]
     public async Task UpdateSettings_AllowsOwnerToToggleAdminCreationPolicy()
     {
         var (service, _) = Create();
