@@ -9,6 +9,7 @@ public class Asset : IMultiTenant
     public int? AssetClassId { get; set; }
     public string? Category { get; set; }
     public string? SerialNumber { get; set; }
+    public string? AttributesJson { get; set; }
     public string? Status { get; set; }
     public string LifecycleStage { get; set; } = "Purchased";
     public DateTimeOffset? LicenseExpirationDate { get; set; }

@@ -159,6 +159,41 @@ public class AssetsApiTests
     }
 
     [Fact]
+    public async Task AssetAttributeValues_ArePersistedOnCreateAndUpdate()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassId = await CreateAssetClassAsync();
+        var createResponse = await client.PostAsJsonAsync("/api/assets", new
+        {
+            name = "Ноутбук",
+            inventoryNumber = $"INV-{Guid.NewGuid():N}",
+            assetClassId,
+            attributes = new Dictionary<string, string> { ["ram"] = "16" }
+        });
+
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = (await createResponse.Content.ReadFromJsonAsync<AssetDto>())!;
+        created.Attributes.Should().ContainKey("ram").WhoseValue.Should().Be("16");
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/assets/{created.Id}", new
+        {
+            attributes = new Dictionary<string, string>
+            {
+                ["ram"] = "32",
+                ["cpu"] = "Core i7"
+            }
+        });
+
+        updateResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var detail = (await client.GetFromJsonAsync<AssetDetailDto>($"/api/assets/{created.Id}"))!;
+        detail.Asset.Attributes.Should().BeEquivalentTo(new Dictionary<string, string>
+        {
+            ["ram"] = "32",
+            ["cpu"] = "Core i7"
+        });
+    }
+
+    [Fact]
     public async Task CreateAsset_WithUnknownAssetClass_ReturnsBadRequest()
     {
         var client = await CreateAgentClientAsync();

@@ -90,6 +90,7 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
             SerialNumber = serialNumber,
             AssetClassId = assetClass.Id,
             Category = NormalizeIdentifier(request.Category),
+            AttributesJson = SerializeAttributes(request.Attributes),
             LifecycleStage = stage,
             WarehouseId = request.WarehouseId,
             LocationId = request.LocationId,
@@ -221,6 +222,16 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         {
             changes.Add(("licenseExpirationDate", asset.LicenseExpirationDate?.ToString(), licenseExpiration.ToString()));
             asset.LicenseExpirationDate = licenseExpiration;
+        }
+
+        if (request.Attributes is not null)
+        {
+            var oldAttributes = DeserializeAttributes(asset.AttributesJson);
+            if (!AttributesEqual(oldAttributes, request.Attributes))
+            {
+                changes.Add(("attributes", JsonSerializer.Serialize(oldAttributes), JsonSerializer.Serialize(request.Attributes)));
+                asset.AttributesJson = SerializeAttributes(request.Attributes);
+            }
         }
 
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
@@ -626,6 +637,21 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         return value.Trim().ToUpperInvariant();
     }
 
+    private static string? SerializeAttributes(IReadOnlyDictionary<string, string>? attributes) =>
+        attributes is null ? null : JsonSerializer.Serialize(attributes);
+
+    private static Dictionary<string, string> DeserializeAttributes(string? attributesJson) =>
+        string.IsNullOrWhiteSpace(attributesJson)
+            ? new Dictionary<string, string>()
+            : JsonSerializer.Deserialize<Dictionary<string, string>>(attributesJson)
+                ?? new Dictionary<string, string>();
+
+    private static bool AttributesEqual(
+        IReadOnlyDictionary<string, string> left,
+        IReadOnlyDictionary<string, string> right) =>
+        left.Count == right.Count
+        && left.All(pair => right.TryGetValue(pair.Key, out var value) && value == pair.Value);
+
     private static bool IsUniqueViolation(DbUpdateException exception) =>
         exception.InnerException is DbException dbException
         && dbException.SqlState == "23505";
@@ -649,7 +675,8 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         asset.DepartmentId,
         null,
         asset.LicenseExpirationDate,
-        asset.CreatedAt);
+        asset.CreatedAt,
+        DeserializeAttributes(asset.AttributesJson));
 
     private static AssetMovementDto ToMovementDto(AssetMovement movement) => new(
         movement.Id,

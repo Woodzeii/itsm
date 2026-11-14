@@ -208,6 +208,14 @@ public sealed record AssetTicketHistoryItem(
     DateTimeOffset CreatedAt,
     DateTimeOffset? ClosedAt);
 
+public sealed record TicketLookupsResponse(
+    IReadOnlyList<TicketTypeLookup> Types,
+    IReadOnlyList<TicketStatusLookup> Statuses);
+
+public sealed record TicketTypeLookup(int Id, string Code, string Name);
+
+public sealed record TicketStatusLookup(int Id, string Code, string Name);
+
 /// <summary>Details recorded for a manual ticket escalation.</summary>
 public sealed record TicketEscalationResponse(
     int Id,

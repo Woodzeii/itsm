@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
-import { WorkspaceService } from '../../core/workspace/workspace.service';
+import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 import { AssetClassAttributeOption, AssetClassOption, AssetDetails, AssetMovement, AssetRecord } from '../../core/workspace/workspace.models';
 
 type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
@@ -37,7 +37,8 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
             </label>
           }
           <label>Склад ID<input type="number" min="1" name="warehouseId" [(ngModel)]="draft.warehouseId" /></label>
-          <label>Место<input name="location" [(ngModel)]="draft.location" /></label>
+          <label>Место ID<input type="number" min="1" name="locationId" [(ngModel)]="draft.locationId" /></label>
+          <label>Подразделение ID<input type="number" min="1" name="departmentId" [(ngModel)]="draft.departmentId" /></label>
           <p class="form-note">Укажите инвентарный или серийный номер. На склад актив попадёт только при наличии инвентарного номера и ID склада; иначе останется на этапе «Закуплен».</p>
           <div class="form-actions"><button class="primary" type="submit" [disabled]="!draft.name.trim() || (!draft.id.trim() && !draft.serialNumber.trim()) || (!!draft.warehouseId && !draft.id.trim())">Создать</button><button class="quiet" type="button" (click)="showCreate = false">Отмена</button></div>
         </form>
@@ -50,7 +51,7 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
             @for (asset of filteredAssets; track asset.recordId || asset.id) {
               <button type="button" class="asset-row" [class.selected]="selected?.id === asset.id" (click)="select(asset)">
                 <span class="asset-mark" aria-hidden="true">{{ asset.type.slice(0, 1) }}</span>
-                <span class="asset-name"><strong>{{ asset.name }}</strong><small>{{ asset.id || 'Без идентификатора' }} · {{ asset.className }}</small></span>
+                <span class="asset-name"><strong>{{ asset.name }}</strong><small>{{ asset.id || asset.serialNumber || 'Без идентификатора' }} · {{ asset.className }}</small></span>
                 <span class="stage" [class.retired]="asset.lifecycle === 'Списан'">{{ asset.lifecycle }}</span>
               </button>
             }
@@ -60,7 +61,7 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
 
         <section class="panel detail">
           @if (selected) {
-            <header class="detail-head"><div><p class="eyebrow">{{ selected.id || 'Закупка' }} · {{ selected.className }}</p><h2>{{ selected.name }}</h2></div><span class="lifecycle">{{ selected.lifecycle }}</span></header>
+            <header class="detail-head"><div><p class="eyebrow">{{ selected.id || selected.serialNumber || 'Закупка' }} · {{ selected.className }}</p><h2>{{ selected.name }}</h2></div><span class="lifecycle">{{ selected.lifecycle }}</span></header>
             <nav class="tabs" aria-label="Разделы карточки актива">
               <button [class.active]="tab === 'card'" (click)="tab = 'card'">Карточка</button>
               <button [class.active]="tab === 'history'" (click)="tab = 'history'">История актива</button>
@@ -73,8 +74,8 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
                 <label>Идентификатор<input name="assetId" [(ngModel)]="edit.id" [disabled]="!!selected.id" [placeholder]="selected.id ? '' : 'Присвоить инвентарный номер'" /></label>
                 <label>Наименование<input name="assetName" [(ngModel)]="edit.name" required /></label>
                 <label>Этап жизненного цикла<input [value]="selected.lifecycle" disabled /></label>
-                <label>Место<input name="location" [(ngModel)]="edit.location" /></label>
-                <label>Подразделение<input name="department" [(ngModel)]="edit.department" /></label>
+                <label>Место ID<input type="number" min="1" name="locationId" [(ngModel)]="edit.locationId" /></label>
+                <label>Подразделение ID<input type="number" min="1" name="departmentId" [(ngModel)]="edit.departmentId" /></label>
                 @for (attribute of selectedAttributes; track attribute.code) {
                   <label>{{ attribute.name }}@if (attribute.required) { <span>*</span> }
                     @switch (attribute.dataType) {
@@ -201,7 +202,7 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
   `],
 })
 export class AssetsPageComponent implements OnInit {
-    private readonly workspace = inject(WorkspaceService);
+    private readonly workspace = inject(HttpWorkspaceApiService);
     private readonly auth = inject(AuthService);
 
     assets: AssetRecord[] = [];
@@ -218,9 +219,9 @@ export class AssetsPageComponent implements OnInit {
     repairResult: 'В эксплуатацию' | 'На склад' | 'Списать' = 'В эксплуатацию';
     repairToUserId: number | null = null;
     repairToWarehouseId: number | null = null;
-    draft = { id: '', serialNumber: '', name: '', type: '', className: '', owner: '', warehouse: '', warehouseId: null as number | null, location: '', department: '' };
+    draft = { id: '', serialNumber: '', name: '', type: '', className: '', owner: '', warehouse: '', warehouseId: null as number | null, locationId: null as number | null, departmentId: null as number | null };
     draftAttributes: Record<string, string | number | boolean> = {};
-    edit = { id: '', name: '', owner: '', location: '', department: '', warehouse: '', attributes: {} as Record<string, string | number | boolean> };
+    edit = { id: '', name: '', locationId: null as number | null, departmentId: null as number | null, attributes: {} as Record<string, string | number | boolean> };
     movement = { kind: 'Выдача со склада', from: '', to: '', toUserId: null as number | null, toWarehouseId: null as number | null };
     ticketTypeFilter = '';
     ticketStatusFilter = '';
@@ -262,7 +263,7 @@ export class AssetsPageComponent implements OnInit {
     select(asset: AssetRecord): void {
         this.tab = 'card';
       this.workspace.getAssetDetails(asset.recordId || asset.id).subscribe({
-            next: details => { this.selected = details; this.edit = { id: details.id, name: details.name, owner: details.owner, location: details.location ?? '', department: details.department ?? '', warehouse: details.warehouse ?? '', attributes: { ...(details.attributes ?? {}) } }; this.movement = { kind: details.lifecycle === 'На складе' ? 'Выдача со склада' : 'Возврат на склад', from: details.owner, to: '', toUserId: null, toWarehouseId: null }; },
+            next: details => { this.selected = details; this.edit = { id: details.id, name: details.name, locationId: details.locationId ?? null, departmentId: details.departmentId ?? null, attributes: this.parseAttributes(details.attributes ?? {}, details.className) }; this.movement = { kind: details.lifecycle === 'На складе' ? 'Выдача со склада' : 'Возврат на склад', from: details.owner, to: '', toUserId: null, toWarehouseId: null }; },
             error: err => this.error = err.message,
         });
     }
@@ -272,7 +273,7 @@ export class AssetsPageComponent implements OnInit {
       if (missing) { this.error = `Заполните обязательный атрибут «${missing.name}».`; return; }
       const request = { ...this.draft, id: this.draft.id.trim() || undefined, attributes: this.stringifyAttributes(this.draftAttributes) };
         this.workspace.createAsset(request).subscribe({
-        next: asset => { this.notice = `Создан актив: ${asset.id || asset.name} · ${asset.lifecycle}.`; this.showCreate = false; this.draft = { id: '', serialNumber: '', name: '', type: '', className: '', owner: '', warehouse: '', warehouseId: null, location: '', department: '' }; this.draftAttributes = {}; if (this.activeAssetClasses.length) this.onCreateClassChange(this.activeAssetClasses[0].name); this.loadAssets(asset.recordId || asset.id || undefined); },
+        next: asset => { this.notice = `Создан актив: ${asset.id || asset.name} · ${asset.lifecycle}.`; this.showCreate = false; this.draft = { id: '', serialNumber: '', name: '', type: '', className: '', owner: '', warehouse: '', warehouseId: null, locationId: null, departmentId: null }; this.draftAttributes = {}; if (this.activeAssetClasses.length) this.onCreateClassChange(this.activeAssetClasses[0].name); this.loadAssets(asset.recordId || asset.id || undefined); },
             error: err => this.error = err.message,
         });
     }
@@ -323,7 +324,29 @@ export class AssetsPageComponent implements OnInit {
       this.draft.className = className;
       this.draft.type = className;
       const selectedClass = this.activeAssetClasses.find(assetClass => assetClass.name === className);
-      this.draftAttributes = Object.fromEntries((selectedClass?.attributes ?? []).filter(attribute => attribute.defaultValue !== undefined).map(attribute => [attribute.code, attribute.defaultValue!]));
+      this.draftAttributes = this.parseAttributes(
+        Object.fromEntries((selectedClass?.attributes ?? [])
+          .filter(attribute => attribute.defaultValue !== undefined)
+          .map(attribute => [attribute.code, attribute.defaultValue!])),
+        className,
+      );
+    }
+
+    private parseAttributes(values: Record<string, string>, className: string | undefined): Record<string, string | number | boolean> {
+      const definitions = this.assetClasses.find(assetClass => assetClass.name === className)?.attributes ?? [];
+      const parsed: Record<string, string | number | boolean> = {};
+      for (const [code, value] of Object.entries(values)) {
+        const dataType = definitions.find(attribute => attribute.code === code)?.dataType;
+        if (dataType === 'bool') {
+          parsed[code] = value.toLocaleLowerCase() === 'true';
+        } else if (dataType === 'number' && value.trim()) {
+          const number = Number(value);
+          parsed[code] = Number.isFinite(number) ? number : value;
+        } else {
+          parsed[code] = value;
+        }
+      }
+      return parsed;
     }
 
     private stringifyAttributes(attributes: Record<string, string | number | boolean>): Record<string, string> {

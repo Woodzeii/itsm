@@ -42,6 +42,22 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             .Select(type => new PortalTicketTypeResponse(type.Id, type.Name))
             .ToArrayAsync(ct);
 
+    public async Task<TicketLookupsResponse> GetLookupsAsync(CancellationToken ct = default)
+    {
+        var types = await db.TicketTypes
+            .AsNoTracking()
+            .OrderBy(type => type.Id)
+            .Select(type => new TicketTypeLookup(type.Id, type.Code ?? string.Empty, type.Name))
+            .ToArrayAsync(ct);
+        var statuses = await db.TicketStatuses
+            .AsNoTracking()
+            .OrderBy(status => status.SortOrder)
+            .ThenBy(status => status.Id)
+            .Select(status => new TicketStatusLookup(status.Id, status.Code ?? string.Empty, status.Name))
+            .ToArrayAsync(ct);
+        return new TicketLookupsResponse(types, statuses);
+    }
+
     public async Task<IReadOnlyList<RequesterOptionResponse>> GetRequesterOptionsAsync(CancellationToken ct = default) =>
         await db.Users
             .AsNoTracking()

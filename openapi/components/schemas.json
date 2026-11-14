@@ -88,6 +88,13 @@
             "type": "integer",
             "nullable": true
           },
+          "attributes": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
           "category": {
             "type": "string",
             "nullable": true
@@ -135,6 +142,13 @@
             "type": "integer",
             "nullable": true
           },
+          "attributes": {
+            "type": "object",
+            "nullable": true,
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
           "licenseExpirationDate": {
             "type": "string",
             "format": "date-time",
@@ -175,6 +189,51 @@
           "comment": {
             "type": "string",
             "nullable": true
+          }
+        }
+      },
+      "TicketLookupsResponse": {
+        "type": "object",
+        "properties": {
+          "types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketTypeLookup"
+            }
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketStatusLookup"
+            }
+          }
+        }
+      },
+      "TicketTypeLookup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "TicketStatusLookup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           }
         }
       },

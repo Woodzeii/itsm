@@ -121,6 +121,10 @@ export interface AssetMovement {
     toUserId?: number | null;
     fromWarehouseId?: number | null;
     toWarehouseId?: number | null;
+    fromLocationId?: number | null;
+    toLocationId?: number | null;
+    fromDepartmentId?: number | null;
+    toDepartmentId?: number | null;
 }
 
 export interface AssetDetails extends AssetRecord {
