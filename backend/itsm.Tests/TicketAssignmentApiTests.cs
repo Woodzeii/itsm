@@ -56,6 +56,18 @@ public class TicketAssignmentApiTests
     }
 
     [Fact]
+    public async Task ManagerCanReadTicketQueueAndRequesterOptions()
+    {
+        var managerClient = CreateClient("i.ivanov", "manager");
+
+        var queueResponse = await managerClient.GetAsync("/api/tickets");
+        var requestersResponse = await managerClient.GetAsync("/api/tickets/requesters");
+
+        queueResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        requestersResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
     public async Task CreatedTicketIsAutoAssignedInAutoMode()
     {
         var adminClient = CreateClient("admin", "admin");
