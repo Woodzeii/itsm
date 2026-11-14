@@ -1006,6 +1006,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
 
         var history = await service.GetAssetTicketHistoryAsync(
             asset.Id,
+            search: null,
             typeId: 1,
             statusId: 1,
             criticalityLevelId: 2,
@@ -1189,6 +1190,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
     {
         var ticket = new Ticket
         {
+            TicketNumber = TicketNumberGenerator.Generate(),
             Title = "Integration test ticket",
             Description = "Ticket created by an integration test.",
             TypeId = typeId,

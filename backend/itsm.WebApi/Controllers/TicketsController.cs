@@ -52,12 +52,16 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     public async Task<ActionResult<IReadOnlyList<RequesterOptionResponse>>> GetRequesters(CancellationToken ct)
         => Ok(await service.GetRequesterOptionsAsync(ct));
 
-    [HttpGet("{id:int}")]
+    [HttpGet("{ticketRef}")]
     [EndpointSummary("Получить заявку по идентификатору")]
     [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<TicketResponse>> GetById(int id, CancellationToken ct)
+    public async Task<ActionResult<TicketResponse>> GetById(string ticketRef, CancellationToken ct)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
+
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
@@ -79,7 +83,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         try
         {
             var created = await service.CreateAsync(request, userId, IsStaff(), User.IsInRole("agent"), ct);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            return CreatedAtAction(nameof(GetById), new { ticketRef = created.TicketNumber }, created);
         }
         catch (ArgumentException ex)
         {
@@ -95,16 +99,19 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
-    [HttpPut("{id:int}")]
+    [HttpPut("{ticketRef}")]
     [Authorize(Roles = "admin,tenant_owner,manager,agent")]
     [EndpointSummary("Изменить заявку")]
     [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TicketResponse>> Update(
-        int id,
+        string ticketRef,
         [FromBody] UpdateTicketRequest request,
         CancellationToken ct)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
@@ -119,17 +126,20 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
-    [HttpPut("{id:int}/status")]
+    [HttpPut("{ticketRef}/status")]
     [Authorize(Roles = "admin,tenant_owner,manager,agent")]
     [EndpointSummary("Изменить статус заявки")]
     [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<TicketResponse>> ChangeStatus(
-        int id,
+        string ticketRef,
         [FromBody] ChangeTicketStatusRequest request,
         CancellationToken ct)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
@@ -157,14 +167,18 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
-    [HttpPost("{id:int}/auto-assign")]
+    [HttpPost("{ticketRef}/auto-assign")]
     [Authorize(Roles = "admin,tenant_owner,manager,agent")]
     [EndpointSummary("Автоматически распределить заявку на наименее загруженного инженера")]
     [ProducesResponseType(typeof(AutoAssignResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<AutoAssignResponse>> AutoAssign(int id, CancellationToken ct)
+    public async Task<ActionResult<AutoAssignResponse>> AutoAssign(string ticketRef, CancellationToken ct)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
+
         if (!TryGetUserId(out var actorId))
             return Unauthorized();
 
@@ -201,17 +215,20 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         return Ok(await service.UpdateAssignmentSettingAsync(request, ct));
     }
 
-    [HttpPost("{id:int}/assign")]
+    [HttpPost("{ticketRef}/assign")]
     [Authorize(Roles = "admin,tenant_owner,manager,agent")]
     [EndpointSummary("Назначить исполнителя заявки")]
     [ProducesResponseType(typeof(TicketResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TicketResponse>> Assign(
-        int id,
+        string ticketRef,
         [FromBody] AssignTicketRequest request,
         CancellationToken ct)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
         if (!TryGetUserId(out var actorId))
             return Unauthorized();
 
@@ -226,13 +243,17 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
-    [HttpPost("{id:int}/escalate")]
+    [HttpPost("{ticketRef}/escalate")]
     [EndpointSummary("Запустить ручную эскалацию заявки")]
     [ProducesResponseType(typeof(TicketEscalationResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
-    public async Task<ActionResult<TicketEscalationResponse>> Escalate(int id, CancellationToken ct)
+    public async Task<ActionResult<TicketEscalationResponse>> Escalate(string ticketRef, CancellationToken ct)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
+
         if (!TryGetUserId(out var actorId))
             return Unauthorized();
 
@@ -251,17 +272,21 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
-    [HttpGet("{id:int}/escalations")]
+    [HttpGet("{ticketRef}/escalations")]
     [EndpointSummary("Получить историю эскалаций заявки")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketEscalationResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<IReadOnlyList<TicketEscalationResponse>>> GetEscalations(int id, CancellationToken ct)
+    public async Task<ActionResult<IReadOnlyList<TicketEscalationResponse>>> GetEscalations(string ticketRef, CancellationToken ct)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
+
         var escalations = await service.GetTicketEscalationsAsync(id, ct);
         return escalations is null ? NotFound() : Ok(escalations);
     }
 
-    [HttpPost("{id:int}/escalation/accept")]
+    [HttpPost("{ticketRef}/escalation/accept")]
     [Authorize(Roles = "admin,tenant_owner,manager,agent")]
     [EndpointSummary("Принять эскалацию заявки")]
     [ProducesResponseType(typeof(TicketEscalationResponse), StatusCodes.Status200OK)]
@@ -269,10 +294,13 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
     public async Task<ActionResult<TicketEscalationResponse>> AcceptEscalation(
-        int id,
+        string ticketRef,
         [FromBody] AcceptEscalationRequest request,
         CancellationToken ct)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
         if (!TryGetUserId(out var actorId))
             return Unauthorized();
 
@@ -293,16 +321,19 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
-    [HttpGet("{id:int}/messages")]
+    [HttpGet("{ticketRef}/messages")]
     [EndpointSummary("Получить сообщения заявки")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketMessageResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyList<TicketMessageResponse>>> GetMessages(
-        int id,
+        string ticketRef,
         CancellationToken ct,
         [FromQuery] int? skip,
         [FromQuery] int? take)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
@@ -320,16 +351,19 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         return messages is null ? NotFound() : Ok(messages);
     }
 
-    [HttpGet("{id:int}/history")]
+    [HttpGet("{ticketRef}/history")]
     [EndpointSummary("Получить историю изменений заявки")]
     [ProducesResponseType(typeof(IReadOnlyList<TicketHistoryResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyList<TicketHistoryResponse>>> GetHistory(
-        int id,
+        string ticketRef,
         CancellationToken ct,
         [FromQuery] int? skip,
         [FromQuery] int? take)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
@@ -347,16 +381,19 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         return history is null ? NotFound() : Ok(history);
     }
 
-    [HttpPost("{id:int}/messages")]
+    [HttpPost("{ticketRef}/messages")]
     [EndpointSummary("Добавить сообщение к заявке")]
     [ProducesResponseType(typeof(TicketMessageResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TicketMessageResponse>> CreateMessage(
-        int id,
+        string ticketRef,
         [FromBody] CreateTicketMessageRequest request,
         CancellationToken ct)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
         if (!TryGetUserId(out var authorId))
             return Unauthorized();
 
@@ -365,7 +402,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
             var message = await service.CreateMessageAsync(id, request, authorId, IsStaff(), ct);
             return message is null
                 ? NotFound()
-                : CreatedAtAction(nameof(GetMessages), new { id }, message);
+                : CreatedAtAction(nameof(GetMessages), new { ticketRef = id.ToString() }, message);
         }
         catch (ArgumentException ex)
         {
@@ -377,7 +414,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
-    [HttpPost("{id:int}/attachments")]
+    [HttpPost("{ticketRef}/attachments")]
     [Consumes("multipart/form-data")]
     [RequestSizeLimit(MaxAttachmentSizeBytes + 64 * 1024)]
     [RequestFormLimits(MultipartBodyLengthLimit = MaxAttachmentSizeBytes + 64 * 1024)]
@@ -386,10 +423,13 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<TicketAttachmentUploadResponse>> UploadAttachment(
-        int id,
+        string ticketRef,
         [FromForm] IFormFile? file,
         CancellationToken ct)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
         if (!TryGetUserId(out var userId))
             return Unauthorized();
         if (file is null)
@@ -415,13 +455,17 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         }
     }
 
-    [HttpGet("{id:int}/attachments/{attachmentId:int}")]
+    [HttpGet("{ticketRef}/attachments/{attachmentId:int}")]
     [EndpointSummary("Скачать вложение из сообщения заявки")]
     [Produces("application/octet-stream")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> DownloadAttachment(int id, int attachmentId, CancellationToken ct)
+    public async Task<IActionResult> DownloadAttachment(string ticketRef, int attachmentId, CancellationToken ct)
     {
+        var resolvedId = await service.ResolveTicketIdAsync(ticketRef, ct);
+        if (resolvedId is not int id)
+            return NotFound();
+
         if (!TryGetUserId(out var userId))
             return Unauthorized();
 
@@ -439,6 +483,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<IReadOnlyList<AssetTicketHistoryItem>>> GetAssetTicketHistory(
         int id,
+        [FromQuery] string? search,
         [FromQuery] int? typeId,
         [FromQuery] int? statusId,
         [FromQuery] int? criticalityLevelId,
@@ -450,7 +495,7 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
         try
         {
             var tickets = await service.GetAssetTicketHistoryAsync(
-                id, typeId, statusId, criticalityLevelId, assigneeId, dateFrom, dateTo, ct);
+                id, search, typeId, statusId, criticalityLevelId, assigneeId, dateFrom, dateTo, ct);
             return tickets is null ? NotFound() : Ok(tickets);
         }
         catch (ArgumentException ex)

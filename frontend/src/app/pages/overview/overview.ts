@@ -62,7 +62,7 @@ import { TenantUserQuotaService } from '../../core/workspace/tenant-user-quota.s
           <header class="panel-header"><div><h2>Последние заявки</h2><p>Текущая очередь Service Desk</p></div><a routerLink="/tickets">Все заявки <span aria-hidden="true">→</span></a></header>
           <div class="table-scroll"><table><thead><tr><th>Заявка</th><th>Приоритет</th><th>Статус</th><th>SLA</th></tr></thead>
             <tbody>@for (ticket of overview.recentTickets; track ticket.id) {
-              <tr><td><strong>{{ ticket.id }}</strong><span>{{ ticket.title }}</span><small>{{ ticket.requester }} · {{ ticket.team }}</small></td><td><span class="tag" [class.critical]="ticket.priority === 'Критический'" [class.high]="ticket.priority === 'Высокий'">{{ ticket.priority }}</span></td><td>{{ ticket.status }}</td><td>{{ ticket.slaRemaining }}</td></tr>
+              <tr><td><strong>{{ ticket.ticketNumber || ticket.id }}</strong><span>{{ ticket.title }}</span><small>{{ ticket.requester }} · {{ ticket.team }}</small></td><td><span class="tag" [class.critical]="ticket.priority === 'Критический'" [class.high]="ticket.priority === 'Высокий'">{{ ticket.priority }}</span></td><td>{{ ticket.status }}</td><td>{{ ticket.slaRemaining }}</td></tr>
             }</tbody>
           </table></div>
         </section>

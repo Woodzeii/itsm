@@ -46,7 +46,7 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, 
           </div>
           <div class="table-scroll"><table><thead><tr><th>Заявка</th><th>Тип</th><th>Критичность</th><th>Статус</th><th>Исполнитель</th><th>SLA реакции</th><th>SLA решения</th></tr></thead><tbody>
             @for (ticket of filteredTickets; track ticket.id) {
-              <tr [class.active]="selected?.id === ticket.id" (click)="select(ticket)"><td><strong>{{ ticket.id }}</strong><span>{{ ticket.title }}</span><small>{{ ticket.requester }} · {{ ticket.createdOn || ticket.createdAt }}</small></td><td>{{ ticket.type }}</td><td><span class="tag" [class.high]="ticket.priority === 'Высокий'">{{ ticket.priority }}</span></td><td>{{ ticket.status }}</td><td>{{ ticket.assignee || 'Не назначен' }}</td><td>{{ ticket.reactionSla || '—' }}</td><td>{{ ticket.resolutionSla || ticket.slaRemaining }}</td></tr>
+              <tr [class.active]="selected?.id === ticket.id" (click)="select(ticket)"><td><strong>{{ ticket.ticketNumber || ticket.id }}</strong><span>{{ ticket.title }}</span><small>{{ ticket.requester }} · {{ ticket.createdOn || ticket.createdAt }}</small></td><td>{{ ticket.type }}</td><td><span class="tag" [class.high]="ticket.priority === 'Высокий'">{{ ticket.priority }}</span></td><td>{{ ticket.status }}</td><td>{{ ticket.assignee || 'Не назначен' }}</td><td>{{ ticket.reactionSla || '—' }}</td><td>{{ ticket.resolutionSla || ticket.slaRemaining }}</td></tr>
             }
             @if (!filteredTickets.length) { <tr><td colspan="7" class="empty">Заявок по заданным фильтрам нет</td></tr> }
           </tbody></table></div>
@@ -55,7 +55,7 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, 
 
         <aside class="panel ticket-detail">
           @if (selected) {
-            <header class="detail-heading"><div><p class="eyebrow">{{ selected.id }} · {{ selected.type }}</p><h2>{{ selected.title }}</h2></div><button class="icon-button" type="button" aria-label="Закрыть карточку" (click)="selected = null">×</button></header>
+            <header class="detail-heading"><div><p class="eyebrow">{{ selected.ticketNumber || selected.id }} · {{ selected.type }}</p><h2>{{ selected.title }}</h2></div><button class="icon-button" type="button" aria-label="Закрыть карточку" (click)="selected = null">×</button></header>
             <div class="ticket-facts"><div><small>Автор</small><strong>{{ selected.creatorName || selected.requester }}</strong></div>@if (selected.creatorName) { <div><small>Заявитель</small><strong>{{ selected.requester }}</strong></div> }<div><small>Исполнитель</small><strong>{{ selected.assignee || 'Не назначен' }}</strong></div><div><small>Критичность</small><strong>{{ selected.priority }}</strong></div><div><small>Статус</small><strong>{{ selected.status }}</strong></div><div><small>Реакция</small><strong>{{ selected.reactionSla || '—' }}</strong></div><div><small>Решение</small><strong>{{ selected.resolutionSla || selected.slaRemaining }}</strong></div></div>
             @if (settings?.assignmentMode === 'manual') { <div class="assignment"><label>Исполнитель<select name="assignee" [(ngModel)]="assigneeDraft"><option value="">Выбрать инженера</option>@for (engineer of engineerOptions; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label><button class="secondary" type="button" [disabled]="!assigneeDraft || isAssigning" (click)="assign()">Назначить</button><button class="secondary" type="button" [disabled]="isAssigning" (click)="autoAssign()">Распределить автоматически</button></div> }
             @if (isEngineer && selected.status !== 'Закрыта') { <div class="priority-edit"><label>Критичность<select name="priority" [(ngModel)]="priorityDraft">@for (priority of settings?.criticalities ?? []; track priority) { <option [value]="priority">{{ priority }}</option> }</select></label><button class="secondary" type="button" [disabled]="priorityDraft === selected.priority" (click)="changePriority()">Изменить</button></div> }
@@ -290,7 +290,7 @@ export class TicketQueueComponent implements OnInit {
     }
     get filteredTickets(): Ticket[] {
         const query = this.query.toLocaleLowerCase();
-        return this.tickets.filter(ticket => (!this.typeFilter || ticket.type === this.typeFilter) && (!this.assigneeFilter || ticket.assignee === this.assigneeFilter) && (!this.statusFilter || ticket.status === this.statusFilter) && (!this.priorityFilter || ticket.priority === this.priorityFilter) && `${ticket.id} ${ticket.title} ${ticket.requester}`.toLocaleLowerCase().includes(query));
+        return this.tickets.filter(ticket => (!this.typeFilter || ticket.type === this.typeFilter) && (!this.assigneeFilter || ticket.assignee === this.assigneeFilter) && (!this.statusFilter || ticket.status === this.statusFilter) && (!this.priorityFilter || ticket.priority === this.priorityFilter) && `${ticket.ticketNumber ?? ''} ${ticket.id} ${ticket.title} ${ticket.requester}`.toLocaleLowerCase().includes(query));
     }
     get nextStatuses(): { name: string; statusId: number }[] {
         return this.selected
@@ -391,7 +391,7 @@ export class TicketQueueComponent implements OnInit {
                 this.tickets = [ticket, ...this.tickets];
                 this.selected = ticket;
                 this.showCreateForm = false;
-                this.notice = `Заявка ${ticket.id} создана.`;
+                this.notice = `Заявка ${ticket.ticketNumber || ticket.id} создана.`;
                 this.isSubmitting = false;
                 this.changeDetector.markForCheck();
             },

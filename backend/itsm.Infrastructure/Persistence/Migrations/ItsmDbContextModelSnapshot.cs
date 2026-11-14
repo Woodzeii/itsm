@@ -1894,6 +1894,12 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("tenant_id");
 
+                    b.Property<string>("TicketNumber")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("ticket_number");
+
                     b.Property<string>("Title")
                         .IsRequired()
                         .HasColumnType("text")
@@ -1945,8 +1951,15 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_tickets_tenant_id");
 
+                    b.HasIndex("TicketNumber")
+                        .HasDatabaseName("ix_tickets_ticket_number");
+
                     b.HasIndex("TypeId")
                         .HasDatabaseName("ix_tickets_type_id");
+
+                    b.HasIndex("TenantId", "TicketNumber")
+                        .IsUnique()
+                        .HasDatabaseName("ix_tickets_tenant_id_ticket_number");
 
                     b.ToTable("tickets", "public");
                 });

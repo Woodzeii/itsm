@@ -211,6 +211,22 @@ describe('HttpWorkspaceApiService backend contract', () => {
         expect(result).toEqual(expect.objectContaining({ ticketId: '42', assigneeName: 'Пётр Петров' }));
     });
 
+    it('maps the public ticket number returned by the backend', () => {
+        let ticket: { ticketNumber?: string; id: string } | undefined;
+        service.getTickets().subscribe(tickets => ticket = tickets[0]);
+
+        http.expectOne(`${environment.apiBaseUrl}/tickets`).flush([{
+            id: 42,
+            ticketNumber: 'GRM-663-22603',
+            title: 'VPN',
+            typeName: 'Инцидент',
+            statusName: 'Открыта',
+        }]);
+
+        expect(ticket!.ticketNumber).toBe('GRM-663-22603');
+        expect(ticket!.id).toBe('42');
+    });
+
     it('maps backend ticket responses to the frontend ticket model', () => {
         let ticket: unknown;
         service.getTickets().subscribe(tickets => ticket = tickets[0]);

@@ -6,6 +6,10 @@ public class Ticket : IMultiTenant
 {
     public int Id { get; set; }
     public int TenantId { get; set; }
+
+    /// <summary>Публичный номер заявки в формате XXX-000-00000.</summary>
+    public string TicketNumber { get; set; } = string.Empty;
+
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public int TypeId { get; set; }
