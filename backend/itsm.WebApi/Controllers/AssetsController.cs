@@ -18,11 +18,11 @@ public sealed class AssetsController(IAssetService service) : ControllerBase
     [EndpointSummary("Получить список активов")]
     [ProducesResponseType(typeof(IReadOnlyList<AssetDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<AssetDto>>> GetAll(
-        [FromQuery] int? assetClassId,
+        [FromQuery] string? assetClassCode,
         [FromQuery] string? lifecycleStage,
         [FromQuery] string? search,
         CancellationToken ct)
-        => Ok(await service.GetAllAsync(assetClassId, lifecycleStage, search, ct));
+        => Ok(await service.GetAllAsync(assetClassCode, lifecycleStage, search, ct));
 
     [HttpGet("{id:int}")]
     [EndpointSummary("Получить карточку актива")]
@@ -56,6 +56,10 @@ public sealed class AssetsController(IAssetService service) : ControllerBase
         {
             var created = await service.CreateAsync(request, actorId, ct);
             return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+        }
+        catch (FieldValidationException ex)
+        {
+            return FieldValidationProblem(ex);
         }
         catch (ArgumentException ex)
         {
@@ -91,6 +95,10 @@ public sealed class AssetsController(IAssetService service) : ControllerBase
         {
             var updated = await service.UpdateAsync(id, request, actorId, ct);
             return updated is null ? NotFound() : Ok(updated);
+        }
+        catch (FieldValidationException ex)
+        {
+            return FieldValidationProblem(ex);
         }
         catch (ArgumentException ex)
         {
@@ -149,6 +157,10 @@ public sealed class AssetsController(IAssetService service) : ControllerBase
             var movement = await service.RegisterMovementAsync(id, request, actorId, ct);
             return movement is null ? NotFound() : Ok(movement);
         }
+        catch (FieldValidationException ex)
+        {
+            return FieldValidationProblem(ex);
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(new ProblemDetails { Title = "Некорректное движение актива", Detail = ex.Message, Status = 400 });
@@ -198,5 +210,11 @@ public sealed class AssetsController(IAssetService service) : ControllerBase
         foreach (var failure in validation.Errors)
             modelState.AddModelError(failure.PropertyName, failure.ErrorMessage);
         return modelState;
+    }
+
+    private ActionResult FieldValidationProblem(FieldValidationException exception)
+    {
+        ModelState.AddModelError(exception.Field, exception.Message);
+        return ValidationProblem(ModelState);
     }
 }

@@ -116,17 +116,26 @@
     "/api/dictionaries": {
       "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries"
     },
-    "/api/dictionaries/{id}": {
-      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{id}"
+    "/api/dictionaries/{code}": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{code}"
     },
-    "/api/dictionaries/{id}/values": {
-      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{id}~1values"
+    "/api/dictionaries/{code}/archive": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{code}~1archive"
     },
-    "/api/dictionaries/{id}/values/{valueId}": {
-      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{id}~1values~1{valueId}"
+    "/api/dictionaries/{code}/restore": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{code}~1restore"
     },
-    "/api/dictionaries/{id}/values/{valueId}/archive": {
-      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{id}~1values~1{valueId}~1archive"
+    "/api/dictionaries/{code}/values": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{code}~1values"
+    },
+    "/api/dictionaries/{code}/values/{valueCode}": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{code}~1values~1{valueCode}"
+    },
+    "/api/dictionaries/{code}/values/{valueCode}/archive": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{code}~1values~1{valueCode}~1archive"
+    },
+    "/api/dictionaries/{code}/values/{valueCode}/restore": {
+      "$ref": "./modules/asset-management.json#/paths/~1api~1dictionaries~1{code}~1values~1{valueCode}~1restore"
     },
     "/api/tickets": {
       "$ref": "./modules/service-desk-core.json#/paths/~1api~1tickets"

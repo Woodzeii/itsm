@@ -29,15 +29,15 @@ import { DictionaryDto, DictionaryValueDto } from '../../core/dictionaries/dicti
       <div class="layout">
         <aside class="list">
           <h3>Список</h3>
-          @for (d of dictionaries; track d.id) {
-            <button type="button" class="item" [class.active]="selected?.id === d.id"
-              [attr.aria-pressed]="selected?.id === d.id" (click)="select(d)">
+          @for (d of dictionaries; track d.code) {
+            <button type="button" class="item" [class.active]="selected?.code === d.code"
+              [attr.aria-pressed]="selected?.code === d.code" (click)="select(d)">
               <div>
                 <strong>{{ d.name }}</strong>
-                <small>{{ d.code }}</small>
+                <small>{{ d.code }}{{ d.isArchived ? ' · архив' : '' }}</small>
               </div>
               <span class="badge">{{ d.valuesCount }}</span>
-              <span class="item-action">{{ selected?.id === d.id ? 'Выбран' : 'Открыть' }}</span>
+              <span class="item-action">{{ selected?.code === d.code ? 'Выбран' : 'Открыть' }}</span>
             </button>
           }
           @if (dictionaries.length === 0) {
@@ -50,14 +50,21 @@ import { DictionaryDto, DictionaryValueDto } from '../../core/dictionaries/dicti
             <div class="detail-header">
               <div>
                 <h2>{{ selected.name }}</h2>
-                <small>{{ selected.code }} · id={{ selected.id }} · {{ selected.isSystem ? 'системный' : 'пользовательский' }}</small>
+                <small>{{ selected.code }} · {{ selected.isArchived ? 'архивный' : 'активный' }} · {{ selected.isSystem ? 'системный' : 'пользовательский' }}</small>
               </div>
-              @if (isAdmin && !selected.isSystem) {
-                <button class="danger" (click)="deleteDictionary()">Удалить</button>
+              @if (isAdmin) {
+                @if (selected.isArchived) {
+                  <button (click)="restoreDictionary()">Восстановить справочник</button>
+                } @else if (!selected.isSystem) {
+                  <button class="danger" (click)="archiveDictionary()">Архивировать справочник</button>
+                }
+                @if (!selected.isSystem && values.length === 0) {
+                  <button class="danger" (click)="deleteDictionary()">Удалить насовсем</button>
+                }
               }
             </div>
 
-            @if (isAdmin) {
+            @if (isAdmin && !selected.isArchived) {
               <div class="create-value-form">
                 <input [(ngModel)]="newValueCode" placeholder="code" />
                 <input [(ngModel)]="newValueName" placeholder="Название" />
@@ -69,7 +76,6 @@ import { DictionaryDto, DictionaryValueDto } from '../../core/dictionaries/dicti
             <table>
               <thead>
                 <tr>
-                  <th>Id</th>
                   <th>Code</th>
                   <th>Name</th>
                   <th>Sort</th>
@@ -78,9 +84,8 @@ import { DictionaryDto, DictionaryValueDto } from '../../core/dictionaries/dicti
                 </tr>
               </thead>
               <tbody>
-                @for (v of values; track v.id) {
+                @for (v of values; track v.code) {
                   <tr>
-                    <td>{{ v.id }}</td>
                     <td>{{ v.code }}</td>
                     <td>{{ v.name }}</td>
                     <td>{{ v.sortOrder }}</td>
@@ -91,6 +96,7 @@ import { DictionaryDto, DictionaryValueDto } from '../../core/dictionaries/dicti
                           <button (click)="archiveValue(v)">Архивировать</button>
                         }
                         @if (v.isArchived) {
+                          <button (click)="restoreValue(v)">Восстановить</button>
                           <button class="danger" (click)="deleteValue(v)">Удалить</button>
                         }
                       </td>
@@ -161,7 +167,7 @@ export class DictionariesComponent implements OnInit {
     }
 
     private loadAll(): void {
-        this.api.getAll().subscribe({
+        this.api.getAll(true).subscribe({
             next: list => {
                 this.dictionaries = list;
                 this.cdr.detectChanges();
@@ -175,7 +181,7 @@ export class DictionariesComponent implements OnInit {
 
     select(d: DictionaryDto): void {
         this.selected = d;
-        this.api.getValues(d.id, true).subscribe({
+        this.api.getValues(d.code, true).subscribe({
             next: list => {
                 this.values = list;
                 this.cdr.detectChanges();
@@ -204,7 +210,7 @@ export class DictionariesComponent implements OnInit {
 
     deleteDictionary(): void {
         if (!this.selected || !confirm(`Удалить «${this.selected.name}»?`)) return;
-        this.api.delete(this.selected.id).subscribe({
+        this.api.delete(this.selected.code).subscribe({
             next: () => {
                 this.selected = null;
                 this.values = [];
@@ -220,7 +226,7 @@ export class DictionariesComponent implements OnInit {
     createValue(): void {
         if (!this.selected) return;
         this.errorMessage = '';
-        this.api.createValue(this.selected.id, {
+        this.api.createValue(this.selected.code, {
             code: this.newValueCode.trim(),
             name: this.newValueName.trim(),
             sortOrder: this.newValueSort,
@@ -241,7 +247,7 @@ export class DictionariesComponent implements OnInit {
 
     archiveValue(v: DictionaryValueDto): void {
         if (!this.selected) return;
-        this.api.archiveValue(this.selected.id, v.id).subscribe({
+        this.api.archiveValue(this.selected.code, v.code).subscribe({
             next: () => {
                 this.loadAll();
                 this.select(this.selected!);
@@ -255,10 +261,52 @@ export class DictionariesComponent implements OnInit {
 
     deleteValue(v: DictionaryValueDto): void {
         if (!this.selected || !confirm(`Удалить «${v.name}»?`)) return;
-        this.api.deleteValue(this.selected.id, v.id).subscribe({
+        this.api.deleteValue(this.selected.code, v.code).subscribe({
             next: () => {
                 this.loadAll();
                 this.select(this.selected!);
+            },
+            error: err => {
+                this.errorMessage = `Ошибка: ${err.status} ${err.error?.message ?? ''}`;
+                this.cdr.detectChanges();
+            },
+        });
+    }
+
+    restoreValue(v: DictionaryValueDto): void {
+        if (!this.selected) return;
+        this.api.restoreValue(this.selected.code, v.code).subscribe({
+            next: () => {
+                this.loadAll();
+                this.select(this.selected!);
+            },
+            error: err => {
+                this.errorMessage = `Ошибка: ${err.status} ${err.error?.message ?? ''}`;
+                this.cdr.detectChanges();
+            },
+        });
+    }
+
+    archiveDictionary(): void {
+        if (!this.selected || !confirm(`Архивировать «${this.selected.name}»?`)) return;
+        this.api.archiveDictionary(this.selected.code).subscribe({
+            next: dictionary => {
+                this.selected = dictionary;
+                this.loadAll();
+            },
+            error: err => {
+                this.errorMessage = `Ошибка: ${err.status} ${err.error?.message ?? ''}`;
+                this.cdr.detectChanges();
+            },
+        });
+    }
+
+    restoreDictionary(): void {
+        if (!this.selected) return;
+        this.api.restoreDictionary(this.selected.code).subscribe({
+            next: dictionary => {
+                this.selected = dictionary;
+                this.loadAll();
             },
             error: err => {
                 this.errorMessage = `Ошибка: ${err.status} ${err.error?.message ?? ''}`;

@@ -92,10 +92,10 @@ export interface AssetRecord {
     attributes?: Record<string, string>;
     inventoryNumber?: string;
     serialNumber?: string;
-    assetClassId?: number;
-    warehouseId?: number | null;
-    locationId?: number | null;
-    departmentId?: number | null;
+    assetClassCode?: string;
+    warehouseCode?: string | null;
+    locationCode?: string | null;
+    departmentCode?: string | null;
     assignedUserId?: number | null;
 }
 
@@ -119,12 +119,18 @@ export interface AssetMovement {
     movementType?: string;
     fromUserId?: number | null;
     toUserId?: number | null;
-    fromWarehouseId?: number | null;
-    toWarehouseId?: number | null;
-    fromLocationId?: number | null;
-    toLocationId?: number | null;
-    fromDepartmentId?: number | null;
-    toDepartmentId?: number | null;
+    fromWarehouseCode?: string | null;
+    toWarehouseCode?: string | null;
+    fromLocationCode?: string | null;
+    toLocationCode?: string | null;
+    fromDepartmentCode?: string | null;
+    toDepartmentCode?: string | null;
+    fromWarehouseName?: string | null;
+    toWarehouseName?: string | null;
+    fromLocationName?: string | null;
+    toLocationName?: string | null;
+    fromDepartmentName?: string | null;
+    toDepartmentName?: string | null;
 }
 
 export interface AssetDetails extends AssetRecord {
@@ -144,10 +150,10 @@ export interface CreateAssetRequest {
     department?: string;
     attributes?: Record<string, string>;
     serialNumber?: string;
-    assetClassId?: number;
-    warehouseId?: number | null;
-    locationId?: number | null;
-    departmentId?: number | null;
+    assetClassCode?: string;
+    warehouseCode?: string | null;
+    locationCode?: string | null;
+    departmentCode?: string | null;
     assignedUserId?: number | null;
 }
 
@@ -156,9 +162,9 @@ export interface AssetMovementRequest {
     from: string;
     to: string;
     toUserId?: number | null;
-    toWarehouseId?: number | null;
-    toLocationId?: number | null;
-    toDepartmentId?: number | null;
+    toWarehouseCode?: string | null;
+    toLocationCode?: string | null;
+    toDepartmentCode?: string | null;
     comment?: string;
 }
 
@@ -289,7 +295,7 @@ export interface RepairCloseRequest {
     result: 'В эксплуатацию' | 'На склад' | 'Списать';
     workDescription: string;
     repairToUserId?: number | null;
-    repairToWarehouseId?: number | null;
+    repairToWarehouseCode?: string | null;
 }
 
 export interface CreatePortalAccountRequest {

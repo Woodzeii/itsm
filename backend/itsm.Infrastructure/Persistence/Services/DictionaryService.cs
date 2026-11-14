@@ -16,44 +16,53 @@ public class DictionaryService : IDictionaryService
 
     private int GetCurrentTenantId() => _db.GetCurrentTenantId();
 
-    public async Task<List<DictionaryDto>> GetAllAsync(CancellationToken ct = default)
+    public async Task<List<DictionaryDto>> GetAllAsync(bool includeArchived = false, CancellationToken ct = default)
     {
         var tenantId = GetCurrentTenantId();
-        
-        return await _db.Dictionaries
-            .Where(d => d.TenantId == tenantId)
-            .OrderBy(d => d.Id)
-            .Select(d => new DictionaryDto
+        var query = _db.Dictionaries.Where(dictionary => dictionary.TenantId == tenantId);
+        if (!includeArchived)
+            query = query.Where(dictionary => !dictionary.IsArchived);
+
+        return await query
+            .OrderBy(dictionary => dictionary.Id)
+            .Select(dictionary => new DictionaryDto
             {
-                Id = d.Id,
-                Code = d.Code,
-                Name = d.Name,
-                IsSystem = d.IsSystem,
-                ValuesCount = d.Values.Count(v => !v.IsArchived)
+                Code = dictionary.Code,
+                Name = dictionary.Name,
+                IsSystem = dictionary.IsSystem,
+                IsArchived = dictionary.IsArchived,
+                ValuesCount = dictionary.Values.Count(value => !value.IsArchived)
             })
             .ToListAsync(ct);
     }
 
-    public async Task<DictionaryDetailDto?> GetByIdAsync(int id, CancellationToken ct = default)
+    public async Task<DictionaryDetailDto?> GetByCodeAsync(
+        string code,
+        bool includeArchived = false,
+        CancellationToken ct = default)
     {
         var tenantId = GetCurrentTenantId();
-        
-        var dict = await _db.Dictionaries
-            .Where(d => d.Id == id && d.TenantId == tenantId)
-            .Include(d => d.Values)
-            .FirstOrDefaultAsync(ct);
+        var query = _db.Dictionaries
+            .Where(dictionary => dictionary.Code == code && dictionary.TenantId == tenantId);
+        if (!includeArchived)
+            query = query.Where(dictionary => !dictionary.IsArchived);
 
-        if (dict is null) return null;
+        var dictionary = await query
+            .Include(item => item.Values)
+            .FirstOrDefaultAsync(ct);
+        if (dictionary is null)
+            return null;
 
         return new DictionaryDetailDto
         {
-            Id = dict.Id,
-            Code = dict.Code,
-            Name = dict.Name,
-            IsSystem = dict.IsSystem,
-            Values = dict.Values
-                .OrderBy(v => v.SortOrder).ThenBy(v => v.Id)
-                .Select(ToValueDto)
+            Code = dictionary.Code,
+            Name = dictionary.Name,
+            IsSystem = dictionary.IsSystem,
+            IsArchived = dictionary.IsArchived,
+            Values = dictionary.Values
+                .OrderBy(value => value.SortOrder)
+                .ThenBy(value => value.Id)
+                .Select(value => ToValueDto(dictionary.Code, value))
                 .ToList()
         };
     }
@@ -61,106 +70,140 @@ public class DictionaryService : IDictionaryService
     public async Task<DictionaryDto> CreateAsync(CreateDictionaryRequest request, CancellationToken ct = default)
     {
         var tenantId = GetCurrentTenantId();
-        
-        if (await _db.Dictionaries.AnyAsync(d => d.TenantId == tenantId && d.Code == request.Code, ct))
-            throw new InvalidOperationException($"Справочник с кодом '{request.Code}' уже существует");
+        var code = request.Code.Trim();
 
-        var dict = new Dictionary
+        if (await _db.Dictionaries.AnyAsync(dictionary =>
+                dictionary.TenantId == tenantId && dictionary.Code == code, ct))
+            throw new InvalidOperationException($"Справочник с кодом '{code}' уже существует");
+
+        var dictionary = new Dictionary
         {
             TenantId = tenantId,
-            Code = request.Code,
-            Name = request.Name,
+            Code = code,
+            Name = request.Name.Trim(),
             IsSystem = false,
+            IsArchived = false,
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        _db.Dictionaries.Add(dict);
+        _db.Dictionaries.Add(dictionary);
         await _db.SaveChangesAsync(ct);
 
-        return new DictionaryDto
-        {
-            Id = dict.Id,
-            Code = dict.Code,
-            Name = dict.Name,
-            IsSystem = dict.IsSystem,
-            ValuesCount = 0
-        };
+        return ToDictionaryDto(dictionary, 0);
     }
 
-    public async Task<DictionaryDto?> UpdateAsync(int id, UpdateDictionaryRequest request, CancellationToken ct = default)
+    public async Task<DictionaryDto?> UpdateAsync(
+        string code,
+        UpdateDictionaryRequest request,
+        CancellationToken ct = default)
     {
         var tenantId = GetCurrentTenantId();
-        
-        var dict = await _db.Dictionaries
-            .FirstOrDefaultAsync(d => d.Id == id && d.TenantId == tenantId, ct);
-        if (dict is null) return null;
+        var dictionary = await _db.Dictionaries
+            .FirstOrDefaultAsync(item => item.Code == code && item.TenantId == tenantId, ct);
+        if (dictionary is null)
+            return null;
 
-        dict.Name = request.Name;
+        dictionary.Name = request.Name.Trim();
         await _db.SaveChangesAsync(ct);
 
-        return new DictionaryDto
-        {
-            Id = dict.Id,
-            Code = dict.Code,
-            Name = dict.Name,
-            IsSystem = dict.IsSystem,
-            ValuesCount = await _db.DictionaryValues.CountAsync(v => v.DictionaryId == id && !v.IsArchived, ct)
-        };
+        var valuesCount = await _db.DictionaryValues
+            .CountAsync(value => value.DictionaryId == dictionary.Id && !value.IsArchived, ct);
+        return ToDictionaryDto(dictionary, valuesCount);
     }
 
-    public async Task<bool> DeleteAsync(int id, CancellationToken ct = default)
+    public async Task<bool> DeleteAsync(string code, CancellationToken ct = default)
     {
         var tenantId = GetCurrentTenantId();
-        
-        var dict = await _db.Dictionaries
-            .Where(d => d.Id == id && d.TenantId == tenantId)
-            .Include(d => d.Values)
+        var dictionary = await _db.Dictionaries
+            .Where(item => item.Code == code && item.TenantId == tenantId)
+            .Include(item => item.Values)
             .FirstOrDefaultAsync(ct);
+        if (dictionary is null)
+            return false;
 
-        if (dict is null) return false;
-
-        if (dict.IsSystem)
+        if (dictionary.IsSystem)
             throw new InvalidOperationException("Системный справочник нельзя удалить");
 
-        if (dict.Values.Any())
+        if (dictionary.Values.Count > 0)
             throw new InvalidOperationException("Нельзя удалить справочник со значениями. Сначала удалите значения.");
 
-        _db.Dictionaries.Remove(dict);
+        if (await _db.FormFields.AnyAsync(field => field.DictionaryId == dictionary.Id, ct))
+            throw new InvalidOperationException("Нельзя удалить справочник, который используется в шаблонах форм.");
+
+        _db.Dictionaries.Remove(dictionary);
         await _db.SaveChangesAsync(ct);
         return true;
     }
 
-    public async Task<List<DictionaryValueDto>> GetValuesAsync(int dictionaryId, bool includeArchived = false, CancellationToken ct = default)
+    public async Task<DictionaryDto?> ArchiveAsync(string code, CancellationToken ct = default)
     {
-        var tenantId = GetCurrentTenantId();
-        
-        var query = _db.DictionaryValues
-            .Where(v => v.DictionaryId == dictionaryId && v.Dictionary.TenantId == tenantId);
+        var dictionary = await GetDictionaryAsync(code, ct);
+        if (dictionary is null)
+            return null;
+        if (dictionary.IsSystem)
+            throw new InvalidOperationException("Системный справочник нельзя архивировать.");
 
+        dictionary.IsArchived = true;
+        await _db.SaveChangesAsync(ct);
+        var valuesCount = await _db.DictionaryValues
+            .CountAsync(value => value.DictionaryId == dictionary.Id && !value.IsArchived, ct);
+        return ToDictionaryDto(dictionary, valuesCount);
+    }
+
+    public async Task<DictionaryDto?> RestoreAsync(string code, CancellationToken ct = default)
+    {
+        var dictionary = await GetDictionaryAsync(code, ct);
+        if (dictionary is null)
+            return null;
+
+        dictionary.IsArchived = false;
+        await _db.SaveChangesAsync(ct);
+        var valuesCount = await _db.DictionaryValues
+            .CountAsync(value => value.DictionaryId == dictionary.Id && !value.IsArchived, ct);
+        return ToDictionaryDto(dictionary, valuesCount);
+    }
+
+    public async Task<List<DictionaryValueDto>?> GetValuesAsync(
+        string dictionaryCode,
+        bool includeArchived = false,
+        CancellationToken ct = default)
+    {
+        var dictionary = await GetDictionaryAsync(dictionaryCode, ct);
+        if (dictionary is null || (!includeArchived && dictionary.IsArchived))
+            return null;
+
+        var query = _db.DictionaryValues.Where(value => value.DictionaryId == dictionary.Id);
         if (!includeArchived)
-            query = query.Where(v => !v.IsArchived);
+            query = query.Where(value => !value.IsArchived);
 
         return await query
-            .OrderBy(v => v.SortOrder).ThenBy(v => v.Id)
-            .Select(v => ToValueDto(v))
+            .OrderBy(value => value.SortOrder)
+            .ThenBy(value => value.Id)
+            .Select(value => ToValueDto(dictionary.Code, value))
             .ToListAsync(ct);
     }
 
-    public async Task<DictionaryValueDto?> CreateValueAsync(int dictionaryId, CreateDictionaryValueRequest request, CancellationToken ct = default)
+    public async Task<DictionaryValueDto?> CreateValueAsync(
+        string dictionaryCode,
+        CreateDictionaryValueRequest request,
+        CancellationToken ct = default)
     {
-        var tenantId = GetCurrentTenantId();
-        
-        if (!await _db.Dictionaries.AnyAsync(d => d.Id == dictionaryId && d.TenantId == tenantId, ct))
+        var dictionary = await GetDictionaryAsync(dictionaryCode, ct);
+        if (dictionary is null)
             return null;
+        if (dictionary.IsArchived)
+            throw new InvalidOperationException("Нельзя добавлять значения в архивный справочник.");
 
-        if (await _db.DictionaryValues.AnyAsync(v => v.DictionaryId == dictionaryId && v.Code == request.Code, ct))
-            throw new InvalidOperationException($"Значение с кодом '{request.Code}' уже существует в этом справочнике");
+        var code = request.Code.Trim();
+        if (await _db.DictionaryValues.AnyAsync(value =>
+                value.DictionaryId == dictionary.Id && value.Code == code, ct))
+            throw new InvalidOperationException($"Значение с кодом '{code}' уже существует в этом справочнике");
 
         var value = new DictionaryValue
         {
-            DictionaryId = dictionaryId,
-            Code = request.Code,
-            Name = request.Name,
+            DictionaryId = dictionary.Id,
+            Code = code,
+            Name = request.Name.Trim(),
             IsArchived = false,
             SortOrder = request.SortOrder,
             CreatedAt = DateTimeOffset.UtcNow
@@ -168,106 +211,157 @@ public class DictionaryService : IDictionaryService
 
         _db.DictionaryValues.Add(value);
         await _db.SaveChangesAsync(ct);
-
-        return ToValueDto(value);
+        return ToValueDto(dictionary.Code, value);
     }
 
-    public async Task<DictionaryValueDto?> UpdateValueAsync(int dictionaryId, int valueId, UpdateDictionaryValueRequest request, CancellationToken ct = default)
+    public async Task<DictionaryValueDto?> UpdateValueAsync(
+        string dictionaryCode,
+        string valueCode,
+        UpdateDictionaryValueRequest request,
+        CancellationToken ct = default)
     {
-        var tenantId = GetCurrentTenantId();
-        
+        var dictionary = await GetDictionaryAsync(dictionaryCode, ct);
+        if (dictionary is null)
+            return null;
+
         var value = await _db.DictionaryValues
-            .Where(v => v.Id == valueId && v.DictionaryId == dictionaryId && v.Dictionary.TenantId == tenantId)
-            .FirstOrDefaultAsync(ct);
+            .FirstOrDefaultAsync(item =>
+                item.DictionaryId == dictionary.Id && item.Code == valueCode, ct);
+        if (value is null)
+            return null;
 
-        if (value is null) return null;
-
-        value.Name = request.Name;
+        value.Name = request.Name.Trim();
         value.SortOrder = request.SortOrder;
         await _db.SaveChangesAsync(ct);
-
-        return ToValueDto(value);
+        return ToValueDto(dictionary.Code, value);
     }
 
-    public async Task<bool> DeleteValueAsync(int dictionaryId, int valueId, CancellationToken ct = default)
+    public async Task<bool> DeleteValueAsync(string dictionaryCode, string valueCode, CancellationToken ct = default)
     {
-        var tenantId = GetCurrentTenantId();
-        
-        var value = await _db.DictionaryValues
-            .Where(v => v.Id == valueId && v.DictionaryId == dictionaryId && v.Dictionary.TenantId == tenantId)
-            .FirstOrDefaultAsync(ct);
+        var value = await GetValueAsync(dictionaryCode, valueCode, ct);
+        if (value is null)
+            return false;
 
-        if (value is null) return false;
-
-        // SPR-04: удалять можно только архивированные (они не используются)
         if (!value.IsArchived)
             throw new InvalidOperationException("Нельзя удалить активное значение. Сначала архивируйте его.");
 
-        // Проверяем, не используется ли значение в других сущностях
         await CheckIfValueIsUsedAsync(value, ct);
-
         _db.DictionaryValues.Remove(value);
         await _db.SaveChangesAsync(ct);
         return true;
     }
 
-    private async Task CheckIfValueIsUsedAsync(DictionaryValue value, CancellationToken ct)
+    public async Task<DictionaryValueDto?> ArchiveValueAsync(
+        string dictionaryCode,
+        string valueCode,
+        CancellationToken ct = default)
     {
-        // Получаем информацию о справочнике
-        var dictionary = await _db.Dictionaries.FindAsync(new object[] { value.DictionaryId }, cancellationToken: ct);
-        if (dictionary is null) return;
-
-        // Проверяем, используется ли значение в Asset.Status
-        if (dictionary.Code == "asset_status")
-        {
-            var usedInAssetStatus = await _db.Set<Asset>()
-                .AnyAsync(a => a.Status == value.Code, ct);
-            if (usedInAssetStatus)
-                throw new InvalidOperationException($"Значение '{value.Name}' используется в статусах активов и не может быть удалено.");
-        }
-
-        // Проверяем, используется ли значение в Asset.Category
-        if (dictionary.Code == "asset_category")
-        {
-            var usedInAssetCategory = await _db.Set<Asset>()
-                .AnyAsync(a => a.Category == value.Code, ct);
-            if (usedInAssetCategory)
-                throw new InvalidOperationException($"Значение '{value.Name}' используется в категориях активов и не может быть удалено.");
-        }
-
-        // Проверяем, используется ли значение в Ticket.Priority
-        if (dictionary.Code == "ticket_priority")
-        {
-            var usedInTicketPriority = await _db.Set<Ticket>()
-                .AnyAsync(t => t.Priority == value.Code, ct);
-            if (usedInTicketPriority)
-                throw new InvalidOperationException($"Значение '{value.Name}' используется в приоритетах тикетов и не может быть удалено.");
-        }
-    }
-
-    public async Task<DictionaryValueDto?> ArchiveValueAsync(int dictionaryId, int valueId, CancellationToken ct = default)
-    {
-        var tenantId = GetCurrentTenantId();
-        
-        var value = await _db.DictionaryValues
-            .Where(v => v.Id == valueId && v.DictionaryId == dictionaryId && v.Dictionary.TenantId == tenantId)
-            .FirstOrDefaultAsync(ct);
-
-        if (value is null) return null;
+        var value = await GetValueAsync(dictionaryCode, valueCode, ct);
+        if (value is null)
+            return null;
 
         value.IsArchived = true;
         await _db.SaveChangesAsync(ct);
-
-        return ToValueDto(value);
+        return ToValueDto(dictionaryCode, value);
     }
 
-    private static DictionaryValueDto ToValueDto(DictionaryValue v) => new()
+    public async Task<DictionaryValueDto?> RestoreValueAsync(
+        string dictionaryCode,
+        string valueCode,
+        CancellationToken ct = default)
     {
-        Id = v.Id,
-        DictionaryId = v.DictionaryId,
-        Code = v.Code,
-        Name = v.Name,
-        IsArchived = v.IsArchived,
-        SortOrder = v.SortOrder
+        var dictionary = await GetDictionaryAsync(dictionaryCode, ct);
+        if (dictionary is null)
+            return null;
+        if (dictionary.IsArchived)
+            throw new InvalidOperationException("Нельзя восстановить значение в архивном справочнике.");
+
+        var value = await _db.DictionaryValues
+            .FirstOrDefaultAsync(item =>
+                item.DictionaryId == dictionary.Id && item.Code == valueCode, ct);
+        if (value is null)
+            return null;
+
+        value.IsArchived = false;
+        await _db.SaveChangesAsync(ct);
+        return ToValueDto(dictionary.Code, value);
+    }
+
+    private async Task<Dictionary?> GetDictionaryAsync(string code, CancellationToken ct)
+    {
+        var tenantId = GetCurrentTenantId();
+        return await _db.Dictionaries
+            .FirstOrDefaultAsync(dictionary => dictionary.Code == code && dictionary.TenantId == tenantId, ct);
+    }
+
+    private async Task<DictionaryValue?> GetValueAsync(string dictionaryCode, string valueCode, CancellationToken ct)
+    {
+        var tenantId = GetCurrentTenantId();
+        return await _db.DictionaryValues
+            .Where(value =>
+                value.Code == valueCode
+                && value.Dictionary.Code == dictionaryCode
+                && value.Dictionary.TenantId == tenantId)
+            .FirstOrDefaultAsync(ct);
+    }
+
+    private async Task CheckIfValueIsUsedAsync(DictionaryValue value, CancellationToken ct)
+    {
+        var tenantId = GetCurrentTenantId();
+        var dictionaryCode = await _db.Dictionaries
+            .Where(dictionary => dictionary.Id == value.DictionaryId && dictionary.TenantId == tenantId)
+            .Select(dictionary => dictionary.Code)
+            .FirstOrDefaultAsync(ct);
+        if (dictionaryCode is null)
+            return;
+
+        var isUsed = dictionaryCode switch
+        {
+            "asset_status" => await _db.Assets.AnyAsync(
+                asset => asset.TenantId == tenantId && asset.Status == value.Code, ct),
+            "asset_category" => await _db.Assets.AnyAsync(
+                asset => asset.TenantId == tenantId && asset.Category == value.Code, ct),
+            "warehouses" =>
+                await _db.Assets.AnyAsync(
+                    asset => asset.TenantId == tenantId && asset.WarehouseId == value.Id, ct)
+                || await _db.AssetMovements.AnyAsync(
+                    movement => movement.Asset.TenantId == tenantId
+                        && (movement.FromWarehouseId == value.Id || movement.ToWarehouseId == value.Id), ct),
+            "locations" =>
+                await _db.Assets.AnyAsync(
+                    asset => asset.TenantId == tenantId && asset.LocationId == value.Id, ct)
+                || await _db.AssetMovements.AnyAsync(
+                    movement => movement.Asset.TenantId == tenantId
+                        && (movement.FromLocationId == value.Id || movement.ToLocationId == value.Id), ct),
+            "departments" =>
+                await _db.Assets.AnyAsync(
+                    asset => asset.TenantId == tenantId && asset.DepartmentId == value.Id, ct)
+                || await _db.AssetMovements.AnyAsync(
+                    movement => movement.Asset.TenantId == tenantId
+                        && (movement.FromDepartmentId == value.Id || movement.ToDepartmentId == value.Id), ct),
+            _ => false
+        };
+
+        if (isUsed)
+            throw new InvalidOperationException(
+                $"Значение '{value.Name}' используется активами и не может быть удалено.");
+    }
+
+    private static DictionaryDto ToDictionaryDto(Dictionary dictionary, int valuesCount) => new()
+    {
+        Code = dictionary.Code,
+        Name = dictionary.Name,
+        IsSystem = dictionary.IsSystem,
+        IsArchived = dictionary.IsArchived,
+        ValuesCount = valuesCount
+    };
+
+    private static DictionaryValueDto ToValueDto(string dictionaryCode, DictionaryValue value) => new()
+    {
+        DictionaryCode = dictionaryCode,
+        Code = value.Code,
+        Name = value.Name,
+        IsArchived = value.IsArchived,
+        SortOrder = value.SortOrder
     };
 }

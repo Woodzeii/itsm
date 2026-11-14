@@ -1,23 +1,28 @@
 namespace itsm.Application.Common.Models;
 
+public sealed class FieldValidationException(string field, string message) : ArgumentException(message, field)
+{
+    public string Field { get; } = field;
+}
+
 /// <summary>Актив в списке и в карточке.</summary>
 public sealed record AssetDto(
     int Id,
     string? InventoryNumber,
     string? SerialNumber,
     string Name,
-    int? AssetClassId,
+    string? AssetClassCode,
     string? AssetClassName,
     string? Category,
     string LifecycleStage,
     string LifecycleStageName,
     int? AssignedUserId,
     string? AssignedUserName,
-    int? WarehouseId,
+    string? WarehouseCode,
     string? WarehouseName,
-    int? LocationId,
+    string? LocationCode,
     string? LocationName,
-    int? DepartmentId,
+    string? DepartmentCode,
     string? DepartmentName,
     DateTimeOffset? LicenseExpirationDate,
     DateTimeOffset CreatedAt,
@@ -36,11 +41,11 @@ public sealed record CreateAssetRequest
     public string? InventoryNumber { get; init; }
     public string? SerialNumber { get; init; }
     public required string Name { get; init; }
-    public required int AssetClassId { get; init; }
+    public required string AssetClassCode { get; init; }
     public string? Category { get; init; }
-    public int? WarehouseId { get; init; }
-    public int? LocationId { get; init; }
-    public int? DepartmentId { get; init; }
+    public string? WarehouseCode { get; init; }
+    public string? LocationCode { get; init; }
+    public string? DepartmentCode { get; init; }
     public int? AssignedUserId { get; init; }
     public Dictionary<string, string>? Attributes { get; init; }
     public string? LifecycleStage { get; init; }
@@ -53,11 +58,11 @@ public sealed record UpdateAssetRequest
     public string? InventoryNumber { get; init; }
     public string? SerialNumber { get; init; }
     public string? Name { get; init; }
-    public int? AssetClassId { get; init; }
+    public string? AssetClassCode { get; init; }
     public string? Category { get; init; }
-    public int? WarehouseId { get; init; }
-    public int? LocationId { get; init; }
-    public int? DepartmentId { get; init; }
+    public string? WarehouseCode { get; init; }
+    public string? LocationCode { get; init; }
+    public string? DepartmentCode { get; init; }
     public DateTimeOffset? LicenseExpirationDate { get; init; }
     public Dictionary<string, string>? Attributes { get; init; }
 }
@@ -72,12 +77,18 @@ public sealed record AssetMovementDto(
     string? FromUserName,
     int? ToUserId,
     string? ToUserName,
-    int? FromWarehouseId,
-    int? ToWarehouseId,
-    int? FromLocationId,
-    int? ToLocationId,
-    int? FromDepartmentId,
-    int? ToDepartmentId,
+    string? FromWarehouseCode,
+    string? FromWarehouseName,
+    string? ToWarehouseCode,
+    string? ToWarehouseName,
+    string? FromLocationCode,
+    string? FromLocationName,
+    string? ToLocationCode,
+    string? ToLocationName,
+    string? FromDepartmentCode,
+    string? FromDepartmentName,
+    string? ToDepartmentCode,
+    string? ToDepartmentName,
     int PerformedById,
     string PerformedByName,
     DateTimeOffset PerformedAt,
@@ -88,9 +99,9 @@ public sealed record RegisterAssetMovementRequest
 {
     public required string MovementType { get; init; }
     public int? ToUserId { get; init; }
-    public int? ToWarehouseId { get; init; }
-    public int? ToLocationId { get; init; }
-    public int? ToDepartmentId { get; init; }
+    public string? ToWarehouseCode { get; init; }
+    public string? ToLocationCode { get; init; }
+    public string? ToDepartmentCode { get; init; }
     public string? Comment { get; init; }
 }
 

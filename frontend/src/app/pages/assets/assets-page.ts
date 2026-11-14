@@ -2,6 +2,8 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
+import { DictionaryApiService } from '../../core/dictionaries/dictionary.service';
+import { DictionaryValueDto } from '../../core/dictionaries/dictionary.models';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 import { AssetClassAttributeOption, AssetClassOption, AssetDetails, AssetMovement, AssetRecord } from '../../core/workspace/workspace.models';
 
@@ -36,11 +38,11 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
               }
             </label>
           }
-          <label>Склад ID<input type="number" min="1" name="warehouseId" [(ngModel)]="draft.warehouseId" /></label>
-          <label>Место ID<input type="number" min="1" name="locationId" [(ngModel)]="draft.locationId" /></label>
-          <label>Подразделение ID<input type="number" min="1" name="departmentId" [(ngModel)]="draft.departmentId" /></label>
-          <p class="form-note">Укажите инвентарный или серийный номер. На склад актив попадёт только при наличии инвентарного номера и ID склада; иначе останется на этапе «Закуплен».</p>
-          <div class="form-actions"><button class="primary" type="submit" [disabled]="!draft.name.trim() || (!draft.id.trim() && !draft.serialNumber.trim()) || (!!draft.warehouseId && !draft.id.trim())">Создать</button><button class="quiet" type="button" (click)="showCreate = false">Отмена</button></div>
+          <label>Склад<select name="warehouseCode" [(ngModel)]="draft.warehouseCode"><option [ngValue]="null">Не выбрано</option>@for (value of activeWarehouses; track value.code) { <option [ngValue]="value.code">{{ value.name }} · {{ value.code }}</option> }</select></label>
+          <label>Место<select name="locationCode" [(ngModel)]="draft.locationCode"><option [ngValue]="null">Не выбрано</option>@for (value of activeLocations; track value.code) { <option [ngValue]="value.code">{{ value.name }} · {{ value.code }}</option> }</select></label>
+          <label>Подразделение<select name="departmentCode" [(ngModel)]="draft.departmentCode"><option [ngValue]="null">Не выбрано</option>@for (value of activeDepartments; track value.code) { <option [ngValue]="value.code">{{ value.name }} · {{ value.code }}</option> }</select></label>
+          <p class="form-note">Укажите инвентарный или серийный номер. На склад актив попадёт только при наличии инвентарного номера и кода склада; иначе останется на этапе «Закуплен».</p>
+          <div class="form-actions"><button class="primary" type="submit" [disabled]="!draft.name.trim() || (!draft.id.trim() && !draft.serialNumber.trim()) || (!!draft.warehouseCode && !draft.id.trim())">Создать</button><button class="quiet" type="button" (click)="showCreate = false">Отмена</button></div>
         </form>
       }
 
@@ -74,8 +76,8 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
                 <label>Идентификатор<input name="assetId" [(ngModel)]="edit.id" [disabled]="!!selected.id" [placeholder]="selected.id ? '' : 'Присвоить инвентарный номер'" /></label>
                 <label>Наименование<input name="assetName" [(ngModel)]="edit.name" required /></label>
                 <label>Этап жизненного цикла<input [value]="selected.lifecycle" disabled /></label>
-                <label>Место ID<input type="number" min="1" name="locationId" [(ngModel)]="edit.locationId" /></label>
-                <label>Подразделение ID<input type="number" min="1" name="departmentId" [(ngModel)]="edit.departmentId" /></label>
+                <label>Место<select name="locationCode" [(ngModel)]="edit.locationCode"><option [ngValue]="null">Без изменения</option>@for (value of locations; track value.code) { <option [ngValue]="value.code" [disabled]="value.isArchived">{{ value.name }} · {{ value.code }}{{ value.isArchived ? ' · архив' : '' }}</option> }</select></label>
+                <label>Подразделение<select name="departmentCode" [(ngModel)]="edit.departmentCode"><option [ngValue]="null">Без изменения</option>@for (value of departments; track value.code) { <option [ngValue]="value.code" [disabled]="value.isArchived">{{ value.name }} · {{ value.code }}{{ value.isArchived ? ' · архив' : '' }}</option> }</select></label>
                 @for (attribute of selectedAttributes; track attribute.code) {
                   <label>{{ attribute.name }}@if (attribute.required) { <span>*</span> }
                     @switch (attribute.dataType) {
@@ -125,7 +127,7 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
                   <label>Откуда<input name="from" [(ngModel)]="movement.from" required /></label>
                   <label>Куда / кому<input name="to" [(ngModel)]="movement.to" required /></label>
                   @if (movement.kind === 'Выдача со склада') { <label>ID сотрудника-получателя<input type="number" min="1" name="toUserId" [(ngModel)]="movement.toUserId" required /></label> }
-                  @if (movement.kind !== 'Выдача со склада') { <label>ID склада-получателя<input type="number" min="1" name="toWarehouseId" [(ngModel)]="movement.toWarehouseId" required /></label> }
+                  @if (movement.kind !== 'Выдача со склада') { <label>Склад-получатель<select name="toWarehouseCode" [(ngModel)]="movement.toWarehouseCode" required><option [ngValue]="null">Выберите склад</option>@for (value of activeWarehouses; track value.code) { <option [ngValue]="value.code">{{ value.name }} · {{ value.code }}</option> }</select></label> }
                   <button class="primary" type="submit" [disabled]="!movement.from.trim() || !movement.to.trim()">Оформить</button>
                 </form>
               }
@@ -133,7 +135,7 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
                 <form class="repair-form" (ngSubmit)="createRepair()"><label>Тикет на ремонт<input name="repairTitle" [(ngModel)]="repairTitle" placeholder="Что требуется проверить или исправить" required /></label><button class="secondary" type="submit">Создать тикет на ремонт</button></form>
               }
               @if (isEngineer && selected.lifecycle === 'В ремонте' && activeRepairTicket) {
-                <form class="repair-form close-repair" (ngSubmit)="closeRepair()"><strong>{{ activeRepairTicket.id }} · {{ activeRepairTicket.title }}</strong><label>Результат ремонта<select name="repairResult" [(ngModel)]="repairResult"><option value="В эксплуатацию">Вернуть в эксплуатацию</option><option value="На склад">Перевести на склад</option><option value="Списать">Списать</option></select></label><label>ID сотрудника для возврата в эксплуатацию (если не назначен)<input type="number" min="1" name="repairToUserId" [(ngModel)]="repairToUserId" /></label><label>ID склада для возврата на склад (если не задан)<input type="number" min="1" name="repairToWarehouseId" [(ngModel)]="repairToWarehouseId" /></label><label>Что ремонтировалось и что менялось *<textarea name="workDescription" [(ngModel)]="workDescription" required></textarea></label><button class="primary" type="submit" [disabled]="!workDescription.trim()">Закрыть тикет ремонта</button></form>
+              <form class="repair-form close-repair" (ngSubmit)="closeRepair()"><strong>{{ activeRepairTicket.id }} · {{ activeRepairTicket.title }}</strong><label>Результат ремонта<select name="repairResult" [(ngModel)]="repairResult"><option value="В эксплуатацию">Вернуть в эксплуатацию</option><option value="На склад">Перевести на склад</option><option value="Списать">Списать</option></select></label><label>ID сотрудника для возврата в эксплуатацию (если не назначен)<input type="number" min="1" name="repairToUserId" [(ngModel)]="repairToUserId" /></label><label>Код склада для возврата (если не задан)<input name="repairToWarehouseCode" [(ngModel)]="repairToWarehouseCode" /></label><label>Что ремонтировалось и что менялось *<textarea name="workDescription" [(ngModel)]="workDescription" required></textarea></label><button class="primary" type="submit" [disabled]="!workDescription.trim()">Закрыть тикет ремонта</button></form>
               }
               <div class="movement-list">@for (item of selected.movements; track item.id) {
                 <article><strong>{{ item.kind }}</strong><span>{{ item.from }} → {{ item.to }}</span><small>{{ item.createdAt }} · {{ item.actor }}</small></article>
@@ -204,9 +206,13 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
 export class AssetsPageComponent implements OnInit {
     private readonly workspace = inject(HttpWorkspaceApiService);
     private readonly auth = inject(AuthService);
+    private readonly dictionaryApi = inject(DictionaryApiService);
 
     assets: AssetRecord[] = [];
     assetClasses: AssetClassOption[] = [];
+    warehouses: DictionaryValueDto[] = [];
+    locations: DictionaryValueDto[] = [];
+    departments: DictionaryValueDto[] = [];
     selected: AssetDetails | null = null;
     query = '';
     tab: AssetTab = 'card';
@@ -218,11 +224,11 @@ export class AssetsPageComponent implements OnInit {
     workDescription = '';
     repairResult: 'В эксплуатацию' | 'На склад' | 'Списать' = 'В эксплуатацию';
     repairToUserId: number | null = null;
-    repairToWarehouseId: number | null = null;
-    draft = { id: '', serialNumber: '', name: '', type: '', className: '', owner: '', warehouse: '', warehouseId: null as number | null, locationId: null as number | null, departmentId: null as number | null };
+    repairToWarehouseCode: string | null = null;
+    draft = { id: '', serialNumber: '', name: '', type: '', className: '', owner: '', warehouse: '', warehouseCode: null as string | null, locationCode: null as string | null, departmentCode: null as string | null };
     draftAttributes: Record<string, string | number | boolean> = {};
-    edit = { id: '', name: '', locationId: null as number | null, departmentId: null as number | null, attributes: {} as Record<string, string | number | boolean> };
-    movement = { kind: 'Выдача со склада', from: '', to: '', toUserId: null as number | null, toWarehouseId: null as number | null };
+    edit = { id: '', name: '', locationCode: null as string | null, departmentCode: null as string | null, attributes: {} as Record<string, string | number | boolean> };
+    movement = { kind: 'Выдача со склада', from: '', to: '', toUserId: null as number | null, toWarehouseCode: null as string | null };
     ticketTypeFilter = '';
     ticketStatusFilter = '';
     ticketPriorityFilter = '';
@@ -235,6 +241,9 @@ export class AssetsPageComponent implements OnInit {
         return this.assets.filter(asset => `${asset.id} ${asset.name} ${asset.owner} ${asset.className} ${asset.lifecycle}`.toLocaleLowerCase().includes(query));
     }
     get activeAssetClasses(): AssetClassOption[] { return this.assetClasses.filter(assetClass => assetClass.active); }
+    get activeWarehouses(): DictionaryValueDto[] { return this.warehouses.filter(value => !value.isArchived); }
+    get activeLocations(): DictionaryValueDto[] { return this.locations.filter(value => !value.isArchived); }
+    get activeDepartments(): DictionaryValueDto[] { return this.departments.filter(value => !value.isArchived); }
     get createAttributes(): AssetClassAttributeOption[] { return this.activeAssetClasses.find(assetClass => assetClass.name === this.draft.className)?.attributes ?? []; }
     get selectedAttributes(): AssetClassAttributeOption[] { return this.assetClasses.find(assetClass => assetClass.name === this.selected?.className)?.attributes ?? []; }
     get relatedTicketTypes(): string[] { return [...new Set((this.selected?.relatedTickets ?? []).map(ticket => ticket.type).filter((value): value is string => !!value))]; }
@@ -257,13 +266,16 @@ export class AssetsPageComponent implements OnInit {
     ngOnInit(): void {
         this.isEngineer = this.auth.canRead();
         this.workspace.getAssetClasses().subscribe({ next: classes => { this.assetClasses = classes; if (!this.draft.className && classes.length) this.onCreateClassChange(classes[0].name); }, error: err => this.error = `Не удалось загрузить классы активов: ${err.message}` });
+        this.loadDictionaryValues('warehouses', values => this.warehouses = values);
+        this.loadDictionaryValues('locations', values => this.locations = values);
+        this.loadDictionaryValues('departments', values => this.departments = values);
         this.loadAssets();
     }
 
     select(asset: AssetRecord): void {
         this.tab = 'card';
       this.workspace.getAssetDetails(asset.recordId || asset.id).subscribe({
-            next: details => { this.selected = details; this.edit = { id: details.id, name: details.name, locationId: details.locationId ?? null, departmentId: details.departmentId ?? null, attributes: this.parseAttributes(details.attributes ?? {}, details.className) }; this.movement = { kind: details.lifecycle === 'На складе' ? 'Выдача со склада' : 'Возврат на склад', from: details.owner, to: '', toUserId: null, toWarehouseId: null }; },
+            next: details => { this.selected = details; this.edit = { id: details.id, name: details.name, locationCode: details.locationCode ?? null, departmentCode: details.departmentCode ?? null, attributes: this.parseAttributes(details.attributes ?? {}, details.className) }; this.movement = { kind: details.lifecycle === 'На складе' ? 'Выдача со склада' : 'Возврат на склад', from: details.owner, to: '', toUserId: null, toWarehouseCode: null }; },
             error: err => this.error = err.message,
         });
     }
@@ -273,7 +285,7 @@ export class AssetsPageComponent implements OnInit {
       if (missing) { this.error = `Заполните обязательный атрибут «${missing.name}».`; return; }
       const request = { ...this.draft, id: this.draft.id.trim() || undefined, attributes: this.stringifyAttributes(this.draftAttributes) };
         this.workspace.createAsset(request).subscribe({
-        next: asset => { this.notice = `Создан актив: ${asset.id || asset.name} · ${asset.lifecycle}.`; this.showCreate = false; this.draft = { id: '', serialNumber: '', name: '', type: '', className: '', owner: '', warehouse: '', warehouseId: null, locationId: null, departmentId: null }; this.draftAttributes = {}; if (this.activeAssetClasses.length) this.onCreateClassChange(this.activeAssetClasses[0].name); this.loadAssets(asset.recordId || asset.id || undefined); },
+        next: asset => { this.notice = `Создан актив: ${asset.id || asset.name} · ${asset.lifecycle}.`; this.showCreate = false; this.draft = { id: '', serialNumber: '', name: '', type: '', className: '', owner: '', warehouse: '', warehouseCode: null, locationCode: null, departmentCode: null }; this.draftAttributes = {}; if (this.activeAssetClasses.length) this.onCreateClassChange(this.activeAssetClasses[0].name); this.loadAssets(asset.recordId || asset.id || undefined); },
             error: err => this.error = err.message,
         });
     }
@@ -290,13 +302,13 @@ export class AssetsPageComponent implements OnInit {
     moveAsset(): void {
         if (!this.selected) return;
         const request: AssetMovement = { id: '', ...this.movement, actor: '', createdAt: '' };
-        const { kind, from, to, toUserId, toWarehouseId } = request;
+        const { kind, from, to, toUserId, toWarehouseCode } = request;
         this.workspace.moveAsset(this.selected.recordId || this.selected.id, {
             kind,
             from,
             to,
             toUserId: kind === 'Выдача со склада' ? toUserId ?? undefined : undefined,
-            toWarehouseId: kind !== 'Выдача со склада' ? toWarehouseId ?? undefined : undefined,
+            toWarehouseCode: kind !== 'Выдача со склада' ? toWarehouseCode ?? undefined : undefined,
         }).subscribe({ next: asset => { this.selected = asset; this.notice = 'Движение оформлено, дата и время зарегистрированы.'; this.loadAssets(asset.recordId || asset.id); }, error: err => this.error = err.message });
     }
 
@@ -311,8 +323,8 @@ export class AssetsPageComponent implements OnInit {
             result: this.repairResult,
             workDescription: this.workDescription,
             repairToUserId: this.repairToUserId,
-            repairToWarehouseId: this.repairToWarehouseId,
-        }).subscribe({ next: () => { this.notice = 'Ремонт закрыт, результат и описание добавлены в историю актива.'; this.workDescription = ''; this.repairToUserId = null; this.repairToWarehouseId = null; this.select(this.selected!); this.loadAssets(); }, error: err => this.error = err.message });
+            repairToWarehouseCode: this.repairToWarehouseCode,
+        }).subscribe({ next: () => { this.notice = 'Ремонт закрыт, результат и описание добавлены в историю актива.'; this.workDescription = ''; this.repairToUserId = null; this.repairToWarehouseCode = null; this.select(this.selected!); this.loadAssets(); }, error: err => this.error = err.message });
     }
 
     deleteAsset(): void {
@@ -355,5 +367,12 @@ export class AssetsPageComponent implements OnInit {
 
     private loadAssets(selectId?: string): void {
         this.workspace.getAssets().subscribe({ next: assets => { this.assets = assets; const target = selectId ? assets.find(asset => asset.id === selectId || asset.recordId === selectId) : this.selected ? assets.find(asset => asset.id === this.selected?.id || asset.recordId === this.selected?.recordId) : undefined; if (target) this.select(target); }, error: err => this.error = err.message });
+    }
+
+    private loadDictionaryValues(code: string, onLoaded: (values: DictionaryValueDto[]) => void): void {
+        this.dictionaryApi.getValues(code, true).subscribe({
+            next: onLoaded,
+            error: err => this.error = `Не удалось загрузить справочник «${code}»: ${err.message}`,
+        });
     }
 }

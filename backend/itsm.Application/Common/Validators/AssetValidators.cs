@@ -12,8 +12,13 @@ public sealed class CreateAssetRequestValidator : AbstractValidator<CreateAssetR
             .NotEmpty().WithMessage("Укажите наименование актива.")
             .MaximumLength(200);
 
-        RuleFor(request => request.AssetClassId)
-            .GreaterThan(0).WithMessage("Выберите класс актива.");
+        RuleFor(request => request.AssetClassCode)
+            .NotEmpty().WithMessage("Выберите класс актива.")
+            .MaximumLength(64);
+
+        RuleFor(request => request.WarehouseCode).MaximumLength(64);
+        RuleFor(request => request.LocationCode).MaximumLength(64);
+        RuleFor(request => request.DepartmentCode).MaximumLength(64);
 
         RuleFor(request => request.InventoryNumber)
             .MaximumLength(64);
@@ -43,9 +48,10 @@ public sealed class UpdateAssetRequestValidator : AbstractValidator<UpdateAssetR
             .Must(name => name is null || !string.IsNullOrWhiteSpace(name))
             .WithMessage("Наименование актива не может быть пустым.");
 
-        RuleFor(request => request.AssetClassId)
-            .GreaterThan(0)
-            .When(request => request.AssetClassId is not null);
+        RuleFor(request => request.AssetClassCode).MaximumLength(64);
+        RuleFor(request => request.WarehouseCode).MaximumLength(64);
+        RuleFor(request => request.LocationCode).MaximumLength(64);
+        RuleFor(request => request.DepartmentCode).MaximumLength(64);
 
         RuleFor(request => request.InventoryNumber)
             .MaximumLength(64);
@@ -68,5 +74,9 @@ public sealed class RegisterAssetMovementRequestValidator : AbstractValidator<Re
 
         RuleFor(request => request.Comment)
             .MaximumLength(2000);
+
+        RuleFor(request => request.ToWarehouseCode).MaximumLength(64);
+        RuleFor(request => request.ToLocationCode).MaximumLength(64);
+        RuleFor(request => request.ToDepartmentCode).MaximumLength(64);
     }
 }

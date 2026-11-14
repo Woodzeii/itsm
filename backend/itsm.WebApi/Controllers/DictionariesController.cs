@@ -21,13 +21,13 @@ public class DictionariesController : ControllerBase
     // ================= СПРАВОЧНИКИ =================
 
     [HttpGet]
-    public async Task<IActionResult> GetAll(CancellationToken ct)
-        => Ok(await _service.GetAllAsync(ct));
+    public async Task<IActionResult> GetAll([FromQuery] bool includeArchived = false, CancellationToken ct = default)
+        => Ok(await _service.GetAllAsync(includeArchived, ct));
 
-    [HttpGet("{id:int}")]
-    public async Task<IActionResult> GetById(int id, CancellationToken ct)
+    [HttpGet("{code}")]
+    public async Task<IActionResult> GetByCode(string code, [FromQuery] bool includeArchived = false, CancellationToken ct = default)
     {
-        var result = await _service.GetByIdAsync(id, ct);
+        var result = await _service.GetByCodeAsync(code, includeArchived, ct);
         return result is null ? NotFound() : Ok(result);
     }
 
@@ -45,7 +45,7 @@ public class DictionariesController : ControllerBase
         try
         {
             var created = await _service.CreateAsync(request, ct);
-            return CreatedAtAction(nameof(GetById), new { id = created.Id }, created);
+            return CreatedAtAction(nameof(GetByCode), new { code = created.Code }, created);
         }
         catch (InvalidOperationException ex)
         {
@@ -53,10 +53,10 @@ public class DictionariesController : ControllerBase
         }
     }
 
-    [HttpPut("{id:int}")]
+    [HttpPut("{code}")]
     [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> Update(
-        int id,
+        string code,
         [FromBody] UpdateDictionaryRequest request,
         [FromServices] IValidator<UpdateDictionaryRequest> validator,
         CancellationToken ct)
@@ -65,17 +65,17 @@ public class DictionariesController : ControllerBase
         if (!validation.IsValid)
             return BadRequest(new { message = "Ошибка валидации", errors = validation.ToDictionary() });
 
-        var updated = await _service.UpdateAsync(id, request, ct);
+        var updated = await _service.UpdateAsync(code, request, ct);
         return updated is null ? NotFound() : Ok(updated);
     }
 
-    [HttpDelete("{id:int}")]
+    [HttpDelete("{code}")]
     [Authorize(Roles = "admin,tenant_owner")]
-    public async Task<IActionResult> Delete(int id, CancellationToken ct)
+    public async Task<IActionResult> Delete(string code, CancellationToken ct)
     {
         try
         {
-            var deleted = await _service.DeleteAsync(id, ct);
+            var deleted = await _service.DeleteAsync(code, ct);
             return deleted ? NoContent() : NotFound();
         }
         catch (InvalidOperationException ex)
@@ -84,16 +84,35 @@ public class DictionariesController : ControllerBase
         }
     }
 
+    [HttpPost("{code}/archive")]
+    [Authorize(Roles = "admin,tenant_owner")]
+    public async Task<IActionResult> Archive(string code, CancellationToken ct)
+    {
+        var archived = await _service.ArchiveAsync(code, ct);
+        return archived is null ? NotFound() : Ok(archived);
+    }
+
+    [HttpPost("{code}/restore")]
+    [Authorize(Roles = "admin,tenant_owner")]
+    public async Task<IActionResult> Restore(string code, CancellationToken ct)
+    {
+        var restored = await _service.RestoreAsync(code, ct);
+        return restored is null ? NotFound() : Ok(restored);
+    }
+
     // ================= ЗНАЧЕНИЯ =================
 
-    [HttpGet("{id:int}/values")]
-    public async Task<IActionResult> GetValues(int id, [FromQuery] bool includeArchived = false, CancellationToken ct = default)
-        => Ok(await _service.GetValuesAsync(id, includeArchived, ct));
+    [HttpGet("{code}/values")]
+    public async Task<IActionResult> GetValues(string code, [FromQuery] bool includeArchived = false, CancellationToken ct = default)
+    {
+        var values = await _service.GetValuesAsync(code, includeArchived, ct);
+        return values is null ? NotFound() : Ok(values);
+    }
 
-    [HttpPost("{id:int}/values")]
+    [HttpPost("{code}/values")]
     [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> CreateValue(
-        int id,
+        string code,
         [FromBody] CreateDictionaryValueRequest request,
         [FromServices] IValidator<CreateDictionaryValueRequest> validator,
         CancellationToken ct)
@@ -104,7 +123,7 @@ public class DictionariesController : ControllerBase
 
         try
         {
-            var created = await _service.CreateValueAsync(id, request, ct);
+            var created = await _service.CreateValueAsync(code, request, ct);
             return created is null ? NotFound() : Ok(created);
         }
         catch (InvalidOperationException ex)
@@ -113,11 +132,11 @@ public class DictionariesController : ControllerBase
         }
     }
 
-    [HttpPut("{id:int}/values/{valueId:int}")]
+    [HttpPut("{code}/values/{valueCode}")]
     [Authorize(Roles = "admin,tenant_owner")]
     public async Task<IActionResult> UpdateValue(
-        int id,
-        int valueId,
+        string code,
+        string valueCode,
         [FromBody] UpdateDictionaryValueRequest request,
         [FromServices] IValidator<UpdateDictionaryValueRequest> validator,
         CancellationToken ct)
@@ -126,17 +145,17 @@ public class DictionariesController : ControllerBase
         if (!validation.IsValid)
             return BadRequest(new { message = "Ошибка валидации", errors = validation.ToDictionary() });
 
-        var updated = await _service.UpdateValueAsync(id, valueId, request, ct);
+        var updated = await _service.UpdateValueAsync(code, valueCode, request, ct);
         return updated is null ? NotFound() : Ok(updated);
     }
 
-    [HttpDelete("{id:int}/values/{valueId:int}")]
+    [HttpDelete("{code}/values/{valueCode}")]
     [Authorize(Roles = "admin,tenant_owner")]
-    public async Task<IActionResult> DeleteValue(int id, int valueId, CancellationToken ct)
+    public async Task<IActionResult> DeleteValue(string code, string valueCode, CancellationToken ct)
     {
         try
         {
-            var deleted = await _service.DeleteValueAsync(id, valueId, ct);
+            var deleted = await _service.DeleteValueAsync(code, valueCode, ct);
             return deleted ? NoContent() : NotFound();
         }
         catch (InvalidOperationException ex)
@@ -145,11 +164,26 @@ public class DictionariesController : ControllerBase
         }
     }
 
-    [HttpPost("{id:int}/values/{valueId:int}/archive")]
+    [HttpPost("{code}/values/{valueCode}/archive")]
     [Authorize(Roles = "admin,tenant_owner")]
-    public async Task<IActionResult> ArchiveValue(int id, int valueId, CancellationToken ct)
+    public async Task<IActionResult> ArchiveValue(string code, string valueCode, CancellationToken ct)
     {
-        var archived = await _service.ArchiveValueAsync(id, valueId, ct);
+        var archived = await _service.ArchiveValueAsync(code, valueCode, ct);
         return archived is null ? NotFound() : Ok(archived);
+    }
+
+    [HttpPost("{code}/values/{valueCode}/restore")]
+    [Authorize(Roles = "admin,tenant_owner")]
+    public async Task<IActionResult> RestoreValue(string code, string valueCode, CancellationToken ct)
+    {
+        try
+        {
+            var restored = await _service.RestoreValueAsync(code, valueCode, ct);
+            return restored is null ? NotFound() : Ok(restored);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { message = ex.Message });
+        }
     }
 }

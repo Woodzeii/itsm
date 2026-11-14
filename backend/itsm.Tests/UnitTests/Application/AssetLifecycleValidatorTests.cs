@@ -14,14 +14,14 @@ public sealed class AssetLifecycleValidatorTests
         var stageResult = await validator.ValidateAsync(new CreateAssetRequest
         {
             Name = "Актив",
-            AssetClassId = 1,
+            AssetClassCode = "laptop",
             InventoryNumber = "INV-1",
             LifecycleStage = AssetLifecycleStages.InUse
         });
         var assigneeResult = await validator.ValidateAsync(new CreateAssetRequest
         {
             Name = "Актив",
-            AssetClassId = 1,
+            AssetClassCode = "laptop",
             InventoryNumber = "INV-2",
             AssignedUserId = 7
         });

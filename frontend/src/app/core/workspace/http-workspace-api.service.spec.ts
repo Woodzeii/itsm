@@ -433,10 +433,10 @@ describe('HttpWorkspaceApiService backend contract', () => {
             department: undefined,
             inventoryNumber: undefined,
             serialNumber: 'SN-15',
-            assetClassId: undefined,
-            warehouseId: null,
-            locationId: null,
-            departmentId: null,
+            assetClassCode: undefined,
+            warehouseCode: null,
+            locationCode: null,
+            departmentCode: null,
             assignedUserId: null,
             attributes: {},
         }]);
@@ -450,8 +450,8 @@ describe('HttpWorkspaceApiService backend contract', () => {
             className: 'Ноутбук',
             id: 'INV-9001',
             serialNumber: 'SN-9001',
-            assetClassId: 3,
-            warehouseId: 1,
+            assetClassCode: 'laptop',
+            warehouseCode: 'main',
         }).subscribe(result => detail = result);
 
         const request = http.expectOne(`${environment.apiBaseUrl}/assets`);
@@ -460,10 +460,10 @@ describe('HttpWorkspaceApiService backend contract', () => {
             name: 'Ноутбук Dell',
             inventoryNumber: 'INV-9001',
             serialNumber: 'SN-9001',
-            assetClassId: 3,
-            warehouseId: 1,
-            locationId: null,
-            departmentId: null,
+            assetClassCode: 'laptop',
+            warehouseCode: 'main',
+            locationCode: null,
+            departmentCode: null,
             attributes: null,
         });
         request.flush({ id: 15, name: 'Ноутбук Dell', inventoryNumber: 'INV-9001' });
@@ -484,9 +484,9 @@ describe('HttpWorkspaceApiService backend contract', () => {
         expect(request.request.body).toEqual({
             movementType: 'issue',
             toUserId: 7,
-            toWarehouseId: null,
-            toLocationId: null,
-            toDepartmentId: null,
+            toWarehouseCode: null,
+            toLocationCode: null,
+            toDepartmentCode: null,
             comment: 'Склад #3 → Анна Белова',
         });
         request.flush({ id: 1, assetId: 15, movementType: 'issue' });
@@ -497,7 +497,7 @@ describe('HttpWorkspaceApiService backend contract', () => {
         service.closeRepairTicket('42', {
             result: 'На склад',
             workDescription: 'Заменен блок питания.',
-            repairToWarehouseId: 19,
+            repairToWarehouseCode: 'main',
         }).subscribe();
 
         const lookups = http.expectOne(`${environment.apiBaseUrl}/tickets/lookups`);
@@ -511,7 +511,7 @@ describe('HttpWorkspaceApiService backend contract', () => {
             repairResolution: 'Заменен блок питания.',
             repairOutcome: 'TransferToWarehouse',
             repairToUserId: null,
-            repairToWarehouseId: 19,
+            repairToWarehouseCode: 'main',
         });
         request.flush({ id: 42, statusId: 5, statusName: 'Закрыта' });
     });
@@ -557,12 +557,13 @@ describe('HttpWorkspaceApiService backend contract', () => {
                 id: 3,
                 movementType: 'issue',
                 movementTypeName: 'Выдача со склада',
-                fromWarehouseId: 2,
+                fromWarehouseCode: 'main',
+                fromWarehouseName: 'Основной склад',
                 toUserId: 7,
                 toUserName: 'Анна Белова',
                 performedByName: 'Оператор',
                 performedAt: '2026-11-12T10:00:00Z',
-                comment: 'Склад #2 → Анна Белова',
+                comment: 'Основной склад → Анна Белова',
             }],
             relatedTickets: [{
                 id: 42,
@@ -587,9 +588,9 @@ describe('HttpWorkspaceApiService backend contract', () => {
         expect(detail).toMatchObject({
             attributes: { ram: '16' },
             movements: [{
-                from: 'Склад #2',
+                from: 'Основной склад',
                 to: 'Анна Белова',
-                fromWarehouseId: 2,
+                fromWarehouseCode: 'main',
                 toUserId: 7,
             }],
             relatedTickets: [{

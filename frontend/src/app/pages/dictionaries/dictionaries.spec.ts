@@ -7,15 +7,14 @@ import { DictionariesComponent } from './dictionaries';
 
 describe('DictionariesComponent live API', () => {
     const dictionary: DictionaryDto = {
-        id: 1,
         code: 'priority',
         name: 'Приоритеты',
         isSystem: false,
+        isArchived: false,
         valuesCount: 1,
     };
     const activeValue: DictionaryValueDto = {
-        id: 10,
-        dictionaryId: 1,
+        dictionaryCode: 'priority',
         code: 'high',
         name: 'Высокий',
         isArchived: false,
@@ -23,7 +22,6 @@ describe('DictionariesComponent live API', () => {
     };
     const archivedValue: DictionaryValueDto = {
         ...activeValue,
-        id: 11,
         code: 'old',
         name: 'Старый',
         isArchived: true,
@@ -71,7 +69,7 @@ describe('DictionariesComponent live API', () => {
         fixture.componentInstance.select(dictionary);
         fixture.detectChanges();
 
-        expect(api.getValues).toHaveBeenCalledWith(1, true);
+        expect(api.getValues).toHaveBeenCalledWith('priority', true);
         expect((fixture.nativeElement as HTMLElement).textContent).toContain('Старый');
     });
 
@@ -96,7 +94,7 @@ describe('DictionariesComponent live API', () => {
 
         component.archiveValue(activeValue);
 
-        expect(api.archiveValue).toHaveBeenCalledWith(1, 10);
-        expect(api.getValues).toHaveBeenCalledWith(1, true);
+        expect(api.archiveValue).toHaveBeenCalledWith('priority', 'high');
+        expect(api.getValues).toHaveBeenCalledWith('priority', true);
     });
 });

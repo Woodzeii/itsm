@@ -138,6 +138,11 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
             var updated = await service.ChangeStatusAsync(id, request, userId, UserRoles(), ct);
             return updated is null ? NotFound() : Ok(updated);
         }
+        catch (FieldValidationException ex)
+        {
+            ModelState.AddModelError(ex.Field, ex.Message);
+            return ValidationProblem(ModelState);
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(new ProblemDetails { Title = "Некорректный переход статуса", Detail = ex.Message, Status = 400 });
