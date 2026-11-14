@@ -409,6 +409,52 @@ public class AssetsApiTests
     }
 
     [Fact]
+    public async Task PurchasedAsset_CanBeReceivedIntoWarehouse()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassId = await CreateAssetClassAsync();
+        var warehouseCode = await CreateWarehouseAsync();
+        var created = await CreateAssetAsync(client, assetClassId, $"INV-{Guid.NewGuid():N}");
+
+        var movement = await client.PostAsJsonAsync($"/api/assets/{created.Id}/movements", new
+        {
+            movementType = AssetMovementTypes.Stocking,
+            toWarehouseCode = warehouseCode
+        });
+        var detail = await client.GetFromJsonAsync<AssetDetailDto>($"/api/assets/{created.Id}");
+
+        movement.StatusCode.Should().Be(HttpStatusCode.OK);
+        detail!.Asset.LifecycleStage.Should().Be(AssetLifecycleStages.InStock);
+        detail.Asset.WarehouseCode.Should().Be(warehouseCode);
+        detail.History.Should().Contain(item => item.ActionType == AssetHistoryActionTypes.StageChanged);
+        detail.Movements.Should().Contain(item => item.MovementType == AssetMovementTypes.Stocking);
+    }
+
+    [Fact]
+    public async Task PurchasedAssetWithoutInventoryNumber_CannotBeReceivedIntoWarehouse()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassCode = await CreateAssetClassAsync();
+        var warehouseCode = await CreateWarehouseAsync();
+        var createResponse = await client.PostAsJsonAsync("/api/assets", new
+        {
+            name = "Актив только с серийным номером",
+            serialNumber = $"SN-{Guid.NewGuid():N}",
+            assetClassCode
+        });
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = (await createResponse.Content.ReadFromJsonAsync<AssetDto>())!;
+
+        var movement = await client.PostAsJsonAsync($"/api/assets/{created.Id}/movements", new
+        {
+            movementType = AssetMovementTypes.Stocking,
+            toWarehouseCode = warehouseCode
+        });
+
+        movement.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task TransferMovement_IsNotAllowedByLifecycle()
     {
         var client = await CreateAgentClientAsync();

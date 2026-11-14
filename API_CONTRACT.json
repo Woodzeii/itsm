@@ -3245,7 +3245,8 @@
             "enum": [
               "issue",
               "return",
-              "relocate"
+              "relocate",
+              "stocking"
             ]
           },
           "toUserId": {

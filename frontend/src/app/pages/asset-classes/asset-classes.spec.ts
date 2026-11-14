@@ -44,6 +44,7 @@ describe('AssetClassesComponent live API', () => {
         activate: ReturnType<typeof vi.fn>;
         delete: ReturnType<typeof vi.fn>;
         createAttribute: ReturnType<typeof vi.fn>;
+        updateAttribute: ReturnType<typeof vi.fn>;
         deleteAttribute: ReturnType<typeof vi.fn>;
     };
 
@@ -57,6 +58,7 @@ describe('AssetClassesComponent live API', () => {
             activate: vi.fn().mockReturnValue(of(assetClass)),
             delete: vi.fn().mockReturnValue(of(void 0)),
             createAttribute: vi.fn().mockReturnValue(of(attribute)),
+            updateAttribute: vi.fn().mockReturnValue(of(attribute)),
             deleteAttribute: vi.fn().mockReturnValue(of(void 0)),
         };
 
@@ -85,7 +87,7 @@ describe('AssetClassesComponent live API', () => {
         expect((fixture.nativeElement as HTMLElement).textContent).toContain('ОЗУ');
     });
 
-    it('shows controls for base classes and creating a custom class', () => {
+    it('opens the create-class dialog from the header', () => {
         const fixture = TestBed.createComponent(AssetClassesComponent);
         fixture.detectChanges();
 
@@ -97,7 +99,23 @@ describe('AssetClassesComponent live API', () => {
 
         createButton!.click();
         fixture.detectChanges();
-        expect(element.querySelector('input[placeholder="code (a-z, _)"]')).not.toBeNull();
+        expect(element.querySelector('[role="dialog"]')).not.toBeNull();
+        expect(element.querySelector('input[placeholder="Например, laptop"]')).not.toBeNull();
+    });
+
+    it('filters classes by name and code', () => {
+        const fixture = TestBed.createComponent(AssetClassesComponent);
+        const component = fixture.componentInstance;
+        component.classes = [
+            assetClass,
+            { ...assetClass, id: 2, code: 'server', name: 'Серверы' },
+        ];
+
+        component.classSearch = 'laptop';
+        expect(component.filteredClasses.map(item => item.id)).toEqual([1]);
+
+        component.classSearch = 'СЕРВ';
+        expect(component.filteredClasses.map(item => item.id)).toEqual([2]);
     });
 
     it('creates a class through the live API', () => {
@@ -145,11 +163,11 @@ describe('AssetClassesComponent live API', () => {
         fixture.detectChanges();
         const component = fixture.componentInstance;
         component.selected = detail;
+        component.attributes = [attribute];
         component.newAttrCode = 'cpu';
         component.newAttrName = 'Процессор';
         component.newAttrDataType = 'string';
         component.newAttrRequired = true;
-        component.newAttrSort = 2;
 
         component.createAttribute();
 
@@ -162,6 +180,24 @@ describe('AssetClassesComponent live API', () => {
             options: null,
             sortOrder: 2,
         });
+    });
+
+    it('reorders attributes by updating their sort order', () => {
+        const fixture = TestBed.createComponent(AssetClassesComponent);
+        const component = fixture.componentInstance;
+        const second = { ...attribute, id: 8, code: 'cpu', name: 'Процессор', sortOrder: 2 };
+        component.selected = detail;
+        component.attributes = [attribute, second];
+        api.updateAttribute.mockImplementation((_classId: number, attributeId: number, request: { sortOrder: number }) =>
+            of({ ...attribute, id: attributeId, sortOrder: request.sortOrder }));
+
+        component.moveAttribute(second, -1);
+
+        expect(api.updateAttribute.mock.calls.map(([, id, request]) => [id, request.sortOrder])).toEqual([
+            [8, 0],
+            [7, 1],
+        ]);
+        expect(component.attributes.map(item => item.id)).toEqual([8, 7]);
     });
 
     it('deactivates and activates the selected class', () => {

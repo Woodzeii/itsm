@@ -804,6 +804,7 @@ interface BackendTicketEscalation {
 }
 
 const ASSET_MOVEMENT_TYPES: Record<string, string> = {
+    'Поступление на склад': 'stocking',
     'Перемещение между складами': 'relocate',
     'Выдача со склада': 'issue',
     'Возврат на склад': 'return',

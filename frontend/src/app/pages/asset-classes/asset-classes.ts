@@ -20,39 +20,58 @@ import {
       <header class="page-header">
         <div>
           <h1>Классы активов</h1>
-          <p class="subtitle">Настройка классов и их атрибутов (АКТ-05, АКТ-07)</p>
+          <p class="subtitle">Настройка классов активов и их атрибутов</p>
         </div>
         @if (isAdmin) {
           <div class="header-actions">
-            <button type="button" class="secondary" (click)="addBasicClasses()" [disabled]="addingBasicClasses">
+            <button type="button" class="secondary basic-classes-button" (click)="addBasicClasses()" [disabled]="addingBasicClasses">
               {{ addingBasicClasses ? 'Добавление…' : 'Добавить базовые классы активов' }}
             </button>
-            <button type="button" (click)="showCreateForm = !showCreateForm">
-              {{ showCreateForm ? 'Отмена' : 'Создать класс активов' }}
+            <button type="button" (click)="openCreateDialog()">
+              + Создать класс активов
             </button>
           </div>
         }
       </header>
 
-      @if (isAdmin && showCreateForm) {
-        <form class="create-form" (ngSubmit)="createClass()">
-          <input name="classCode" [(ngModel)]="newCode" placeholder="code (a-z, _)" required />
-          <input name="className" [(ngModel)]="newName" placeholder="Название" required />
-          <button type="submit" [disabled]="!newCode.trim() || !newName.trim()">Создать класс</button>
-        </form>
-      }
-
-      @if (errorMessage) {
+      @if (errorMessage && !showCreateDialog) {
         <div class="error">{{ errorMessage }}</div>
       }
       @if (successMessage) {
         <div class="success">{{ successMessage }}</div>
       }
 
+      @if (showCreateDialog) {
+        <div class="create-modal-backdrop" role="presentation" (click)="onCreateBackdropClick($event)" (keydown.escape)="closeCreateDialog()">
+          <section class="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-class-title">
+            <header class="create-modal-header">
+              <h2 id="create-class-title">Создать класс активов</h2>
+              <button type="button" class="modal-close" aria-label="Закрыть" (click)="closeCreateDialog()">×</button>
+            </header>
+            <p class="modal-hint">Укажите код для API и отображаемое название класса.</p>
+            @if (errorMessage) { <div class="error">{{ errorMessage }}</div> }
+            <form class="create-form" (ngSubmit)="createClass()">
+              <label>Код
+                <input name="classCode" [(ngModel)]="newCode" placeholder="Например, laptop" required />
+              </label>
+              <label>Название
+                <input name="className" [(ngModel)]="newName" placeholder="Например, Ноутбуки" required />
+              </label>
+              <footer class="create-modal-actions">
+                <button type="button" class="secondary" (click)="closeCreateDialog()">Отмена</button>
+                <button type="submit" [disabled]="!newCode.trim() || !newName.trim()">Создать класс</button>
+              </footer>
+            </form>
+          </section>
+        </div>
+      }
+
       <div class="layout">
         <aside class="list">
           <h3>Классы ({{ classes.length }})</h3>
-          @for (c of classes; track c.id) {
+          <input class="class-search" type="search" aria-label="Поиск по классам активов"
+            [(ngModel)]="classSearch" placeholder="Поиск по названию или коду" />
+          @for (c of filteredClasses; track c.id) {
             <button type="button" class="item" [class.active]="selected?.id === c.id"
               [attr.aria-pressed]="selected?.id === c.id" (click)="select(c)">
               <div>
@@ -62,11 +81,12 @@ import {
               @if (!c.isActive) {
                 <span class="badge inactive">выкл.</span>
               }
-              <span class="item-action">{{ selected?.id === c.id ? 'Выбран' : 'Открыть' }}</span>
             </button>
           }
           @if (classes.length === 0) {
             <p class="empty">Нет классов активов</p>
+          } @else if (filteredClasses.length === 0) {
+            <p class="empty">По вашему запросу ничего не найдено.</p>
           }
         </aside>
 
@@ -75,7 +95,11 @@ import {
             <div class="detail-header">
               <div>
                 <h2>{{ selected.name }}</h2>
-                <small>code: {{ selected.code }} · id: {{ selected.id }} · активов: {{ selected.assetsCount }} · атрибутов: {{ selected.attributesCount }}</small>
+                <div class="class-meta">
+                  <span class="code-tag">{{ selected.code }}</span>
+                  <span>Активов: {{ selected.assetsCount }}</span>
+                  <span>Атрибутов: {{ selected.attributesCount }}</span>
+                </div>
               </div>
               <div class="actions">
                 @if (isAdmin) {
@@ -86,7 +110,7 @@ import {
                     <button class="secondary" (click)="activate()">Активировать</button>
                   }
                   @if (selected.assetsCount === 0) {
-                    <button class="danger" (click)="deleteClass()">Удалить</button>
+                    <button class="delete-outline" (click)="deleteClass()">Удалить</button>
                   } @else {
                     <span class="hint">Удаление запрещено: есть активы</span>
                   }
@@ -105,52 +129,73 @@ import {
             <h3 class="section-title">Атрибуты класса ({{ attributes.length }})</h3>
 
             @if (isAdmin) {
-              <div class="create-attr-form">
-                <input [(ngModel)]="newAttrCode" placeholder="code" />
-                <input [(ngModel)]="newAttrName" placeholder="Название" />
-                <select [(ngModel)]="newAttrDataType">
-                  @for (t of dataTypes; track t.value) {
-                    <option [value]="t.value">{{ t.label }}</option>
-                  }
-                </select>
-                <label class="chk"><input type="checkbox" [(ngModel)]="newAttrRequired" /> обязательный</label>
-                <input type="number" [(ngModel)]="newAttrSort" placeholder="Sort" />
-                <button (click)="createAttribute()" [disabled]="!newAttrCode || !newAttrName">Добавить</button>
+              <div class="attribute-form">
+                <label>Код
+                  <input [(ngModel)]="newAttrCode" placeholder="Например, serial_number" />
+                </label>
+                <label>Название
+                  <input [(ngModel)]="newAttrName" placeholder="Название атрибута" />
+                </label>
+                <label>Тип
+                  <select [(ngModel)]="newAttrDataType">
+                    @for (t of dataTypes; track t.value) {
+                      <option [value]="t.value">{{ t.label }}</option>
+                    }
+                  </select>
+                </label>
+                <label class="chk" title="Пользователь должен заполнить этот атрибут при создании или изменении актива.">
+                  <input type="checkbox" [(ngModel)]="newAttrRequired" />
+                  <span>Обязательный атрибут</span>
+                </label>
+                <button (click)="createAttribute()" [disabled]="!newAttrCode.trim() || !newAttrName.trim()">Добавить атрибут</button>
               </div>
             }
 
             <table>
               <thead>
                 <tr>
-                  <th>Id</th>
-                  <th>Code</th>
+                  @if (isAdmin) { <th class="reorder-column" aria-label="Изменить порядок"></th> }
+                  <th>Код</th>
                   <th>Название</th>
                   <th>Тип</th>
-                  <th>Обяз.</th>
-                  <th>По умолч.</th>
-                  <th>Sort</th>
-                  @if (isAdmin) { <th></th> }
+                  <th>Обязательный атрибут</th>
+                  <th>По умолчанию</th>
+                  @if (isAdmin) { <th>Действия</th> }
                 </tr>
               </thead>
               <tbody>
-                @for (a of attributes; track a.id) {
+                @for (a of orderedAttributes; track a.id; let i = $index) {
                   <tr>
-                    <td>{{ a.id }}</td>
+                    @if (isAdmin) {
+                      <td class="reorder-actions">
+                        <button type="button" class="reorder-button" title="Переместить выше" aria-label="Переместить выше"
+                          [disabled]="i === 0 || isReorderingAttributes" (click)="moveAttribute(a, -1)">↑</button>
+                        <button type="button" class="reorder-button" title="Переместить ниже" aria-label="Переместить ниже"
+                          [disabled]="i === orderedAttributes.length - 1 || isReorderingAttributes" (click)="moveAttribute(a, 1)">↓</button>
+                      </td>
+                    }
                     <td>{{ a.code }}</td>
                     <td>{{ a.name }}</td>
                     <td>{{ dataTypeLabel(a.dataType) }}</td>
-                    <td>{{ a.isRequired ? 'да' : '—' }}</td>
+                    <td>{{ a.isRequired ? 'Да' : 'Нет' }}</td>
                     <td>{{ a.defaultValue ?? '—' }}</td>
-                    <td>{{ a.sortOrder }}</td>
                     @if (isAdmin) {
                       <td class="actions">
-                        <button class="danger" (click)="deleteAttribute(a)">Удалить</button>
+                        <button class="delete-outline" (click)="deleteAttribute(a)">Удалить</button>
                       </td>
                     }
                   </tr>
                 }
                 @if (attributes.length === 0) {
-                  <tr><td colspan="8" class="empty">Нет атрибутов</td></tr>
+                  <tr>
+                    <td [attr.colspan]="isAdmin ? 7 : 5" class="empty-cell">
+                      <div class="empty-state">
+                        <span class="empty-icon" aria-hidden="true">＋</span>
+                        <strong>У этого класса пока нет атрибутов</strong>
+                        @if (isAdmin) { <span>Заполните поля выше, чтобы добавить первый атрибут.</span> }
+                      </div>
+                    </td>
+                  </tr>
                 }
               </tbody>
             </table>
@@ -163,39 +208,78 @@ import {
   `,
     styles: [
         `
-      .ac-page { padding: 24px; font-family: Arial, sans-serif; }
+      .ac-page { padding: 24px; color: #202734; }
       .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 16px; flex-wrap: wrap; }
-      h1 { margin: 0; }
-      .subtitle { margin: 4px 0 0; color: #6b7280; font-size: 0.9rem; }
-      .header-actions, .create-form, .edit-class-form, .create-attr-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-      .create-form, .edit-class-form { margin-bottom: 16px; }
-      input, select { padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.95rem; }
-      .chk { display: flex; align-items: center; gap: 4px; font-size: 0.9rem; color: #374151; }
-      button { padding: 8px 14px; border: none; border-radius: 8px; background: #3f51b5; color: white; cursor: pointer; }
-      button:disabled { opacity: 0.5; cursor: not-allowed; }
-      button.danger { background: #dc2626; }
-      button.secondary { background: #6b7280; }
-      .layout { display: grid; grid-template-columns: 360px 1fr; gap: 16px; }
-      .list, .detail { background: #fff; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(15,23,42,0.05); }
-      .item { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; padding: 10px; border: 1px solid #d5deeb; border-radius: 8px; background: #fff; color: inherit; text-align: left; cursor: pointer; transition: background .16s ease, border-color .16s ease, box-shadow .16s ease; }
-      .item:hover { border-color: #7da8ec; background: #f3f7ff; box-shadow: 0 2px 8px rgba(37,99,235,.12); }
-      .item.active { border-color: #3475d1; background: #eef4ff; box-shadow: inset 3px 0 #3475d1; }
-      .item:focus-visible { outline: 2px solid #3475d1; outline-offset: 2px; }
-      .item-action { flex: 0 0 auto; padding: 4px 8px; border-radius: 12px; background: #eaf1ff; color: #245db0; font-size: .72rem; font-weight: 700; }
-      .item small { display: block; color: #6b7280; font-size: 0.8rem; margin-top: 2px; }
-      .badge { background: #e5e7eb; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; }
+      h1, h2, h3 { margin: 0; }
+      h1 { font-size: 24px; }
+      .subtitle { margin: 4px 0 0; color: #6b7280; font-size: 13px; }
+      .header-actions, .edit-class-form { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      .edit-class-form { margin-bottom: 16px; }
+      input, select { min-width: 0; padding: 8px 10px; border: 1px solid #d1d5db; border-radius: 7px; color: #202734; font: inherit; font-size: 13px; }
+      input:focus, select:focus { border-color: #6b91d6; outline: 2px solid #e9f0ff; }
+      button { padding: 8px 13px; border: 1px solid #315fac; border-radius: 7px; background: #3f6fbd; color: #fff; font: inherit; font-size: 13px; cursor: pointer; }
+      button:hover:not(:disabled) { background: #315fac; }
+      button:disabled { border-color: #e2e5e9; background: #e8eaed; color: #a0a5ad; cursor: not-allowed; }
+      button.secondary { border-color: #d7dce4; background: #fff; color: #4b5563; }
+      button.secondary:hover:not(:disabled) { background: #f4f6f8; }
+      .basic-classes-button { border-color: #d7dce4; background: #fff; color: #4b5563; }
+      .basic-classes-button:hover:not(:disabled) { background: #f4f6f8; }
+      button.delete-outline { padding: 7px 11px; border: 1px solid #e7bcbc; background: #fff; color: #a93c3c; }
+      button.delete-outline:hover:not(:disabled) { border-color: #c97b7b; background: #fff7f7; color: #8e2929; }
+      .layout { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 16px; }
+      .list, .detail { min-width: 0; padding: 16px; border: 1px solid #e7eaf0; border-radius: 10px; background: #fff; }
+      .class-search { width: 100%; margin: 10px 0 12px; }
+      .item { width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 6px; padding: 10px 12px; border: 1px solid #e0e5ed; border-radius: 8px; background: #fff; color: #202734; text-align: left; cursor: pointer; transition: background .16s ease, border-color .16s ease; }
+      .item:hover { border-color: #9ab5e3; background: #f7f9fd; color: #233b5b; }
+      .item.active { border-color: #7195d0; background: #f1f5fc; box-shadow: inset 3px 0 #5681c8; }
+      .item:focus-visible { outline: 2px solid #5681c8; outline-offset: 2px; }
+      .item > div { min-width: 0; }
+      .item strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .item small { display: block; margin-top: 3px; color: #6b7280; font-size: 12px; }
+      .badge { flex: 0 0 auto; padding: 2px 8px; border-radius: 12px; background: #f0f2f5; color: #606b79; font-size: 12px; }
       .badge.inactive { background: #fee2e2; color: #991b1b; }
-      .detail-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 16px; gap: 16px; flex-wrap: wrap; }
-      .detail-header .actions { display: flex; gap: 8px; align-items: center; }
-      .hint { color: #6b7280; font-size: 0.85rem; font-style: italic; }
-      .section-title { margin: 16px 0 10px; font-size: 1rem; }
+      .detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; gap: 16px; flex-wrap: wrap; }
+      .detail-header .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .detail-header small { display: block; margin-top: 7px; }
+      .class-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 8px; color: #6b7280; font-size: 12px; }
+      .class-meta > span + span { padding-left: 8px; border-left: 1px solid #d7dce4; }
+      .code-tag { padding: 3px 8px; border: 1px solid #dce4f0; border-radius: 12px; background: #f4f7fb; color: #536982; font-family: ui-monospace, monospace; }
+      .hint { color: #6b7280; font-size: 12px; }
+      .section-title { margin: 18px 0 10px; font-size: 16px; }
+      .attribute-form { display: grid; grid-template-columns: minmax(110px, 1fr) minmax(140px, 1.3fr) minmax(130px, 1fr) auto auto; align-items: end; gap: 10px; margin-bottom: 16px; padding: 14px; border: 1px solid #e7eaf0; border-radius: 9px; background: #fafbfc; }
+      .attribute-form > label:not(.chk) { display: grid; gap: 5px; color: #4b5563; font-size: 12px; }
+      .chk { display: flex; align-items: center; gap: 7px; min-height: 36px; color: #4b5563; font-size: 12px; white-space: nowrap; cursor: help; }
+      .chk input { width: 16px; height: 16px; margin: 0; accent-color: #3f6fbd; }
       table { width: 100%; border-collapse: collapse; }
-      th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
-      th { background: #f9fafb; font-weight: 600; }
+      th, td { padding: 9px 10px; border-bottom: 1px solid #edf0f3; text-align: left; font-size: 13px; }
+      th { background: #f8f9fb; color: #596372; font-size: 12px; font-weight: 600; }
+      .reorder-actions { width: 1%; padding-right: 0; white-space: nowrap; }
+      .reorder-button { width: 26px; height: 26px; padding: 0; border-color: transparent; background: transparent; color: #657185; font-size: 16px; }
+      .reorder-button:hover:not(:disabled) { border-color: #dfe5ee; background: #f2f5f9; color: #315fac; }
+      .reorder-button:disabled { border-color: transparent; background: transparent; color: #c9cdd3; }
       .actions { display: flex; gap: 6px; }
-      .error { color: #b91c1c; padding: 10px; background: #fef2f2; border-radius: 8px; margin-bottom: 12px; }
-      .success { color: #166534; padding: 10px; background: #f0fdf4; border-radius: 8px; margin-bottom: 12px; }
-      .empty { color: #6b7280; }
+      .error { margin-bottom: 12px; padding: 10px; border-radius: 7px; background: #fef2f2; color: #b91c1c; font-size: 13px; }
+      .success { margin-bottom: 12px; padding: 10px; border-radius: 7px; background: #f0fdf4; color: #166534; font-size: 13px; }
+      .empty { color: #6b7280; font-size: 13px; }
+      .empty-cell { padding: 0; }
+      .empty-state { display: grid; justify-items: center; gap: 8px; padding: 32px 16px; color: #6b7280; text-align: center; }
+      .empty-state strong { color: #374151; font-size: 14px; }
+      .empty-state span:last-child { font-size: 12px; }
+      .empty-icon { display: grid; width: 34px; height: 34px; place-items: center; border-radius: 50%; background: #eef4ff; color: #3475d1; font-size: 20px; }
+      .create-modal-backdrop { position: fixed; z-index: 1000; inset: 0; display: grid; place-items: center; padding: 20px; background: rgb(17 24 39 / 42%); }
+      .create-modal { width: min(100%, 500px); padding: 22px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; box-shadow: 0 18px 48px rgb(15 23 42 / 20%); }
+      .create-modal-header, .create-modal-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+      .create-modal-header { margin-bottom: 8px; }
+      .create-modal-header h2 { font-size: 18px; }
+      .modal-hint { margin: 0 0 16px; color: #6b7280; font-size: 13px; }
+      .modal-close { width: 32px; height: 32px; padding: 0; border: 0; background: transparent; color: #737d8b; font-size: 24px; }
+      .create-form { display: grid; gap: 12px; }
+      .create-form label { display: grid; gap: 5px; color: #4b5563; font-size: 12px; }
+      .create-modal-actions { justify-content: flex-end; margin-top: 6px; }
+      .empty { color: #6b7280; font-size: 13px; }
+      @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+      @media (max-width: 760px) { .attribute-form { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+      @media (max-width: 520px) { .ac-page { padding: 16px; } .attribute-form { grid-template-columns: 1fr; } .detail { overflow-x: auto; } table { min-width: 620px; } }
     `,
     ],
 })
@@ -214,20 +298,33 @@ export class AssetClassesComponent implements OnInit {
     editClassName = '';
     errorMessage = '';
     successMessage = '';
+    isReorderingAttributes = false;
 
     readonly dataTypes = ASSET_ATTRIBUTE_DATA_TYPES;
 
     // Форма класса
     newCode = '';
     newName = '';
-    showCreateForm = false;
+    showCreateDialog = false;
+    classSearch = '';
 
     // Форма атрибута
     newAttrCode = '';
     newAttrName = '';
     newAttrDataType = 'string';
     newAttrRequired = false;
-    newAttrSort = 0;
+
+    get filteredClasses(): AssetClassDto[] {
+        const search = this.classSearch.trim().toLocaleLowerCase();
+        return search
+            ? this.classes.filter(assetClass =>
+                `${assetClass.name} ${assetClass.code}`.toLocaleLowerCase().includes(search))
+            : this.classes;
+    }
+
+    get orderedAttributes(): AssetClassAttributeDto[] {
+        return [...this.attributes].sort((a, b) => a.sortOrder - b.sortOrder || a.id - b.id);
+    }
 
     ngOnInit(): void {
         this.isAdmin = this.auth.isAdmin();
@@ -237,6 +334,22 @@ export class AssetClassesComponent implements OnInit {
     private clearMessages(): void {
         this.errorMessage = '';
         this.successMessage = '';
+    }
+
+    openCreateDialog(): void {
+        this.clearMessages();
+        this.showCreateDialog = true;
+    }
+
+    closeCreateDialog(): void {
+        this.showCreateDialog = false;
+        this.newCode = '';
+        this.newName = '';
+        this.errorMessage = '';
+    }
+
+    onCreateBackdropClick(event: MouseEvent): void {
+        if (event.target === event.currentTarget) this.closeCreateDialog();
     }
 
     private loadAll(): void {
@@ -273,7 +386,7 @@ export class AssetClassesComponent implements OnInit {
             next: created => {
                 this.newCode = '';
                 this.newName = '';
-                this.showCreateForm = false;
+                this.showCreateDialog = false;
                 this.successMessage = `Класс «${created.name}» создан`;
                 this.loadAll();
             },
@@ -399,19 +512,56 @@ export class AssetClassesComponent implements OnInit {
             isRequired: this.newAttrRequired,
             defaultValue: null,
             options: null,
-            sortOrder: this.newAttrSort,
+            sortOrder: this.orderedAttributes.length
+                ? Math.max(...this.orderedAttributes.map(attribute => attribute.sortOrder)) + 1
+                : 0,
         }).subscribe({
             next: () => {
                 this.newAttrCode = '';
                 this.newAttrName = '';
                 this.newAttrRequired = false;
-                this.newAttrSort = 0;
                 this.successMessage = 'Атрибут добавлен';
                 this.reloadSelected();
                 this.loadAll();
             },
             error: err => {
                 this.errorMessage = `Ошибка: ${err.status} ${err.error?.message ?? ''}`;
+                this.cdr.detectChanges();
+            },
+        });
+    }
+
+    moveAttribute(attribute: AssetClassAttributeDto, direction: -1 | 1): void {
+        if (!this.selected || this.isReorderingAttributes) return;
+        const classId = this.selected.id;
+        const ordered = this.orderedAttributes;
+        const currentIndex = ordered.findIndex(item => item.id === attribute.id);
+        const nextIndex = currentIndex + direction;
+        if (currentIndex < 0 || nextIndex < 0 || nextIndex >= ordered.length) return;
+
+        [ordered[currentIndex], ordered[nextIndex]] = [ordered[nextIndex], ordered[currentIndex]];
+        this.clearMessages();
+        this.isReorderingAttributes = true;
+        from(ordered).pipe(
+            concatMap((item, index) => this.api.updateAttribute(classId, item.id, {
+                name: item.name,
+                dataType: item.dataType,
+                isRequired: item.isRequired,
+                defaultValue: item.defaultValue,
+                options: item.options,
+                sortOrder: index,
+            })),
+            toArray(),
+        ).subscribe({
+            next: updated => {
+                if (this.selected?.id === classId) this.attributes = updated;
+                this.isReorderingAttributes = false;
+                this.cdr.detectChanges();
+            },
+            error: err => {
+                this.isReorderingAttributes = false;
+                this.errorMessage = `Не удалось изменить порядок атрибутов: ${err.status} ${err.error?.message ?? ''}`;
+                if (this.selected?.id === classId) this.reloadSelected();
                 this.cdr.detectChanges();
             },
         });

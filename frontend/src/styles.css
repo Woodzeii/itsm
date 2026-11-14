@@ -1662,3 +1662,51 @@ html[data-theme='dark'] app-dictionaries .reorder-button:disabled {
     border-color: transparent !important;
     color: #667085 !important;
 }
+
+html[data-theme='dark'] app-asset-classes .attribute-form {
+    background: var(--app-surface) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-asset-classes button.delete-outline {
+    background: transparent !important;
+    border-color: #8b555a !important;
+    color: #f0a3a8 !important;
+}
+
+html[data-theme='dark'] app-asset-classes button.delete-outline:hover:not(:disabled) {
+    background: #3b252c !important;
+    border-color: #c97b7b !important;
+    color: #ffc2c5 !important;
+}
+
+html[data-theme='dark'] app-asset-classes .empty-icon {
+    background: #1b3352 !important;
+    color: #93c5fd !important;
+}
+
+html[data-theme='dark'] app-asset-classes .create-modal {
+    background: var(--app-surface) !important;
+    border-color: var(--app-border) !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-asset-classes .create-modal-header h2 {
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-asset-classes .modal-hint,
+html[data-theme='dark'] app-asset-classes .create-form label {
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-asset-classes .modal-close {
+    background: transparent !important;
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-asset-classes .modal-close:hover:not(:disabled) {
+    background: var(--app-hover) !important;
+    color: var(--app-text) !important;
+}

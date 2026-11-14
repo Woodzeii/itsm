@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { DictionaryApiService } from '../../core/dictionaries/dictionary.service';
@@ -118,17 +118,21 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
             }
 
             @if (tab === 'movements') {
-              @if (isEngineer && ['На складе', 'В эксплуатации'].includes(selected.lifecycle || '')) {
+              @if (isEngineer && ['Закуплен', 'На складе', 'В эксплуатации'].includes(selected.lifecycle || '')) {
+                @if (selected.lifecycle === 'Закуплен' && !selected.id.trim()) { <p class="movement-note">Укажите инвентарный номер в карточке актива, прежде чем размещать его на складе.</p> }
                 <form class="movement-form" (ngSubmit)="moveAsset()">
                   <label>Вид движения<select name="kind" [(ngModel)]="movement.kind">
+                    @if (selected.lifecycle === 'Закуплен') { <option>Поступление на склад</option> }
                     @if (selected.lifecycle === 'На складе') { <option>Выдача со склада</option><option>Перемещение между складами</option> }
                     @if (selected.lifecycle === 'В эксплуатации') { <option>Возврат на склад</option> }
                   </select></label>
-                  <label>Откуда<input name="from" [(ngModel)]="movement.from" required /></label>
-                  <label>Куда / кому<input name="to" [(ngModel)]="movement.to" required /></label>
+                  @if (selected.lifecycle !== 'Закуплен') {
+                    <label>Откуда<input name="from" [(ngModel)]="movement.from" required /></label>
+                    <label>Куда / кому<input name="to" [(ngModel)]="movement.to" required /></label>
+                  }
                   @if (movement.kind === 'Выдача со склада') { <label>ID сотрудника-получателя<input type="number" min="1" name="toUserId" [(ngModel)]="movement.toUserId" required /></label> }
                   @if (movement.kind !== 'Выдача со склада') { <label>Склад-получатель<select name="toWarehouseCode" [(ngModel)]="movement.toWarehouseCode" required><option [ngValue]="null">Выберите склад</option>@for (value of activeWarehouses; track value.code) { <option [ngValue]="value.code">{{ value.name }} · {{ value.code }}</option> }</select></label> }
-                  <button class="primary" type="submit" [disabled]="!movement.from.trim() || !movement.to.trim()">Оформить</button>
+                  <button class="primary" type="submit" [disabled]="(movement.kind !== 'Выдача со склада' && !movement.toWarehouseCode) || (movement.kind === 'Поступление на склад' ? !selected.id.trim() : !movement.from.trim() || !movement.to.trim())">{{ movement.kind === 'Поступление на склад' ? 'Разместить на складе' : 'Оформить' }}</button>
                 </form>
               }
               @if (isEngineer && ['На складе', 'В эксплуатации'].includes(selected.lifecycle || '')) {
@@ -195,6 +199,7 @@ type AssetTab = 'card' | 'history' | 'tickets' | 'movements';
     .movement-list { margin-top:14px; } .movement-list article { display:grid; grid-template-columns:1fr 1fr auto; gap:12px; padding:11px 4px; border-bottom:1px solid #eef1f4; }
     .movement-list span { color:#667180; font-size:10px; }
     .empty,.select-empty { padding:25px 12px; color:#8a94a2; font-size:11px; } .select-empty { padding:80px 22px; text-align:center; } .select-empty p { color:#8a94a2; font-size:11px; }
+    .movement-note { grid-column:1/-1; margin:0; color:#778291; font-size:10px; }
     .create { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-bottom:15px; padding:15px; }
     .create h2,.form-note,.form-actions { grid-column:1/-1; } .form-note { margin:0; color:#778291; font-size:10px; }
     .form-actions { display:flex; gap:8px; }
@@ -207,6 +212,7 @@ export class AssetsPageComponent implements OnInit {
     private readonly workspace = inject(HttpWorkspaceApiService);
     private readonly auth = inject(AuthService);
     private readonly dictionaryApi = inject(DictionaryApiService);
+    private readonly cdr = inject(ChangeDetectorRef);
 
     assets: AssetRecord[] = [];
     assetClasses: AssetClassOption[] = [];
@@ -275,7 +281,7 @@ export class AssetsPageComponent implements OnInit {
     select(asset: AssetRecord): void {
         this.tab = 'card';
       this.workspace.getAssetDetails(asset.recordId || asset.id).subscribe({
-            next: details => { this.selected = details; this.edit = { id: details.id, name: details.name, locationCode: details.locationCode ?? null, departmentCode: details.departmentCode ?? null, attributes: this.parseAttributes(details.attributes ?? {}, details.className) }; this.movement = { kind: details.lifecycle === 'На складе' ? 'Выдача со склада' : 'Возврат на склад', from: details.owner, to: '', toUserId: null, toWarehouseCode: null }; },
+            next: details => { this.selected = details; this.edit = { id: details.id, name: details.name, locationCode: details.locationCode ?? null, departmentCode: details.departmentCode ?? null, attributes: this.parseAttributes(details.attributes ?? {}, details.className) }; this.movement = { kind: details.lifecycle === 'Закуплен' ? 'Поступление на склад' : details.lifecycle === 'На складе' ? 'Выдача со склада' : 'Возврат на склад', from: details.lifecycle === 'Закуплен' ? 'Закупка' : details.owner, to: '', toUserId: null, toWarehouseCode: null }; },
             error: err => this.error = err.message,
         });
     }
@@ -303,10 +309,11 @@ export class AssetsPageComponent implements OnInit {
         if (!this.selected) return;
         const request: AssetMovement = { id: '', ...this.movement, actor: '', createdAt: '' };
         const { kind, from, to, toUserId, toWarehouseCode } = request;
+        const targetWarehouse = this.activeWarehouses.find(value => value.code === toWarehouseCode);
         this.workspace.moveAsset(this.selected.recordId || this.selected.id, {
             kind,
-            from,
-            to,
+            from: kind === 'Поступление на склад' ? 'Закупка' : from,
+            to: kind === 'Поступление на склад' ? targetWarehouse?.name ?? toWarehouseCode ?? '' : to,
             toUserId: kind === 'Выдача со склада' ? toUserId ?? undefined : undefined,
             toWarehouseCode: kind !== 'Выдача со склада' ? toWarehouseCode ?? undefined : undefined,
         }).subscribe({ next: asset => { this.selected = asset; this.notice = 'Движение оформлено, дата и время зарегистрированы.'; this.loadAssets(asset.recordId || asset.id); }, error: err => this.error = err.message });
@@ -366,7 +373,22 @@ export class AssetsPageComponent implements OnInit {
     }
 
     private loadAssets(selectId?: string): void {
-        this.workspace.getAssets().subscribe({ next: assets => { this.assets = assets; const target = selectId ? assets.find(asset => asset.id === selectId || asset.recordId === selectId) : this.selected ? assets.find(asset => asset.id === this.selected?.id || asset.recordId === this.selected?.recordId) : undefined; if (target) this.select(target); }, error: err => this.error = err.message });
+        this.workspace.getAssets().subscribe({
+            next: assets => {
+                this.assets = assets;
+                const target = selectId
+                    ? assets.find(asset => asset.id === selectId || asset.recordId === selectId)
+                    : this.selected
+                        ? assets.find(asset => asset.id === this.selected?.id || asset.recordId === this.selected?.recordId)
+                        : undefined;
+                if (target) this.select(target);
+                this.cdr.detectChanges();
+            },
+            error: err => {
+                this.error = err.message;
+                this.cdr.detectChanges();
+            },
+        });
     }
 
     private loadDictionaryValues(code: string, onLoaded: (values: DictionaryValueDto[]) => void): void {

@@ -345,6 +345,21 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         var oldStage = asset.LifecycleStage;
         switch (request.MovementType)
         {
+            case AssetMovementTypes.Stocking:
+                if (asset.LifecycleStage != AssetLifecycleStages.Purchased)
+                    throw new InvalidOperationException(
+                        $"Поступление на склад доступно только для актива на этапе «{AssetLifecycleStages.GetRussianName(AssetLifecycleStages.Purchased)}» (текущий этап: {AssetLifecycleStages.GetRussianName(asset.LifecycleStage)}).");
+                if (string.IsNullOrWhiteSpace(asset.InventoryNumber))
+                    throw new FieldValidationException(nameof(asset.InventoryNumber), "Для размещения актива на складе укажите инвентарный номер.");
+                if (toWarehouseId is not int stockingWarehouse)
+                    throw new FieldValidationException(nameof(request.ToWarehouseCode), "Для поступления на склад укажите склад.");
+                if (request.ToUserId is not null || request.ToLocationCode is not null || request.ToDepartmentCode is not null)
+                    throw new FieldValidationException(nameof(request.ToWarehouseCode), "Для поступления на склад укажите только склад-получатель.");
+
+                asset.LifecycleStage = AssetLifecycleStages.InStock;
+                asset.WarehouseId = stockingWarehouse;
+                break;
+
             case AssetMovementTypes.Issue:
                 if (asset.LifecycleStage != AssetLifecycleStages.InStock)
                     throw new InvalidOperationException(
