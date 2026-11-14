@@ -1593,3 +1593,72 @@ html[data-theme='dark'] app-ticket-queue .jump-latest {
     background: #1b3352 !important;
     color: var(--app-text) !important;
 }
+
+html[data-theme='dark'] app-dictionaries .form-panel,
+html[data-theme='dark'] app-dictionaries .create-dialog {
+    background: var(--app-surface) !important;
+    color: var(--app-text) !important;
+    border-color: var(--app-border) !important;
+}
+
+html[data-theme='dark'] app-dictionaries .create-value-form {
+    background: transparent !important;
+}
+
+html[data-theme='dark'] app-dictionaries .text-action,
+html[data-theme='dark'] app-dictionaries .reorder-button,
+html[data-theme='dark'] app-dictionaries .icon-close {
+    background: transparent !important;
+    border-color: transparent !important;
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-dictionaries .text-action:hover:not(:disabled),
+html[data-theme='dark'] app-dictionaries .reorder-button:hover:not(:disabled),
+html[data-theme='dark'] app-dictionaries .icon-close:hover:not(:disabled) {
+    background: var(--app-hover) !important;
+    color: var(--app-text) !important;
+}
+
+html[data-theme='dark'] app-dictionaries .archive-outline {
+    background: transparent !important;
+    border-color: #8b555a !important;
+    color: #f0a3a8 !important;
+}
+
+html[data-theme='dark'] app-dictionaries .archive-outline:hover:not(:disabled) {
+    background: #3b252c !important;
+    border-color: #c97b7b !important;
+    color: #ffc2c5 !important;
+}
+
+html[data-theme='dark'] app-dictionaries .status-pill {
+    background: #123328 !important;
+    color: #bbf7d0 !important;
+}
+
+html[data-theme='dark'] app-dictionaries .status-pill.archived {
+    background: var(--app-surface-2) !important;
+    color: var(--app-muted-strong) !important;
+}
+
+html[data-theme='dark'] app-dictionaries .status-dot {
+    background: #4ade80 !important;
+}
+
+html[data-theme='dark'] app-dictionaries .status-pill.archived .status-dot {
+    background: #94a3b8 !important;
+}
+
+html[data-theme='dark'] app-dictionaries button:disabled {
+    background: #253044 !important;
+    border-color: #344156 !important;
+    color: #7f8ba0 !important;
+    opacity: 1 !important;
+}
+
+html[data-theme='dark'] app-dictionaries .reorder-button:disabled {
+    background: transparent !important;
+    border-color: transparent !important;
+    color: #667085 !important;
+}

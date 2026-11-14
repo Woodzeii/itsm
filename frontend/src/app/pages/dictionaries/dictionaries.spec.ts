@@ -45,7 +45,7 @@ describe('DictionariesComponent live API', () => {
             create: vi.fn().mockReturnValue(of(dictionary)),
             delete: vi.fn().mockReturnValue(of(void 0)),
             createValue: vi.fn().mockReturnValue(of(activeValue)),
-            updateValue: vi.fn().mockReturnValue(of({ ...activeValue, name: 'Повышенный', sortOrder: 2 })),
+            updateValue: vi.fn().mockReturnValue(of({ ...activeValue, name: 'Повышенный' })),
             archiveValue: vi.fn().mockReturnValue(of({ ...activeValue, isArchived: true })),
             deleteValue: vi.fn().mockReturnValue(of(void 0)),
         };
@@ -100,26 +100,56 @@ describe('DictionariesComponent live API', () => {
         expect(api.getValues).toHaveBeenCalledWith('priority', true);
     });
 
-    it('updates a value name and order while keeping its code', () => {
+    it('updates a value name without changing its code or order', () => {
         const fixture = TestBed.createComponent(DictionariesComponent);
         const component = fixture.componentInstance;
         component.selected = dictionary;
         component.values = [activeValue];
         component.startEditValue(activeValue);
         component.editValueName = 'Повышенный';
-        component.editValueSort = 2;
 
         component.updateValue(activeValue);
 
         expect(api.updateValue).toHaveBeenCalledWith('priority', 'high', {
             name: 'Повышенный',
-            sortOrder: 2,
+            sortOrder: 1,
         });
         expect(component.values[0]).toEqual({
             ...activeValue,
             name: 'Повышенный',
-            sortOrder: 2,
+            sortOrder: 1,
         });
         expect(component.editingValueCode).toBeNull();
+    });
+
+    it('renumbers records when one is moved up', () => {
+        const fixture = TestBed.createComponent(DictionariesComponent);
+        const component = fixture.componentInstance;
+        const middleValue = { ...activeValue, code: 'middle', sortOrder: 2 };
+        const lastValue = { ...activeValue, code: 'last', sortOrder: 3 };
+        component.selected = dictionary;
+        component.values = [activeValue, middleValue, lastValue];
+        api.updateValue.mockImplementation((dictionaryCode: string, valueCode: string, request: { name: string; sortOrder: number }) =>
+            of({ dictionaryCode, code: valueCode, ...request, isArchived: false }));
+
+        component.moveValue(middleValue, -1);
+
+        expect(api.updateValue.mock.calls.map(([, code, request]) => [code, request.sortOrder])).toEqual([
+            ['middle', 0],
+            ['high', 1],
+            ['last', 2],
+        ]);
+        expect(component.values.map(value => value.code)).toEqual(['middle', 'high', 'last']);
+    });
+
+    it('filters dictionaries and opens the create dialog on demand', () => {
+        const fixture = TestBed.createComponent(DictionariesComponent);
+        const component = fixture.componentInstance;
+        component.dictionaries = [dictionary, { ...dictionary, code: 'warehouses', name: 'Склады' }];
+        component.dictionarySearch = 'склад';
+
+        expect(component.filteredDictionaries.map(item => item.code)).toEqual(['warehouses']);
+        component.openCreateDialog();
+        expect(component.showCreateDialog).toBe(true);
     });
 });

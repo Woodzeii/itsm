@@ -65,11 +65,6 @@ import { AuthService } from '../../core/auth/auth.service';
         }
 
         <div class="sidebar-spacer"></div>
-        <div class="sidebar-profile">
-          <div class="avatar">{{ userInitial }}</div>
-          <div class="user-meta"><strong>{{ userTitle }}</strong><small>{{ userRole }}</small></div>
-          <span class="profile-more" aria-hidden="true">···</span>
-        </div>
       </aside>
 
       <div class="main-panel">
@@ -224,14 +219,6 @@ import { AuthService } from '../../core/auth/auth.service';
         border-radius: 50%;
         background: #21a675;
       }
-      .sidebar-profile {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        padding: 12px 10px;
-        background: #f6f7f9;
-        border-radius: 9px;
-      }
       .avatar {
         width: 32px;
         height: 32px;
@@ -248,7 +235,6 @@ import { AuthService } from '../../core/auth/auth.service';
       .user-meta strong, .user-meta small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .user-meta strong { color: #303846; font-size: 11px; font-weight: 650; }
       .user-meta small { color: #939baa; font-size: 10px; }
-      .profile-more { margin-left: auto; color: #9aa3b1; font-size: 20px; line-height: 1; }
       .top-actions { display: flex; align-items: center; gap: 16px; }
       .role-switch {
         display: inline-flex;
@@ -319,7 +305,7 @@ import { AuthService } from '../../core/auth/auth.service';
         .sidebar { width: 100%; min-height: 0; flex: 0 0 auto; padding: 0 12px 10px; border-right: 0; border-bottom: 1px solid #e2e6ed; }
         .brand { height: 62px; min-height: 62px; margin: 0 -12px 8px; padding: 0 16px; }
         .brand-logo { width: 48px; height: 48px; flex-basis: 48px; }
-        .nav-caption, .sidebar-spacer, .workspace-note, .sidebar-profile { display: none; }
+        .nav-caption, .sidebar-spacer, .workspace-note { display: none; }
         .nav { flex-direction: row; overflow-x: auto; }
         .nav a { min-height: 36px; padding: 8px 10px; white-space: nowrap; }
         .nav a svg { width: 15px; height: 15px; }
