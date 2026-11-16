@@ -365,7 +365,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
 
     updateAsset(assetId: string, changes: Partial<CreateAssetRequest>): Observable<AssetDetails> {
         const asset = this.findAsset(assetId);
-        if (changes.warehouseId != null && changes.warehouseId !== asset.warehouseId)
+        if (changes.warehouseCode != null && changes.warehouseCode !== asset.warehouseCode)
             return this.fail('Склад можно изменить только через движение актива.');
         if (changes.assignedUserId != null && changes.assignedUserId !== asset.assignedUserId)
             return this.fail('Сотрудника можно назначить только при выдаче актива со склада.');
@@ -394,14 +394,14 @@ export class MockWorkspaceApiService extends WorkspaceApi {
 
     createAsset(request: CreateAssetRequest): Observable<AssetDetails> {
         if (!request.id && !request.serialNumber) return this.fail('Укажите инвентарный или серийный номер актива.');
-        if (request.warehouseId && !request.id) return this.fail('Для размещения актива на складе укажите инвентарный номер.');
+        if (request.warehouseCode && !request.id) return this.fail('Для размещения актива на складе укажите инвентарный номер.');
         if (request.assignedUserId) return this.fail('Сотрудника можно назначить только при выдаче актива со склада.');
-        const lifecycle: AssetLifecycle = request.id && request.warehouseId ? 'На складе' : 'Закуплен';
+        const lifecycle: AssetLifecycle = request.id && request.warehouseCode ? 'На складе' : 'Закуплен';
         const asset: AssetDetails = {
             recordId: request.id || this.id('asset'), id: request.id || '', name: request.name, type: request.type, className: request.className,
-            owner: '—', status: lifecycle, lifecycle, warehouse: request.warehouse || (request.warehouseId ? 'Склад' : '—'),
+            owner: '—', status: lifecycle, lifecycle, warehouse: request.warehouse || (request.warehouseCode ? 'Склад' : '—'),
             location: request.location || '—', department: request.department || '—', attributes: request.attributes ?? {},
-            serialNumber: request.serialNumber, warehouseId: request.warehouseId ?? null,
+            serialNumber: request.serialNumber, warehouseCode: request.warehouseCode ?? null,
             history: [], movements: [], relatedTickets: [],
         };
         if (asset.id && this.assets.some(item => item.id === asset.id)) return this.fail('Идентификатор актива должен быть уникальным.');
@@ -419,21 +419,21 @@ export class MockWorkspaceApiService extends WorkspaceApi {
             asset.lifecycle = 'В эксплуатации';
             asset.owner = request.to;
             asset.assignedUserId = request.toUserId;
-            asset.warehouseId = null;
+            asset.warehouseCode = null;
         } else if (request.kind === 'Возврат на склад') {
             if (asset.lifecycle !== 'В эксплуатации') return this.fail('Вернуть на склад можно только актив в эксплуатации.');
-            if (!request.toWarehouseId) return this.fail('Для возврата укажите ID склада.');
+            if (!request.toWarehouseCode) return this.fail('Для возврата укажите код склада.');
             asset.lifecycle = 'На складе';
             asset.owner = 'Склад';
             asset.assignedUserId = null;
-            asset.warehouseId = request.toWarehouseId;
+            asset.warehouseCode = request.toWarehouseCode;
         } else if (request.kind === 'Перемещение') {
             return this.fail('Перемещение допустимо только между складами.');
         } else if (request.kind === 'Перемещение между складами') {
             if (asset.lifecycle !== 'На складе') return this.fail('Перемещать между складами можно только актив на складе.');
-            if (!request.toWarehouseId) return this.fail('Для перемещения укажите ID склада.');
-            if (request.toWarehouseId === asset.warehouseId) return this.fail('Склад назначения должен отличаться от текущего.');
-            asset.warehouseId = request.toWarehouseId;
+            if (!request.toWarehouseCode) return this.fail('Для перемещения укажите код склада.');
+            if (request.toWarehouseCode === asset.warehouseCode) return this.fail('Склад назначения должен отличаться от текущего.');
+            asset.warehouseCode = request.toWarehouseCode;
         } else {
             return this.fail(`Неизвестный тип движения актива: ${request.kind}.`);
         }
@@ -447,7 +447,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     createRepairTicket(assetId: string, title: string): Observable<Ticket> {
         const asset = this.findAsset(assetId);
         if (!['На складе', 'В эксплуатации'].includes(asset.lifecycle ?? '')) return this.fail('Ремонт доступен для активов на складе или в эксплуатации.');
-        if (asset.lifecycle === 'На складе' && !asset.warehouseId) return this.fail('Для ремонта актив на складе должен быть привязан к складу.');
+        if (asset.lifecycle === 'На складе' && !asset.warehouseCode) return this.fail('Для ремонта актив на складе должен быть привязан к складу.');
         if (asset.lifecycle === 'В эксплуатации' && !asset.assignedUserId) return this.fail('Для ремонта актив должен быть закреплен за сотрудником.');
         const ticket = this.createTicket({ title, requester: 'Инженер ТП', type: 'Тикет на ремонт', priority: 'Средний', assetId }).pipe();
         const created = this.tickets[0];
@@ -468,14 +468,14 @@ export class MockWorkspaceApiService extends WorkspaceApi {
             const userId = asset.assignedUserId ?? request.repairToUserId;
             if (!userId) return this.fail('Для возврата в эксплуатацию укажите ID сотрудника.');
             asset.assignedUserId = userId;
-            asset.warehouseId = null;
+            asset.warehouseCode = null;
         } else if (request.result === 'На склад') {
-            const warehouseId = asset.warehouseId ?? request.repairToWarehouseId;
-            if (!warehouseId) return this.fail('Для возврата на склад укажите ID склада.');
-            asset.warehouseId = warehouseId;
+            const warehouseCode = asset.warehouseCode ?? request.repairToWarehouseCode;
+            if (!warehouseCode) return this.fail('Для возврата на склад укажите код склада.');
+            asset.warehouseCode = warehouseCode;
             asset.assignedUserId = null;
         } else {
-            asset.warehouseId = null;
+            asset.warehouseCode = null;
             asset.assignedUserId = null;
         }
         asset.lifecycle = lifecycle;

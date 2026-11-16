@@ -47,7 +47,7 @@ public class AssetsApiTests
             name = "Ноутбук Dell",
             inventoryNumber = "inv-001",
             serialNumber = "sn-001",
-            assetClassId
+            assetClassCode = assetClassId
         });
         first.StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -56,7 +56,7 @@ public class AssetsApiTests
             name = "Ноутбук HP",
             inventoryNumber = "INV-001",
             serialNumber = "sn-002",
-            assetClassId
+            assetClassCode = assetClassId
         });
 
         duplicateInventory.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -73,7 +73,7 @@ public class AssetsApiTests
             name = "Монитор",
             inventoryNumber = $"INV-{Guid.NewGuid():N}",
             serialNumber = "SN-DUP",
-            assetClassId
+            assetClassCode = assetClassId
         });
         first.StatusCode.Should().Be(HttpStatusCode.Created);
 
@@ -82,7 +82,7 @@ public class AssetsApiTests
             name = "Монитор 2",
             inventoryNumber = $"INV-{Guid.NewGuid():N}",
             serialNumber = "sn-dup",
-            assetClassId
+            assetClassCode = assetClassId
         });
 
         duplicateSerial.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -97,7 +97,7 @@ public class AssetsApiTests
         var response = await client.PostAsJsonAsync("/api/assets", new
         {
             name = "Без номера",
-            assetClassId
+            assetClassCode = assetClassId
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -114,8 +114,8 @@ public class AssetsApiTests
         {
             name = "Актив только с серийным номером",
             serialNumber = $"SN-{Guid.NewGuid():N}",
-            assetClassId,
-            warehouseId
+            assetClassCode = assetClassId,
+            warehouseCode = warehouseId
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -132,14 +132,14 @@ public class AssetsApiTests
         {
             name = "Актив с заданным этапом",
             inventoryNumber = $"INV-{Guid.NewGuid():N}",
-            assetClassId,
+            assetClassCode = assetClassId,
             lifecycleStage = AssetLifecycleStages.InUse
         });
         var assignedResponse = await client.PostAsJsonAsync("/api/assets", new
         {
             name = "Актив с назначенным сотрудником",
             inventoryNumber = $"INV-{Guid.NewGuid():N}",
-            assetClassId,
+            assetClassCode = assetClassId,
             assignedUserId = employeeId
         });
 
@@ -159,6 +159,150 @@ public class AssetsApiTests
     }
 
     [Fact]
+    public async Task AssetAndDictionaryResponses_UseCodesAndPreventDeletingReferencedValues()
+    {
+        var client = await CreateAgentClientAsync();
+        var adminClient = await CreateAdminClientAsync();
+        var assetClassCode = await CreateAssetClassAsync();
+        var warehouseCode = await CreateWarehouseAsync();
+        var locationCode = await CreateDictionaryValueAsync("locations");
+        var departmentCode = await CreateDictionaryValueAsync("departments");
+
+        var asset = await CreateAssetAsync(
+            client,
+            assetClassCode,
+            $"INV-{Guid.NewGuid():N}",
+            warehouseCode,
+            locationCode,
+            departmentCode);
+        asset.AssetClassCode.Should().Be(assetClassCode);
+        asset.AssetClassName.Should().Be("Тестовый класс");
+        asset.WarehouseCode.Should().Be(warehouseCode);
+        asset.WarehouseName.Should().Be("Тестовый склад");
+        asset.LocationCode.Should().Be(locationCode);
+        asset.LocationName.Should().Be("Тестовая локация");
+        asset.DepartmentCode.Should().Be(departmentCode);
+        asset.DepartmentName.Should().Be("Тестовое подразделение");
+
+        var valuesResponse = await client.GetAsync("/api/dictionaries/warehouses/values");
+        valuesResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        var values = (await valuesResponse.Content.ReadFromJsonAsync<List<DictionaryValueDto>>())!;
+        values.Should().Contain(value =>
+            value.DictionaryCode == "warehouses" && value.Code == warehouseCode);
+
+        foreach (var (dictionaryCode, valueCode, field) in new[]
+                 {
+                     ("warehouses", warehouseCode, "WarehouseCode"),
+                     ("locations", locationCode, "LocationCode"),
+                     ("departments", departmentCode, "DepartmentCode")
+                 })
+        {
+            var archiveResponse = await adminClient.PostAsync(
+                $"/api/dictionaries/{dictionaryCode}/values/{valueCode}/archive", content: null);
+            archiveResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var archivedAsset = await client.GetFromJsonAsync<AssetDetailDto>($"/api/assets/{asset.Id}");
+            var reference = dictionaryCode switch
+            {
+                "warehouses" => archivedAsset!.Asset.WarehouseCode,
+                "locations" => archivedAsset!.Asset.LocationCode,
+                _ => archivedAsset!.Asset.DepartmentCode
+            };
+            reference.Should().Be(valueCode);
+
+            if (dictionaryCode == "warehouses")
+            {
+                var invalidAssignment = await client.PostAsJsonAsync("/api/assets", new
+                {
+                    name = "Актив с архивным складом",
+                    inventoryNumber = $"INV-{Guid.NewGuid():N}",
+                    assetClassCode,
+                    warehouseCode = valueCode
+                });
+                invalidAssignment.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+                var problem = await invalidAssignment.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+                problem!.Errors.Should().ContainKey(field);
+            }
+
+            var deleteResponse = await adminClient.DeleteAsync(
+                $"/api/dictionaries/{dictionaryCode}/values/{valueCode}");
+            deleteResponse.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+            var restoreResponse = await adminClient.PostAsync(
+                $"/api/dictionaries/{dictionaryCode}/values/{valueCode}/restore", content: null);
+            restoreResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+    }
+
+    [Fact]
+    public async Task CreateAsset_RejectsWarehouseCodeFromAnotherDictionaryWithFieldError()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassCode = await CreateAssetClassAsync();
+        var locationCode = await CreateDictionaryValueAsync("locations");
+
+        var response = await client.PostAsJsonAsync("/api/assets", new
+        {
+            name = "Актив",
+            inventoryNumber = $"INV-{Guid.NewGuid():N}",
+            assetClassCode,
+            warehouseCode = locationCode
+        });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        var problem = await response.Content.ReadFromJsonAsync<HttpValidationProblemDetails>();
+        problem!.Errors.Should().ContainKey("WarehouseCode");
+    }
+
+    [Fact]
+    public async Task DictionaryLifecycleAndValueRoutesUseCodes()
+    {
+        var client = await CreateAdminClientAsync();
+        var dictionaryCode = $"test_{Guid.NewGuid():N}"[..20];
+        var createDictionary = await client.PostAsJsonAsync("/api/dictionaries", new
+        {
+            code = dictionaryCode,
+            name = "Тестовый справочник"
+        });
+        createDictionary.StatusCode.Should().Be(HttpStatusCode.Created);
+        var dictionary = (await createDictionary.Content.ReadFromJsonAsync<DictionaryDto>())!;
+        dictionary.Code.Should().Be(dictionaryCode);
+
+        var createValue = await client.PostAsJsonAsync(
+            $"/api/dictionaries/{dictionaryCode}/values",
+            new { code = "sample", name = "Пример", sortOrder = 0 });
+        createValue.StatusCode.Should().Be(HttpStatusCode.OK);
+        var value = (await createValue.Content.ReadFromJsonAsync<DictionaryValueDto>())!;
+        value.DictionaryCode.Should().Be(dictionaryCode);
+        value.Code.Should().Be("sample");
+
+        var archiveDictionary = await client.PostAsync(
+            $"/api/dictionaries/{dictionaryCode}/archive", content: null);
+        archiveDictionary.StatusCode.Should().Be(HttpStatusCode.OK);
+        (await client.GetAsync($"/api/dictionaries/{dictionaryCode}/values")).StatusCode
+            .Should().Be(HttpStatusCode.NotFound);
+
+        var restoreDictionary = await client.PostAsync(
+            $"/api/dictionaries/{dictionaryCode}/restore", content: null);
+        restoreDictionary.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var archiveValue = await client.PostAsync(
+            $"/api/dictionaries/{dictionaryCode}/values/sample/archive", content: null);
+        archiveValue.StatusCode.Should().Be(HttpStatusCode.OK);
+        var restoreValue = await client.PostAsync(
+            $"/api/dictionaries/{dictionaryCode}/values/sample/restore", content: null);
+        restoreValue.StatusCode.Should().Be(HttpStatusCode.OK);
+        var archiveForDelete = await client.PostAsync(
+            $"/api/dictionaries/{dictionaryCode}/values/sample/archive", content: null);
+        archiveForDelete.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var deleteValue = await client.DeleteAsync($"/api/dictionaries/{dictionaryCode}/values/sample");
+        deleteValue.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        var deleteDictionary = await client.DeleteAsync($"/api/dictionaries/{dictionaryCode}");
+        deleteDictionary.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
     public async Task AssetAttributeValues_ArePersistedOnCreateAndUpdate()
     {
         var client = await CreateAgentClientAsync();
@@ -167,7 +311,7 @@ public class AssetsApiTests
         {
             name = "Ноутбук",
             inventoryNumber = $"INV-{Guid.NewGuid():N}",
-            assetClassId,
+            assetClassCode = assetClassId,
             attributes = new Dictionary<string, string> { ["ram"] = "16" }
         });
 
@@ -202,7 +346,7 @@ public class AssetsApiTests
         {
             name = "Актив",
             inventoryNumber = $"INV-{Guid.NewGuid():N}",
-            assetClassId = 999_999
+            assetClassCode = "missing_class"
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
@@ -237,7 +381,7 @@ public class AssetsApiTests
 
         var response = await client.PutAsJsonAsync($"/api/assets/{created.Id}", new
         {
-            warehouseId = newWarehouseId
+            warehouseCode = newWarehouseId
         });
 
         response.StatusCode.Should().Be(HttpStatusCode.Conflict);
@@ -255,13 +399,59 @@ public class AssetsApiTests
         var movement = await client.PostAsJsonAsync($"/api/assets/{created.Id}/movements", new
         {
             movementType = AssetMovementTypes.Relocate,
-            toWarehouseId = targetWarehouseId
+            toWarehouseCode = targetWarehouseId
         });
         var detail = await client.GetFromJsonAsync<AssetDetailDto>($"/api/assets/{created.Id}");
 
         movement.StatusCode.Should().Be(HttpStatusCode.OK);
         detail!.Asset.LifecycleStage.Should().Be(AssetLifecycleStages.InStock);
-        detail.Asset.WarehouseId.Should().Be(targetWarehouseId);
+        detail.Asset.WarehouseCode.Should().Be(targetWarehouseId);
+    }
+
+    [Fact]
+    public async Task PurchasedAsset_CanBeReceivedIntoWarehouse()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassId = await CreateAssetClassAsync();
+        var warehouseCode = await CreateWarehouseAsync();
+        var created = await CreateAssetAsync(client, assetClassId, $"INV-{Guid.NewGuid():N}");
+
+        var movement = await client.PostAsJsonAsync($"/api/assets/{created.Id}/movements", new
+        {
+            movementType = AssetMovementTypes.Stocking,
+            toWarehouseCode = warehouseCode
+        });
+        var detail = await client.GetFromJsonAsync<AssetDetailDto>($"/api/assets/{created.Id}");
+
+        movement.StatusCode.Should().Be(HttpStatusCode.OK);
+        detail!.Asset.LifecycleStage.Should().Be(AssetLifecycleStages.InStock);
+        detail.Asset.WarehouseCode.Should().Be(warehouseCode);
+        detail.History.Should().Contain(item => item.ActionType == AssetHistoryActionTypes.StageChanged);
+        detail.Movements.Should().Contain(item => item.MovementType == AssetMovementTypes.Stocking);
+    }
+
+    [Fact]
+    public async Task PurchasedAssetWithoutInventoryNumber_CannotBeReceivedIntoWarehouse()
+    {
+        var client = await CreateAgentClientAsync();
+        var assetClassCode = await CreateAssetClassAsync();
+        var warehouseCode = await CreateWarehouseAsync();
+        var createResponse = await client.PostAsJsonAsync("/api/assets", new
+        {
+            name = "Актив только с серийным номером",
+            serialNumber = $"SN-{Guid.NewGuid():N}",
+            assetClassCode
+        });
+        createResponse.StatusCode.Should().Be(HttpStatusCode.Created);
+        var created = (await createResponse.Content.ReadFromJsonAsync<AssetDto>())!;
+
+        var movement = await client.PostAsJsonAsync($"/api/assets/{created.Id}/movements", new
+        {
+            movementType = AssetMovementTypes.Stocking,
+            toWarehouseCode = warehouseCode
+        });
+
+        movement.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -325,7 +515,7 @@ public class AssetsApiTests
         var returned = await client.PostAsJsonAsync($"/api/assets/{created.Id}/movements", new
         {
             movementType = AssetMovementTypes.Return,
-            toWarehouseId = returnWarehouseId
+            toWarehouseCode = returnWarehouseId
         });
         var detail = await client.GetFromJsonAsync<AssetDetailDto>($"/api/assets/{created.Id}");
 
@@ -333,7 +523,7 @@ public class AssetsApiTests
         returned.StatusCode.Should().Be(HttpStatusCode.OK);
         detail!.Asset.LifecycleStage.Should().Be(AssetLifecycleStages.InStock);
         detail.Asset.AssignedUserId.Should().BeNull();
-        detail.Asset.WarehouseId.Should().Be(returnWarehouseId);
+        detail.Asset.WarehouseCode.Should().Be(returnWarehouseId);
     }
 
     [Fact]
@@ -417,7 +607,7 @@ public class AssetsApiTests
         return client;
     }
 
-    private async Task<int> CreateAssetClassAsync()
+    private async Task<string> CreateAssetClassAsync()
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ItsmDbContext>();
@@ -430,24 +620,32 @@ public class AssetsApiTests
         };
         db.AssetClasses.Add(assetClass);
         await db.SaveChangesAsync();
-        return assetClass.Id;
+        return assetClass.Code;
     }
 
-    private async Task<int> CreateWarehouseAsync()
+    private async Task<string> CreateWarehouseAsync()
+        => await CreateDictionaryValueAsync("warehouses");
+
+    private async Task<string> CreateDictionaryValueAsync(string dictionaryCode)
     {
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ItsmDbContext>();
-        var warehouseDictionary = await db.Dictionaries.SingleAsync(dictionary => dictionary.Code == "warehouses");
-        var warehouse = new DictionaryValue
+        var dictionary = await db.Dictionaries.SingleAsync(item => item.Code == dictionaryCode);
+        var value = new DictionaryValue
         {
-            DictionaryId = warehouseDictionary.Id,
+            DictionaryId = dictionary.Id,
             Code = $"test-{Guid.NewGuid():N}",
-            Name = "Тестовый склад",
+            Name = dictionaryCode switch
+            {
+                "warehouses" => "Тестовый склад",
+                "locations" => "Тестовая локация",
+                _ => "Тестовое подразделение"
+            },
             SortOrder = 0
         };
-        db.DictionaryValues.Add(warehouse);
+        db.DictionaryValues.Add(value);
         await db.SaveChangesAsync();
-        return warehouse.Id;
+        return value.Code;
     }
 
     private async Task<int> CreateEmployeeAsync()
@@ -459,16 +657,20 @@ public class AssetsApiTests
 
     private static async Task<AssetDto> CreateAssetAsync(
         HttpClient client,
-        int assetClassId,
+        string assetClassCode,
         string inventoryNumber,
-        int? warehouseId = null)
+        string? warehouseCode = null,
+        string? locationCode = null,
+        string? departmentCode = null)
     {
         var response = await client.PostAsJsonAsync("/api/assets", new
         {
             name = $"Актив {inventoryNumber}",
             inventoryNumber,
-            assetClassId,
-            warehouseId
+            assetClassCode,
+            warehouseCode,
+            locationCode,
+            departmentCode
         });
         response.StatusCode.Should().Be(HttpStatusCode.Created);
         return (await response.Content.ReadFromJsonAsync<AssetDto>())!;

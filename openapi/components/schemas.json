@@ -45,7 +45,7 @@
         "type": "object",
         "required": [
           "name",
-          "assetClassId"
+          "assetClassCode"
         ],
         "anyOf": [
           {
@@ -63,7 +63,7 @@
           "inventoryNumber": {
             "type": "string",
             "nullable": true,
-            "description": "Для создания на складе обязателен вместе с warehouseId."
+            "description": "Для создания на складе обязателен вместе с warehouseCode."
           },
           "serialNumber": {
             "type": "string",
@@ -72,20 +72,20 @@
           "name": {
             "type": "string"
           },
-          "assetClassId": {
-            "type": "integer"
+          "assetClassCode": {
+            "type": "string"
           },
-          "warehouseId": {
-            "type": "integer",
+          "warehouseCode": {
+            "type": "string",
             "nullable": true,
-            "description": "Вместе с inventoryNumber создаёт актив на этапе «На складе»; без одного из этих полей актив остаётся на этапе «Закуплен». Склад можно менять только движением."
+            "description": "Активный код справочника warehouses. Вместе с inventoryNumber создаёт актив на этапе «На складе»."
           },
-          "locationId": {
-            "type": "integer",
+          "locationCode": {
+            "type": "string",
             "nullable": true
           },
-          "departmentId": {
-            "type": "integer",
+          "departmentCode": {
+            "type": "string",
             "nullable": true
           },
           "attributes": {
@@ -121,25 +121,25 @@
             "type": "string",
             "nullable": true
           },
-          "assetClassId": {
-            "type": "integer",
+          "assetClassCode": {
+            "type": "string",
             "nullable": true
           },
           "category": {
             "type": "string",
             "nullable": true
           },
-          "warehouseId": {
-            "type": "integer",
+          "warehouseCode": {
+            "type": "string",
             "nullable": true,
-            "description": "Нельзя менять этим запросом; для перемещения используйте POST /api/assets/{id}/movements."
+            "description": "Код текущего склада нельзя менять этим запросом; для перемещения используйте POST /api/assets/{id}/movements."
           },
-          "locationId": {
-            "type": "integer",
+          "locationCode": {
+            "type": "string",
             "nullable": true
           },
-          "departmentId": {
-            "type": "integer",
+          "departmentCode": {
+            "type": "string",
             "nullable": true
           },
           "attributes": {
@@ -167,23 +167,24 @@
             "enum": [
               "issue",
               "return",
-              "relocate"
+              "relocate",
+              "stocking"
             ]
           },
           "toUserId": {
             "type": "integer",
             "nullable": true
           },
-          "toWarehouseId": {
-            "type": "integer",
+          "toWarehouseCode": {
+            "type": "string",
             "nullable": true
           },
-          "toLocationId": {
-            "type": "integer",
+          "toLocationCode": {
+            "type": "string",
             "nullable": true
           },
-          "toDepartmentId": {
-            "type": "integer",
+          "toDepartmentCode": {
+            "type": "string",
             "nullable": true
           },
           "comment": {
@@ -245,6 +246,250 @@
           },
           "name": {
             "type": "string"
+          }
+        }
+      },
+      "DictionaryDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isSystem": {
+            "type": "boolean"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "valuesCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DictionaryDetailDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isSystem": {
+            "type": "boolean"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DictionaryValueDto"
+            }
+          }
+        }
+      },
+      "DictionaryValueDto": {
+        "type": "object",
+        "properties": {
+          "dictionaryCode": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "AssetDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inventoryNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "serialNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "assetClassCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "assetClassName": {
+            "type": "string",
+            "nullable": true
+          },
+          "warehouseCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "warehouseName": {
+            "type": "string",
+            "nullable": true
+          },
+          "locationCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "locationName": {
+            "type": "string",
+            "nullable": true
+          },
+          "departmentCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "departmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "lifecycleStage": {
+            "type": "string"
+          },
+          "lifecycleStageName": {
+            "type": "string"
+          },
+          "assignedUserId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "assignedUserName": {
+            "type": "string",
+            "nullable": true
+          },
+          "licenseExpirationDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AssetDetailDto": {
+        "type": "object",
+        "properties": {
+          "asset": {
+            "$ref": "#/components/schemas/AssetDto"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssetHistoryItem"
+            }
+          },
+          "movements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssetMovementDto"
+            }
+          },
+          "relatedTickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssetTicketHistoryItem"
+            }
+          }
+        }
+      },
+      "AssetMovementDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "assetId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "movementType": {
+            "type": "string"
+          },
+          "movementTypeName": {
+            "type": "string"
+          },
+          "fromWarehouseCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromWarehouseName": {
+            "type": "string",
+            "nullable": true
+          },
+          "toWarehouseCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "toWarehouseName": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromLocationCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromLocationName": {
+            "type": "string",
+            "nullable": true
+          },
+          "toLocationCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "toLocationName": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromDepartmentCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromDepartmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "toDepartmentCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "toDepartmentName": {
+            "type": "string",
+            "nullable": true
           }
         }
       },
@@ -521,10 +766,10 @@
             "nullable": true,
             "description": "Обязателен для возврата в эксплуатацию, если у актива нет прежнего активного сотрудника."
           },
-          "repairToWarehouseId": {
-            "type": "integer",
+          "repairToWarehouseCode": {
+            "type": "string",
             "nullable": true,
-            "description": "Обязателен для возврата на склад, если у актива нет прежнего действующего склада."
+            "description": "Код активного склада; обязателен для возврата на склад, если у актива нет прежнего действующего склада."
           }
         }
       },

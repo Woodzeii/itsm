@@ -62,8 +62,8 @@ public sealed record ChangeTicketStatusRequest
     [Range(1, int.MaxValue)]
     public int? RepairToUserId { get; init; }
 
-    [Range(1, int.MaxValue)]
-    public int? RepairToWarehouseId { get; init; }
+    [StringLength(64)]
+    public string? RepairToWarehouseCode { get; init; }
 }
 
 /// <summary>Possible asset lifecycle outcomes after completing a repair ticket.</summary>

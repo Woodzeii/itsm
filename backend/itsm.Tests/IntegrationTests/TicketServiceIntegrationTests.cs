@@ -403,7 +403,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         });
         await scope.Db.SaveChangesAsync();
 
-        await Assert.ThrowsAsync<ArgumentException>(() => service.ChangeStatusAsync(
+        var missingWarehouse = await Assert.ThrowsAsync<FieldValidationException>(() => service.ChangeStatusAsync(
             ticket.Id,
             new ChangeTicketStatusRequest
             {
@@ -413,8 +413,13 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
             },
             engineer.Id,
             ["agent"]));
+        Assert.Equal(nameof(ChangeTicketStatusRequest.RepairToWarehouseCode), missingWarehouse.Field);
 
         var warehouseId = await CreateWarehouseAsync(scope.Db);
+        var warehouseCode = await scope.Db.DictionaryValues
+            .Where(value => value.Id == warehouseId)
+            .Select(value => value.Code)
+            .SingleAsync();
         await service.ChangeStatusAsync(
             ticket.Id,
             new ChangeTicketStatusRequest
@@ -422,7 +427,7 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
                 StatusId = 5,
                 RepairResolution = "Ремонт завершен.",
                 RepairOutcome = RepairOutcome.TransferToWarehouse,
-                RepairToWarehouseId = warehouseId
+                RepairToWarehouseCode = warehouseCode
             },
             engineer.Id,
             ["agent"]);

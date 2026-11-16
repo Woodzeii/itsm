@@ -363,7 +363,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             switch (request.RepairOutcome.Value)
             {
                 case RepairOutcome.ReturnToExploitation:
-                    if (request.RepairToWarehouseId is not null)
+                    if (request.RepairToWarehouseCode is not null)
                         throw new ArgumentException("Для возврата в эксплуатацию нельзя указывать склад назначения.");
 
                     var existingAssigneeIsActive = asset.AssignedUserId is int existingAssigneeId
@@ -390,26 +390,40 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
                     if (request.RepairToUserId is not null)
                         throw new ArgumentException("Для возврата на склад нельзя указывать сотрудника.");
 
+                    int? requestedWarehouseId = null;
+                    if (request.RepairToWarehouseCode is string requestedWarehouseCode)
+                    {
+                        requestedWarehouseId = await db.DictionaryValues
+                            .Where(value => value.Code == requestedWarehouseCode
+                                && !value.IsArchived
+                                && !value.Dictionary.IsArchived
+                                && value.Dictionary.TenantId == db.GetCurrentTenantId()
+                                && value.Dictionary.Code == "warehouses")
+                            .Select(value => (int?)value.Id)
+                            .FirstOrDefaultAsync(ct);
+                        if (requestedWarehouseId is null)
+                            throw new FieldValidationException(
+                                nameof(request.RepairToWarehouseCode),
+                                $"Активный склад с кодом '{requestedWarehouseCode}' не найден.");
+                    }
+
                     var existingWarehouseIsValid = asset.WarehouseId is int existingWarehouseId
                         && await db.DictionaryValues.AnyAsync(value =>
                             value.Id == existingWarehouseId
                             && !value.IsArchived
+                            && !value.Dictionary.IsArchived
+                            && value.Dictionary.TenantId == db.GetCurrentTenantId()
                             && value.Dictionary.Code == "warehouses", ct);
-                    if (existingWarehouseIsValid && request.RepairToWarehouseId is int requestedWarehouseId
-                        && requestedWarehouseId != asset.WarehouseId)
+                    if (existingWarehouseIsValid && requestedWarehouseId is int requestedId
+                        && requestedId != asset.WarehouseId)
                         throw new ArgumentException("Для возврата на склад будет сохранен текущий склад актива.");
 
                     var warehouseId = existingWarehouseIsValid
                         ? asset.WarehouseId
-                        : request.RepairToWarehouseId;
+                        : requestedWarehouseId;
                     if (warehouseId is not int returnWarehouseId)
-                        throw new ArgumentException("Для возврата на склад укажите склад.");
-                    if (!existingWarehouseIsValid
-                        && !await db.DictionaryValues.AnyAsync(value =>
-                            value.Id == returnWarehouseId
-                            && !value.IsArchived
-                            && value.Dictionary.Code == "warehouses", ct))
-                        throw new ArgumentException("Склад для возврата актива не найден.");
+                        throw new FieldValidationException(
+                            nameof(request.RepairToWarehouseCode), "Для возврата на склад укажите код склада.");
 
                     asset.WarehouseId = returnWarehouseId;
                     asset.AssignedUserId = null;
@@ -417,7 +431,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
                     break;
 
                 case RepairOutcome.Retire:
-                    if (request.RepairToUserId is not null || request.RepairToWarehouseId is not null)
+                    if (request.RepairToUserId is not null || request.RepairToWarehouseCode is not null)
                         throw new ArgumentException("Для списания нельзя указывать сотрудника или склад назначения.");
 
                     asset.AssignedUserId = null;
@@ -431,6 +445,14 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
             var oldStage = asset.LifecycleStage;
             asset.LifecycleStage = newStage;
+            var assignedWarehouseCode = asset.WarehouseId is int assignedWarehouseId
+                ? await db.DictionaryValues
+                    .Where(value => value.Id == assignedWarehouseId
+                        && value.Dictionary.TenantId == db.GetCurrentTenantId()
+                        && value.Dictionary.Code == "warehouses")
+                    .Select(value => value.Code)
+                    .FirstOrDefaultAsync(ct)
+                : null;
             db.AssetHistoryLogs.Add(new AssetHistoryLog
             {
                 AssetId = asset.Id,
@@ -444,7 +466,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
                     repairOutcome = request.RepairOutcome.Value.ToString(),
                     repairResolution = request.RepairResolution.Trim(),
                     assignedUserId = asset.AssignedUserId,
-                    warehouseId = asset.WarehouseId
+                    warehouseCode = assignedWarehouseCode
                 }),
                 Comment = request.RepairResolution.Trim(),
                 ChangedAt = DateTimeOffset.UtcNow
@@ -462,7 +484,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         else if (request.RepairResolution is not null
             || request.RepairOutcome is not null
             || request.RepairToUserId is not null
-            || request.RepairToWarehouseId is not null)
+            || request.RepairToWarehouseCode is not null)
         {
             throw new ArgumentException("Результат ремонта и назначения можно передавать только при закрытии заявки на ремонт.");
         }

@@ -63,7 +63,7 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, 
 
             @if (isEngineer && selected.status !== 'Закрыта') { <button class="outline escalation-action" type="button" (click)="escalate()">Повысить критичность и эскалировать</button> }
             @if (selected.type === 'Тикет на ремонт' && selected.status !== 'Закрыта') {
-              <form class="repair-close" (ngSubmit)="closeRepair()"><label>Результат ремонта<select name="result" [(ngModel)]="repairResult"><option value="В эксплуатацию">Вернуть в эксплуатацию</option><option value="На склад">Перевести на склад</option><option value="Списать">Списать</option></select></label><label>ID сотрудника для возврата в эксплуатацию (если не назначен)<input type="number" min="1" name="repairToUserId" [(ngModel)]="repairToUserId" /></label><label>ID склада для возврата на склад (если не задан)<input type="number" min="1" name="repairToWarehouseId" [(ngModel)]="repairToWarehouseId" /></label><label>Что ремонтировалось и что менялось<textarea name="work" [(ngModel)]="repairDescription" required></textarea></label><button class="primary" type="submit" [disabled]="!repairDescription.trim()">Закрыть ремонт</button></form>
+              <form class="repair-close" (ngSubmit)="closeRepair()"><label>Результат ремонта<select name="result" [(ngModel)]="repairResult"><option value="В эксплуатацию">Вернуть в эксплуатацию</option><option value="На склад">Перевести на склад</option><option value="Списать">Списать</option></select></label><label>ID сотрудника для возврата в эксплуатацию (если не назначен)<input type="number" min="1" name="repairToUserId" [(ngModel)]="repairToUserId" /></label><label>Код склада для возврата (если не задан)<input name="repairToWarehouseCode" [(ngModel)]="repairToWarehouseCode" /></label><label>Что ремонтировалось и что менялось<textarea name="work" [(ngModel)]="repairDescription" required></textarea></label><button class="primary" type="submit" [disabled]="!repairDescription.trim()">Закрыть ремонт</button></form>
             }
             <section class="history"><button type="button" class="activity-open" (click)="openActivityPanel('history')"><span>История заявки</span><span class="activity-open-action">Открыть полностью <span aria-hidden="true">↗</span></span></button><div class="history-scroll" #historyScroll (scroll)="onHistoryScroll($event)">
               @if (loadingHistory) { <p class="empty" aria-live="polite">Загрузка истории...</p> }
@@ -262,7 +262,7 @@ export class TicketQueueComponent implements OnInit {
     repairDescription = '';
     repairResult: 'В эксплуатацию' | 'На склад' | 'Списать' = 'В эксплуатацию';
     repairToUserId: number | null = null;
-    repairToWarehouseId: number | null = null;
+    repairToWarehouseCode: string | null = null;
     assigneeDraft = '';
     priorityDraft = '';
     ticketTypes: PortalTicketType[] = [];
@@ -637,8 +637,8 @@ export class TicketQueueComponent implements OnInit {
             result: this.repairResult,
             workDescription: this.repairDescription,
             repairToUserId: this.repairToUserId,
-            repairToWarehouseId: this.repairToWarehouseId,
-        }).subscribe({ next: ticket => { this.updateTicket(ticket); this.repairToUserId = null; this.repairToWarehouseId = null; this.notice = 'Тикет на ремонт закрыт.'; this.changeDetector.markForCheck(); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } });
+            repairToWarehouseCode: this.repairToWarehouseCode,
+        }).subscribe({ next: ticket => { this.updateTicket(ticket); this.repairToUserId = null; this.repairToWarehouseCode = null; this.notice = 'Тикет на ремонт закрыт.'; this.changeDetector.markForCheck(); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } });
     }
 
     private updateTicket(ticket: Ticket): void {

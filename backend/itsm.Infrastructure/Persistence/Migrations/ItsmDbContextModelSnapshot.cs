@@ -728,6 +728,12 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("now()");
 
+                    b.Property<bool>("IsArchived")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_archived");
+
                     b.Property<bool>("IsSystem")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -758,6 +764,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Id = 1,
                             Code = "warehouses",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsArchived = false,
                             IsSystem = true,
                             Name = "Склады",
                             TenantId = 0
@@ -767,6 +774,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Id = 2,
                             Code = "locations",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsArchived = false,
                             IsSystem = true,
                             Name = "Места",
                             TenantId = 0
@@ -776,6 +784,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Id = 3,
                             Code = "departments",
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
+                            IsArchived = false,
                             IsSystem = true,
                             Name = "Подразделения",
                             TenantId = 0

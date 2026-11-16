@@ -76,7 +76,14 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "2FA challenge and, if required, setup QR code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -96,34 +103,48 @@
             }
           }
         },
-        "/api/auth/skip-2fa-setup": {
-          "post": {
-            "tags": [
-              "Auth"
-            ],
-            "security": [],
-            "requestBody": {
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/SkipTwoFactorSetupRequest"
-                  }
+        "responses": {
+          "200": {
+            "description": "JWT issued after successful authenticator code verification",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyTwoFactorResponse"
                 }
               }
-            },
-            "responses": {
-              "200": {
-                "description": "JWT issued for a portal user who skipped optional 2FA setup"
-              },
-              "403": {
-                "description": "2FA setup cannot be skipped for this user"
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/skip-2fa-setup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "security": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SkipTwoFactorSetupRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "JWT issued for a portal user who skipped optional 2FA setup",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyTwoFactorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "2FA setup cannot be skipped for this user"
           }
         }
       }
@@ -135,7 +156,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TwoFactorSetupResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -507,14 +535,21 @@
         "summary": "Получить список активов с фильтрацией",
         "parameters": [
           {
-            "name": "classId",
+            "name": "assetClassCode",
             "in": "query",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
-            "name": "status",
+            "name": "lifecycleStage",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
             "in": "query",
             "schema": {
               "type": "string"
@@ -523,7 +558,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssetDto"
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -543,8 +588,15 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetDto"
+                }
+              }
+            }
           }
         }
       }
@@ -567,7 +619,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetDetailDto"
+                }
+              }
+            }
           }
         }
       },
@@ -598,7 +657,14 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetDto"
+                }
+              }
+            }
           }
         }
       },
@@ -656,7 +722,45 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetMovementDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Получить движения актива",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Движения актива",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssetMovementDto"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -788,9 +892,29 @@
         "tags": [
           "Dictionaries"
         ],
+        "parameters": [
+          {
+            "name": "includeArchived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DictionaryDto"
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -808,31 +932,45 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "description": "Created"
           }
         }
       }
     },
-    "/api/dictionaries/{id}": {
+    "/api/dictionaries/{code}": {
       "get": {
         "tags": [
           "Dictionaries"
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeArchived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryDetailDto"
+                }
+              }
+            }
           }
         }
       },
@@ -842,12 +980,11 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           }
         ],
@@ -872,12 +1009,61 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "409": {
+            "description": "Справочник используется или не может быть удален"
+          }
+        }
+      }
+    },
+    "/api/dictionaries/{code}/archive": {
+      "post": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "409": {
+            "description": "Системный справочник нельзя архивировать"
+          }
+        }
+      }
+    },
+    "/api/dictionaries/{code}/restore": {
+      "post": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -888,25 +1074,42 @@
         }
       }
     },
-    "/api/dictionaries/{id}/values": {
+    "/api/dictionaries/{code}/values": {
       "get": {
         "tags": [
           "Dictionaries"
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeArchived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DictionaryValueDto"
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -916,12 +1119,11 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           }
         ],
@@ -941,28 +1143,26 @@
         }
       }
     },
-    "/api/dictionaries/{id}/values/{valueId}": {
+    "/api/dictionaries/{code}/values/{valueCode}": {
       "put": {
         "tags": [
           "Dictionaries"
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           },
           {
-            "name": "valueId",
+            "name": "valueCode",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           }
         ],
@@ -987,21 +1187,19 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           },
           {
-            "name": "valueId",
+            "name": "valueCode",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           }
         ],
@@ -1018,28 +1216,56 @@
         }
       }
     },
-    "/api/dictionaries/{id}/values/{valueId}/archive": {
+    "/api/dictionaries/{code}/values/{valueCode}/archive": {
       "post": {
         "tags": [
           "Dictionaries"
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           },
           {
-            "name": "valueId",
+            "name": "valueCode",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/dictionaries/{code}/values/{valueCode}/restore": {
+      "post": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "valueCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -1078,8 +1304,8 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "Created"
+          "200": {
+            "description": "OK"
           }
         }
       }
@@ -1287,17 +1513,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Сообщения заявки",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/TicketMessageResponse"
-                  }
-                }
-              }
-            }
+            "description": "OK"
           }
         }
       },
@@ -1326,116 +1542,8 @@
           }
         },
         "responses": {
-          "201": {
-            "description": "Сообщение создано",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TicketMessageResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/tickets/{id}/attachments": {
-      "post": {
-        "tags": [
-          "TicketMessages"
-        ],
-        "summary": "Загрузить вложение для сообщения заявки",
-        "description": "Загружает файл во временное серверное хранилище. Возвращенный идентификатор передается в attachments при создании сообщения; токен действителен 24 часа и привязан к автору и заявке.",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "file"
-                ],
-                "properties": {
-                  "file": {
-                    "type": "string",
-                    "format": "binary"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
           "200": {
-            "description": "Файл загружен",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TicketAttachmentUploadResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Пустой файл или превышен лимит размера 10 МБ"
-          },
-          "404": {
-            "description": "Заявка не найдена или недоступна пользователю"
-          }
-        }
-      }
-    },
-    "/api/tickets/{id}/attachments/{attachmentId}": {
-      "get": {
-        "tags": [
-          "TicketMessages"
-        ],
-        "summary": "Скачать вложение из сообщения заявки",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "attachmentId",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Содержимое файла",
-            "content": {
-              "application/octet-stream": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Вложение не найдено или недоступно пользователю"
+            "description": "OK"
           }
         }
       }
@@ -1657,822 +1765,652 @@
       }
     },
     "/api/auth/admin-create-user": {
-        "post": {
-          "tags": [
-            "AdminUsers"
-          ],
-          "summary": "Создать учетную запись пользователя портала или сотрудника",
-          "description": "Только администратор. Целевой сценарий создания учетных записей согласно PORT-04 и РОЛ-02.",
-          "requestBody": {
-            "required": true,
+      "post": {
+        "tags": [
+          "AdminUsers"
+        ],
+        "summary": "Создать учетную запись пользователя портала или сотрудника",
+        "description": "Только администратор. Целевой сценарий создания учетных записей согласно PORT-04 и РОЛ-02.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminCreateUserRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Пользователь создан"
+          },
+          "400": {
+            "description": "Некорректные данные"
+          },
+          "409": {
+            "description": "Логин или email уже используются"
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "AdminUsers"
+        ],
+        "summary": "Получить список пользователей для администрирования",
+        "description": "Только администратор. Доступ к данным ограничивается текущим тенантом в SaaS.",
+        "parameters": [
+          {
+            "name": "department",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "roleId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "isActive",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список сотрудников",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AdminCreateUserRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "Пользователь создан"
-            },
-            "400": {
-              "description": "Некорректные данные"
-            },
-            "409": {
-              "description": "Логин или email уже используются"
-            }
-          }
-        }
-      },
-      "/api/users": {
-        "get": {
-          "tags": [
-            "AdminUsers"
-          ],
-          "summary": "Получить список пользователей для администрирования",
-          "description": "Только admin, tenant_owner или tenant_admin. Доступ к данным ограничивается текущим тенантом в SaaS.",
-          "parameters": [
-            {
-              "name": "department",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "string"
-              }
-            },
-            {
-              "name": "roleId",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "integer"
-              }
-            },
-            {
-              "name": "isActive",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "boolean"
-              }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Список сотрудников",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/UserSummary"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "/api/users/{id}": {
-        "get": {
-          "tags": [
-            "AdminUsers"
-          ],
-          "summary": "Получить карточку пользователя",
-          "description": "Только администратор.",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Карточка пользователя",
-              "content": {
-                "application/json": {
-                  "schema": {
+                  "type": "array",
+                  "items": {
                     "$ref": "#/components/schemas/UserSummary"
                   }
                 }
               }
-            },
-            "404": {
-              "description": "Пользователь не найден"
             }
           }
-        },
-        "put": {
-          "tags": [
-            "AdminUsers"
-          ],
-          "summary": "Изменить профиль, роли и активность пользователя",
-          "description": "Только admin, tenant_owner или tenant_admin. Локальный admin не может изменять пользователя tenant_owner; отказ возвращается как 403. Не удаляет пользователя физически, чтобы сохранить историю.",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
+        }
+      }
+    },
+    "/api/users/{id}": {
+      "get": {
+        "tags": [
+          "AdminUsers"
+        ],
+        "summary": "Получить карточку пользователя",
+        "description": "Только администратор.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Карточка пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSummary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Пользователь не найден"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "AdminUsers"
+        ],
+        "summary": "Изменить профиль, роли и активность пользователя",
+        "description": "Только администратор. Не удаляет пользователя физически, чтобы сохранить историю.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
               "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UpdateUserRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Профиль обновлен"
-            },
-            "403": {
-              "description": "Недостаточно прав для изменения владельца тенанта или назначения его роли."
-            },
-            "404": {
-              "description": "Пользователь не найден"
-            }
-          }
-        }
-      },
-      "/api/roles": {
-        "get": {
-          "tags": [
-            "AdminUsers"
-          ],
-          "summary": "Получить список системных ролей",
-          "description": "Только администратор. Используется для назначения ролей при создании и редактировании пользователей (РОЛ-02).",
-          "responses": {
-            "200": {
-              "description": "Список системных ролей",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/RoleSummary"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "/api/security-settings": {
-        "get": {
-          "tags": [
-            "SecuritySettings"
-          ],
-          "summary": "Получить политику паролей (НФТ-07)",
-          "description": "Только администратор. В SaaS возвращается политика текущего тенанта; в локальном развертывании — системная политика.",
-          "responses": {
-            "200": {
-              "description": "Текущая политика паролей",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/PasswordPolicy"
-                  }
-                }
+                "$ref": "#/components/schemas/UpdateUserRequest"
               }
             }
           }
         },
-        "put": {
-          "tags": [
-            "SecuritySettings"
-          ],
-          "summary": "Изменить политику паролей (НФТ-07)",
-          "description": "Только администратор. Правила применяются при создании и изменении пароля; MaxFailedAttempts и LockoutMinutes также определяют блокировку при неуспешной аутентификации. В SaaS настройка изолирована в пределах тенанта.",
-          "requestBody": {
-            "required": true,
+        "responses": {
+          "200": {
+            "description": "Профиль обновлен"
+          },
+          "404": {
+            "description": "Пользователь не найден"
+          }
+        }
+      }
+    },
+    "/api/roles": {
+      "get": {
+        "tags": [
+          "AdminUsers"
+        ],
+        "summary": "Получить список системных ролей",
+        "description": "Только администратор. Используется для назначения ролей при создании и редактировании пользователей (РОЛ-02).",
+        "responses": {
+          "200": {
+            "description": "Список системных ролей",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UpdatePasswordPolicyRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Политика паролей сохранена",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/PasswordPolicy"
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RoleSummary"
                   }
                 }
               }
-            },
-            "400": {
-              "description": "Недопустимые значения политики."
+            }
+          }
+        }
+      }
+    },
+    "/api/security-settings": {
+      "get": {
+        "tags": [
+          "SecuritySettings"
+        ],
+        "summary": "Получить политику паролей (НФТ-07)",
+        "description": "Только администратор. В SaaS возвращается политика текущего тенанта; в локальном развертывании — системная политика.",
+        "responses": {
+          "200": {
+            "description": "Текущая политика паролей",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PasswordPolicy"
+                }
+              }
             }
           }
         }
       },
-      "/api/tenants": {
-        "get": {
-          "tags": [
-            "Tenants"
-          ],
-          "summary": "Получить список тенантов",
-          "description": "Только tenant_admin в SaaS-развертывании. Возвращается метаинформация о тенантах, без данных пользователей или заявок.",
-          "responses": {
-            "200": {
-              "description": "Список тенантов",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/TenantRecord"
-                    }
-                  }
-                }
+      "put": {
+        "tags": [
+          "SecuritySettings"
+        ],
+        "summary": "Изменить политику паролей (НФТ-07)",
+        "description": "Только администратор. Правила применяются при создании и изменении пароля; MaxFailedAttempts и LockoutMinutes также определяют блокировку при неуспешной аутентификации. В SaaS настройка изолирована в пределах тенанта.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePasswordPolicyRequest"
               }
-            },
-            "403": {
-              "description": "Операция доступна только администратору SaaS-тенантов."
             }
           }
         },
-        "post": {
-          "tags": [
-            "Tenants"
-          ],
-          "summary": "Создать тенант и первую учетную запись администратора",
-          "description": "Только tenant_admin в SaaS-развертывании. Создание тенанта и первой учетной записи должно быть атомарным: при ошибке ни одна из записей не сохраняется. Первая учетная запись получает роль tenant_owner. Учетная запись создается по логину, а первоначальная настройка учетных данных выполняется безопасным способом вне этого ответа; эта операция не является открытой регистрацией пользователя.",
-          "requestBody": {
-            "required": true,
+        "responses": {
+          "200": {
+            "description": "Политика паролей сохранена",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CreateTenantRequest"
+                  "$ref": "#/components/schemas/PasswordPolicy"
                 }
               }
             }
           },
-          "responses": {
-            "201": {
-              "description": "Тенант и первая учетная запись администратора созданы",
-              "content": {
-                "application/json": {
-                  "schema": {
+          "400": {
+            "description": "Недопустимые значения политики."
+          }
+        }
+      }
+    },
+    "/api/tenants": {
+      "get": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Получить список тенантов",
+        "description": "Только tenant_admin в SaaS-развертывании. Возвращается метаинформация о тенантах, без данных пользователей или заявок.",
+        "responses": {
+          "200": {
+            "description": "Список тенантов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
                     "$ref": "#/components/schemas/TenantRecord"
                   }
                 }
               }
-            },
-            "400": {
-              "description": "Некорректные данные тенанта или первого администратора."
-            },
-            "403": {
-              "description": "Операция доступна только администратору SaaS-тенантов."
-            },
-            "409": {
-              "description": "Невозможно создать тенант или первую учетную запись из-за конфликта уникальности."
-            }
-          }
-        }
-      },
-      "/api/tenants/settings": {
-        "get": {
-          "tags": [
-            "Tenants"
-          ],
-          "summary": "Получить настройки пользователей текущего тенанта",
-          "description": "Доступно авторизованным пользователям тенанта. Настройку создания администраторов может изменять только tenant_owner.",
-          "responses": {
-            "200": {
-              "description": "Настройки текущего тенанта",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/TenantSettingsDto"
-                  }
-                }
-              }
-            },
-            "400": {
-              "description": "Текущий тенант не определён."
-            },
-            "404": {
-              "description": "Тенант не найден."
-            }
-          }
-        },
-        "put": {
-          "tags": [
-            "Tenants"
-          ],
-          "summary": "Изменить настройки пользователей текущего тенанта",
-          "description": "Доступно только tenant_owner. tenant_admin может изменять настройки конкретного тенанта через /api/tenants/{id}/settings.",
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UpdateTenantSettingsRequest"
-                }
-              }
             }
           },
-          "responses": {
-            "200": {
-              "description": "Настройки обновлены",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/TenantSettingsDto"
-                  }
-                }
-              }
-            },
-            "400": {
-              "description": "Текущий тенант не определён."
-            },
-            "403": {
-              "description": "Изменять настройки может только владелец тенанта."
-            },
-            "404": {
-              "description": "Тенант не найден."
-            }
+          "403": {
+            "description": "Операция доступна только администратору SaaS-тенантов."
           }
         }
       },
-      "/api/tenants/{id}/settings": {
-        "get": {
-          "tags": [
-            "Tenants"
-          ],
-          "summary": "Получить настройки тенанта",
-          "description": "Доступно только tenant_admin.",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
+      "post": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Создать тенант и первую учетную запись администратора",
+        "description": "Только tenant_admin в SaaS-развертывании. Создание тенанта и первой учетной записи администратора должно быть атомарным: при ошибке ни одна из записей не сохраняется. Учетная запись создается по логину, а первоначальная настройка учетных данных выполняется безопасным способом вне этого ответа; эта операция не является открытой регистрацией пользователя.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
               "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Настройки тенанта",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/TenantSettingsDto"
-                  }
-                }
-              }
-            },
-            "403": {
-              "description": "Операция доступна только tenant_admin."
-            },
-            "404": {
-              "description": "Тенант не найден."
-            }
-          }
-        },
-        "put": {
-          "tags": [
-            "Tenants"
-          ],
-          "summary": "Изменить настройки тенанта",
-          "description": "Доступно только tenant_admin.",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UpdateTenantSettingsRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Настройки обновлены",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/TenantSettingsDto"
-                  }
-                }
-              }
-            },
-            "403": {
-              "description": "Операция доступна только tenant_admin."
-            },
-            "404": {
-              "description": "Тенант не найден."
-            }
-          }
-        }
-      },
-      "/api/tenants/{id}/status": {
-        "patch": {
-          "tags": [
-            "Tenants"
-          ],
-          "summary": "Активировать или заблокировать тенант",
-          "description": "Только tenant_admin в SaaS-развертывании. Блокировка должна запрещать доступ пользователям тенанта, не удаляя его данные.",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UpdateTenantStatusRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Статус тенанта обновлен",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/TenantRecord"
-                  }
-                }
-              }
-            },
-            "403": {
-              "description": "Операция доступна только администратору SaaS-тенантов."
-            },
-            "404": {
-              "description": "Тенант не найден."
-            }
-          }
-        }
-      },
-      "/api/tenants/{id}": {
-        "delete": {
-          "tags": [
-            "Tenants"
-          ],
-          "summary": "Удалить тенант",
-          "description": "Только tenant_admin в SaaS-развертывании. Удаление необратимо и должно обрабатывать связанные данные тенанта согласно политике хранения.",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "responses": {
-            "204": {
-              "description": "Тенант удален."
-            },
-            "403": {
-              "description": "Операция доступна только администратору SaaS-тенантов."
-            },
-            "404": {
-              "description": "Тенант не найден."
-            }
-          }
-        }
-      },
-      "/api/audit-log": {
-        "get": {
-          "tags": [
-            "AdminUsers"
-          ],
-          "summary": "Получить системный журнал действий пользователей (НФТ-08)",
-          "description": "Только администратор. Возвращает аудит действий системы: кто, что и когда изменил. Все изменения данных и настроек во всех модулях должны записываться в системный аудит. Пароли, MFA-секреты, токены и другие секреты не должны попадать в oldValues/newValues.",
-          "parameters": [
-            {
-              "name": "userId",
-              "in": "query",
-              "required": false,
-              "description": "Фильтр по пользователю, выполнившему действие.",
-              "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            },
-            {
-              "name": "entityType",
-              "in": "query",
-              "required": false,
-              "description": "Фильтр по типу сущности.",
-              "schema": {
-                "type": "string"
-              }
-            },
-            {
-              "name": "dateFrom",
-              "in": "query",
-              "required": false,
-              "description": "Начало периода, включительно.",
-              "schema": {
-                "type": "string",
-                "format": "date"
-              }
-            },
-            {
-              "name": "dateTo",
-              "in": "query",
-              "required": false,
-              "description": "Конец периода, включительно.",
-              "schema": {
-                "type": "string",
-                "format": "date"
-              }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Список записей системного аудита",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/AuditLogEntry"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "/api/notifications": {
-        "get": {
-          "tags": [
-            "Notifications"
-          ],
-          "summary": "Получить внутренние уведомления текущего пользователя",
-          "description": "Пользователь определяется по токену; нельзя читать уведомления другого пользователя.",
-          "parameters": [
-            {
-              "name": "onlyUnread",
-              "in": "query",
-              "required": false,
-              "schema": {
-                "type": "boolean",
-                "default": true
-              }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Уведомления пользователя",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/Notification"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "/api/notifications/{id}/read": {
-        "post": {
-          "tags": [
-            "Notifications"
-          ],
-          "summary": "Отметить уведомление текущего пользователя как прочитанное",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "responses": {
-            "204": {
-              "description": "Уведомление отмечено прочитанным"
-            },
-            "404": {
-              "description": "Уведомление не найдено у текущего пользователя"
-            }
-          }
-        }
-      },
-      "/api/calendar-exceptions": {
-        "get": {
-          "tags": [
-            "SLAConfiguration"
-          ],
-          "summary": "Получить исключения производственного календаря",
-          "description": "Праздники и перенесенные рабочие дни. Только администратор.",
-          "responses": {
-            "200": {
-              "description": "Список исключений календаря",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/CalendarException"
-                    }
-                  }
-                }
+                "$ref": "#/components/schemas/CreateTenantRequest"
               }
             }
           }
         },
-        "post": {
-          "tags": [
-            "SLAConfiguration"
-          ],
-          "summary": "Добавить исключение в производственный календарь",
-          "description": "Только администратор. Для одной даты допускается одна запись.",
-          "requestBody": {
-            "required": true,
+        "responses": {
+          "201": {
+            "description": "Тенант и первая учетная запись администратора созданы",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SaveCalendarExceptionRequest"
+                  "$ref": "#/components/schemas/TenantRecord"
                 }
               }
             }
           },
-          "responses": {
-            "201": {
-              "description": "Исключение создано"
-            },
-            "409": {
-              "description": "Для даты уже задано исключение"
-            }
-          }
-        }
-      },
-      "/api/calendar-exceptions/{id}": {
-        "delete": {
-          "tags": [
-            "SLAConfiguration"
-          ],
-          "summary": "Удалить исключение из календаря",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "responses": {
-            "204": {
-              "description": "Исключение удалено"
-            },
-            "404": {
-              "description": "Исключение не найдено"
-            }
-          }
-        }
-      },
-      "/api/working-schedules": {
-        "get": {
-          "tags": [
-            "SLAConfiguration"
-          ],
-          "summary": "Получить рабочие графики",
-          "description": "Только администратор. Необходимо для настройки режима учета SLA и рабочих часов по дням недели.",
-          "responses": {
-            "200": {
-              "description": "Рабочие графики",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/WorkingSchedule"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "/api/working-schedules/{id}": {
-        "put": {
-          "tags": [
-            "SLAConfiguration"
-          ],
-          "summary": "Изменить рабочий график",
-          "description": "Только администратор. График задает режим 24x7 или рабочие часы и интервалы по дням недели.",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SaveWorkingScheduleRequest"
-                }
-              }
-            }
+          "400": {
+            "description": "Некорректные данные тенанта или первого администратора."
           },
-          "responses": {
-            "200": {
-              "description": "График обновлен"
-            },
-            "404": {
-              "description": "График не найден"
-            }
+          "403": {
+            "description": "Операция доступна только администратору SaaS-тенантов."
+          },
+          "409": {
+            "description": "Невозможно создать тенант или первую учетную запись из-за конфликта уникальности."
           }
         }
-      },
-      "/api/sla-settings": {
-        "get": {
-          "tags": [
-            "SLAConfiguration"
-          ],
-          "summary": "Получить глобальные настройки SLA",
-          "description": "Только администратор. Включает глобальный переключатель SLA; настройка должна сохраняться в системной конфигурации.",
-          "responses": {
-            "200": {
-              "description": "Глобальные настройки SLA",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/SlaSettings"
-                  }
-                }
+      }
+    },
+    "/api/tenants/{id}/status": {
+      "patch": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Активировать или заблокировать тенант",
+        "description": "Только tenant_admin в SaaS-развертывании. Блокировка должна запрещать доступ пользователям тенанта, не удаляя его данные.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTenantStatusRequest"
               }
             }
           }
         },
-        "put": {
-          "tags": [
-            "SLAConfiguration"
-          ],
-          "summary": "Изменить глобальные настройки SLA",
-          "description": "Только администратор.",
-          "requestBody": {
+        "responses": {
+          "200": {
+            "description": "Статус тенанта обновлен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TenantRecord"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Операция доступна только администратору SaaS-тенантов."
+          },
+          "404": {
+            "description": "Тенант не найден."
+          }
+        }
+      }
+    },
+    "/api/tenants/{id}": {
+      "delete": {
+        "tags": [
+          "Tenants"
+        ],
+        "summary": "Удалить тенант",
+        "description": "Только tenant_admin в SaaS-развертывании. Удаление необратимо и должно обрабатывать связанные данные тенанта согласно политике хранения.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
             "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Тенант удален."
+          },
+          "403": {
+            "description": "Операция доступна только администратору SaaS-тенантов."
+          },
+          "404": {
+            "description": "Тенант не найден."
+          }
+        }
+      }
+    },
+    "/api/audit-log": {
+      "get": {
+        "tags": [
+          "AdminUsers"
+        ],
+        "summary": "Получить системный журнал действий пользователей (НФТ-08)",
+        "description": "Только администратор. Возвращает аудит действий системы: кто, что и когда изменил. Все изменения данных и настроек во всех модулях должны записываться в системный аудит. Пароли, MFA-секреты, токены и другие секреты не должны попадать в oldValues/newValues.",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "description": "Фильтр по пользователю, выполнившему действие.",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "entityType",
+            "in": "query",
+            "required": false,
+            "description": "Фильтр по типу сущности.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "dateFrom",
+            "in": "query",
+            "required": false,
+            "description": "Начало периода, включительно.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          {
+            "name": "dateTo",
+            "in": "query",
+            "required": false,
+            "description": "Конец периода, включительно.",
+            "schema": {
+              "type": "string",
+              "format": "date"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Список записей системного аудита",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AuditLogEntry"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Получить внутренние уведомления текущего пользователя",
+        "description": "Пользователь определяется по токену; нельзя читать уведомления другого пользователя.",
+        "parameters": [
+          {
+            "name": "onlyUnread",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Уведомления пользователя",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Notification"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "post": {
+        "tags": [
+          "Notifications"
+        ],
+        "summary": "Отметить уведомление текущего пользователя как прочитанное",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Уведомление отмечено прочитанным"
+          },
+          "404": {
+            "description": "Уведомление не найдено у текущего пользователя"
+          }
+        }
+      }
+    },
+    "/api/calendar-exceptions": {
+      "get": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Получить исключения производственного календаря",
+        "description": "Праздники и перенесенные рабочие дни. Только администратор.",
+        "responses": {
+          "200": {
+            "description": "Список исключений календаря",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarException"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Добавить исключение в производственный календарь",
+        "description": "Только администратор. Для одной даты допускается одна запись.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveCalendarExceptionRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Исключение создано"
+          },
+          "409": {
+            "description": "Для даты уже задано исключение"
+          }
+        }
+      }
+    },
+    "/api/calendar-exceptions/{id}": {
+      "delete": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Удалить исключение из календаря",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Исключение удалено"
+          },
+          "404": {
+            "description": "Исключение не найдено"
+          }
+        }
+      }
+    },
+    "/api/working-schedules": {
+      "get": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Получить рабочие графики",
+        "description": "Только администратор. Необходимо для настройки режима учета SLA и рабочих часов по дням недели.",
+        "responses": {
+          "200": {
+            "description": "Рабочие графики",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkingSchedule"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/working-schedules/{id}": {
+      "put": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Изменить рабочий график",
+        "description": "Только администратор. График задает режим 24x7 или рабочие часы и интервалы по дням недели.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveWorkingScheduleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "График обновлен"
+          },
+          "404": {
+            "description": "График не найден"
+          }
+        }
+      }
+    },
+    "/api/sla-settings": {
+      "get": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Получить глобальные настройки SLA",
+        "description": "Только администратор. Включает глобальный переключатель SLA; настройка должна сохраняться в системной конфигурации.",
+        "responses": {
+          "200": {
+            "description": "Глобальные настройки SLA",
             "content": {
               "application/json": {
                 "schema": {
@@ -2480,42 +2418,42 @@
                 }
               }
             }
-          },
-          "responses": {
-            "200": {
-              "description": "Настройки сохранены"
-            }
           }
         }
       },
-      "/api/sla-settings/portal-visibility": {
-        "get": {
-          "tags": [
-            "SLAConfiguration"
-          ],
-          "summary": "Получить настройки видимости сроков SLA на портале (PORT-10)",
-          "description": "Только администратор.",
-          "responses": {
-            "200": {
-              "description": "Настройки видимости показателей SLA на портале",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/PortalSlaVisibility"
-                  }
-                }
+      "put": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Изменить глобальные настройки SLA",
+        "description": "Только администратор.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlaSettings"
               }
             }
           }
         },
-        "put": {
-          "tags": [
-            "SLAConfiguration"
-          ],
-          "summary": "Изменить настройки видимости сроков SLA на портале (PORT-10)",
-          "description": "Только администратор. Настройка управляет показом времени реакции и решения автору заявки на портале.",
-          "requestBody": {
-            "required": true,
+        "responses": {
+          "200": {
+            "description": "Настройки сохранены"
+          }
+        }
+      }
+    },
+    "/api/sla-settings/portal-visibility": {
+      "get": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Получить настройки видимости сроков SLA на портале (PORT-10)",
+        "description": "Только администратор.",
+        "responses": {
+          "200": {
+            "description": "Настройки видимости показателей SLA на портале",
             "content": {
               "application/json": {
                 "schema": {
@@ -2523,579 +2461,597 @@
                 }
               }
             }
-          },
-          "responses": {
-            "200": {
-              "description": "Настройки видимости сохранены.",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/PortalSlaVisibility"
-                  }
-                }
-              }
-            }
           }
         }
       },
-      "/api/sla-settings/ticket-types/{ticketTypeId}": {
-        "put": {
-          "tags": [
-            "SLAConfiguration"
-          ],
-          "summary": "Включить или отключить SLA для типа заявки",
-          "description": "Только администратор. Отключение типа SLA применяется ко всем его уровням критичности; индивидуальное отключение задается отдельными значениями SLA.",
-          "parameters": [
-            {
-              "name": "ticketTypeId",
-              "in": "path",
-              "required": true,
+      "put": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Изменить настройки видимости сроков SLA на портале (PORT-10)",
+        "description": "Только администратор. Настройка управляет показом времени реакции и решения автору заявки на портале.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
               "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TicketTypeSlaSettingRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Настройка SLA типа заявки сохранена"
-            },
-            "404": {
-              "description": "Тип заявки не найден"
-            }
-          }
-        }
-      },
-      "/api/sla-policies": {
-        "get": {
-          "tags": [
-            "SLAConfiguration"
-          ],
-          "summary": "Получить матрицу SLA по типу заявки и критичности",
-          "description": "Только администратор. Значения соответствуют сочетанию TicketType × CriticalityLevel.",
-          "responses": {
-            "200": {
-              "description": "Матрица SLA",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/SlaValue"
-                    }
-                  }
-                }
+                "$ref": "#/components/schemas/PortalSlaVisibility"
               }
             }
           }
         },
-        "put": {
-          "tags": [
-            "SLAConfiguration"
-          ],
-          "summary": "Создать или обновить значение SLA для типа заявки и критичности",
-          "description": "Только администратор. Upsert по уникальной паре ticketTypeId + criticalityLevelId: создать значение, если пары нет, либо обновить существующее.",
-          "requestBody": {
-            "required": true,
+        "responses": {
+          "200": {
+            "description": "Настройки видимости сохранены.",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/SaveSlaValueRequest"
+                  "$ref": "#/components/schemas/PortalSlaVisibility"
                 }
               }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Значение SLA сохранено"
             }
           }
         }
-      },
-      "/api/ticket-statuses": {
-        "get": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Получить статусы заявок",
-          "description": "Только администратор. Стандартные статусы нельзя удалить; пользовательские статусы могут приостанавливать SLA.",
-          "responses": {
-            "200": {
-              "description": "Статусы заявок",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/TicketStatus"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "post": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Добавить пользовательский статус заявки",
-          "description": "Только администратор. Стандартные статусы создаются системой и не дублируются этим методом.",
-          "requestBody": {
+      }
+    },
+    "/api/sla-settings/ticket-types/{ticketTypeId}": {
+      "put": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Включить или отключить SLA для типа заявки",
+        "description": "Только администратор. Отключение типа SLA применяется ко всем его уровням критичности; индивидуальное отключение задается отдельными значениями SLA.",
+        "parameters": [
+          {
+            "name": "ticketTypeId",
+            "in": "path",
             "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreateTicketStatusRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "Статус создан"
-            },
-            "409": {
-              "description": "Код статуса уже используется"
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
-        }
-      },
-      "/api/ticket-types": {
-        "get": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Получить типы заявок",
-          "description": "Только администратор. Включает признак доступности типа на портале.",
-          "responses": {
-            "200": {
-              "description": "Типы заявок",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/TicketType"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "post": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Создать тип заявки",
-          "description": "Только администратор. Встроенный тип тикета на ремонт создается системой и не может быть создан повторно.",
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreateTicketTypeRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "Тип заявки создан"
-            },
-            "409": {
-              "description": "Код типа уже используется"
-            }
-          }
-        }
-      },
-      "/api/ticket-types/{id}": {
-        "put": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Изменить параметры типа заявки",
-          "description": "Только администратор. Встроенный тип тикета на ремонт нельзя удалить или изменить по сути (SD-09).",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
               "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UpdateTicketTypeRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Тип заявки обновлен"
-            },
-            "404": {
-              "description": "Тип заявки не найден"
-            }
-          }
-        }
-      },
-      "/api/assignment-settings": {
-        "get": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Получить общий способ назначения исполнителей (SD-14)",
-          "description": "Настройка едина для системы, а не для отдельного типа заявки. Только администратор.",
-          "responses": {
-            "200": {
-              "description": "Настройки назначения исполнителей",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/AssignmentSettings"
-                  }
-                }
+                "$ref": "#/components/schemas/TicketTypeSlaSettingRequest"
               }
             }
           }
         },
-        "put": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Изменить общий способ назначения исполнителей (SD-14)",
-          "description": "Только администратор. AutomaticLeastLoaded назначает инженера ТП с наименьшим числом открытых заявок. Manual использует выбранного администратора или назначенного администратором пользователя; manualAssignerUserId может быть null, если назначает сам администратор.",
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UpdateAssignmentSettingsRequest"
-                }
-              }
-            }
+        "responses": {
+          "200": {
+            "description": "Настройка SLA типа заявки сохранена"
           },
-          "responses": {
-            "200": {
-              "description": "Настройки назначения сохранены"
-            }
+          "404": {
+            "description": "Тип заявки не найден"
           }
         }
-      },
-      "/api/escalation-rules": {
-        "get": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Получить настройки эскалации по типам заявок (ESC-03)",
-          "description": "Только администратор. Возвращается правило для каждого типа заявки.",
-          "responses": {
-            "200": {
-              "description": "Правила эскалации",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/EscalationRule"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "/api/escalation-rules/{ticketTypeId}": {
-        "put": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Настроить условия эскалации для типа заявки (ESC-03)",
-          "description": "Только администратор. OnSlaBreach управляет запуском при нарушении времени решения; OnManual разрешает ручную эскалацию автору заявки и исполнителю согласно их ролям. Угроза нарушения SLA и нарушение времени реакции триггерами не являются.",
-          "parameters": [
-            {
-              "name": "ticketTypeId",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UpdateEscalationRuleRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Правило эскалации сохранено"
-            },
-            "404": {
-              "description": "Тип заявки не найден"
-            }
-          }
-        }
-      },
-      "/api/ticket-configuration/service-desk-head": {
-        "get": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Получить назначенного руководителя службы поддержки (ESC-05)",
-          "description": "Только администратор. Руководитель службы поддержки — отдельная системная настройка и не совпадает с managerId, который задает организационную иерархию пользователя.",
-          "responses": {
-            "200": {
-              "description": "Назначенный руководитель либо отсутствие назначения",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/ServiceDeskHeadSetting"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "put": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Назначить руководителя службы поддержки (ESC-05)",
-          "description": "Только администратор. userId должен принадлежать активному инженеру технической поддержки. Руководитель является получателем эскалаций; это не изменение managerId или роли пользователя.",
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SetServiceDeskHeadRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Руководитель службы поддержки назначен",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/ServiceDeskHeadSetting"
-                  }
-                }
-              }
-            },
-            "400": {
-              "description": "Пользователь не является активным инженером технической поддержки."
-            },
-            "404": {
-              "description": "Пользователь не найден."
-            }
-          }
-        }
-      },
-      "/api/criticality-levels": {
-        "get": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Получить шкалу критичности",
-          "description": "Только администратор. В системе должно оставаться от 3 до 5 активных уровней (SD-11).",
-          "responses": {
-            "200": {
-              "description": "Уровни критичности",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/CriticalityLevel"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "post": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Добавить уровень критичности",
-          "description": "Только администратор. Не допускается превышать пять активных уровней.",
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CreateCriticalityLevelRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "201": {
-              "description": "Уровень создан"
-            },
-            "409": {
-              "description": "Достигнут максимум уровней или код уже используется"
-            }
-          }
-        }
-      },
-      "/api/criticality-levels/{id}": {
-        "put": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Изменить уровень критичности",
-          "description": "Только администратор. Уровни, используемые существующими заявками, не удаляются физически. При isActive=false должно остаться не менее 3 активных уровней; при isActive=true активных уровней должно быть не более 5. Нарушение ограничений возвращает 400.",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UpdateCriticalityLevelRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Уровень критичности обновлен"
-            },
-            "400": {
-              "description": "Нарушено ограничение шкалы критичности: после изменения должно оставаться строго от 3 до 5 активных уровней (SD-11)."
-            },
-            "404": {
-              "description": "Уровень не найден"
-            }
-          }
-        }
-      },
-      "/api/ticket-statuses/{id}": {
-        "put": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Изменить название или настройки статуса",
-          "description": "Только администратор. Стандартные статусы можно переименовать, но нельзя удалить.",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "integer",
-                "format": "int32"
-              }
-            }
-          ],
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UpdateTicketStatusRequest"
-                }
-              }
-            }
-          },
-          "responses": {
-            "200": {
-              "description": "Статус обновлен"
-            },
-            "404": {
-              "description": "Статус не найден"
-            }
-          }
-        }
-      },
-      "/api/ticket-status-transitions": {
-        "get": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Получить разрешенные переходы между статусами",
-          "description": "Только администратор.",
-          "responses": {
-            "200": {
-              "description": "Правила переходов",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "type": "array",
-                    "items": {
-                      "$ref": "#/components/schemas/TicketStatusTransition"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "put": {
-          "tags": [
-            "TicketConfiguration"
-          ],
-          "summary": "Заменить конфигурацию переходов статусов",
-          "description": "Только администратор. Каждый переход задает начальный статус, конечный статус и необязательный код роли. MVP принимает полный массив и заменяет всю матрицу. Удаление старых строк и вставка новых должны выполняться атомарно в одной транзакции. При одновременном редактировании несколькими администраторами сохраняется риск гонки и потери обновлений.",
-          "requestBody": {
-            "required": true,
+      }
+    },
+    "/api/sla-policies": {
+      "get": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Получить матрицу SLA по типу заявки и критичности",
+        "description": "Только администратор. Значения соответствуют сочетанию TicketType × CriticalityLevel.",
+        "responses": {
+          "200": {
+            "description": "Матрица SLA",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/SaveTicketStatusTransitionRequest"
+                    "$ref": "#/components/schemas/SlaValue"
                   }
                 }
               }
             }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "SLAConfiguration"
+        ],
+        "summary": "Создать или обновить значение SLA для типа заявки и критичности",
+        "description": "Только администратор. Upsert по уникальной паре ticketTypeId + criticalityLevelId: создать значение, если пары нет, либо обновить существующее.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveSlaValueRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Значение SLA сохранено"
+          }
+        }
+      }
+    },
+    "/api/ticket-statuses": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить статусы заявок",
+        "description": "Только администратор. Стандартные статусы нельзя удалить; пользовательские статусы могут приостанавливать SLA.",
+        "responses": {
+          "200": {
+            "description": "Статусы заявок",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketStatus"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Добавить пользовательский статус заявки",
+        "description": "Только администратор. Стандартные статусы создаются системой и не дублируются этим методом.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTicketStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Статус создан"
           },
-          "responses": {
-            "200": {
-              "description": "Переходы сохранены"
+          "409": {
+            "description": "Код статуса уже используется"
+          }
+        }
+      }
+    },
+    "/api/ticket-types": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить типы заявок",
+        "description": "Только администратор. Включает признак доступности типа на портале.",
+        "responses": {
+          "200": {
+            "description": "Типы заявок",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketType"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Создать тип заявки",
+        "description": "Только администратор. Встроенный тип тикета на ремонт создается системой и не может быть создан повторно.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTicketTypeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Тип заявки создан"
+          },
+          "409": {
+            "description": "Код типа уже используется"
+          }
+        }
+      }
+    },
+    "/api/ticket-types/{id}": {
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Изменить параметры типа заявки",
+        "description": "Только администратор. Встроенный тип тикета на ремонт нельзя удалить или изменить по сути (SD-09).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTicketTypeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Тип заявки обновлен"
+          },
+          "404": {
+            "description": "Тип заявки не найден"
+          }
+        }
+      }
+    },
+    "/api/assignment-settings": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить общий способ назначения исполнителей (SD-14)",
+        "description": "Настройка едина для системы, а не для отдельного типа заявки. Только администратор.",
+        "responses": {
+          "200": {
+            "description": "Настройки назначения исполнителей",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssignmentSettings"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Изменить общий способ назначения исполнителей (SD-14)",
+        "description": "Только администратор. AutomaticLeastLoaded назначает инженера ТП с наименьшим числом открытых заявок. Manual использует выбранного администратора или назначенного администратором пользователя; manualAssignerUserId может быть null, если назначает сам администратор.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateAssignmentSettingsRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Настройки назначения сохранены"
+          }
+        }
+      }
+    },
+    "/api/escalation-rules": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить настройки эскалации по типам заявок (ESC-03)",
+        "description": "Только администратор. Возвращается правило для каждого типа заявки.",
+        "responses": {
+          "200": {
+            "description": "Правила эскалации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EscalationRule"
+                  }
+                }
+              }
             }
           }
         }
       }
+    },
+    "/api/escalation-rules/{ticketTypeId}": {
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Настроить условия эскалации для типа заявки (ESC-03)",
+        "description": "Только администратор. OnSlaBreach управляет запуском при нарушении времени решения; OnManual разрешает ручную эскалацию автору заявки и исполнителю согласно их ролям. Угроза нарушения SLA и нарушение времени реакции триггерами не являются.",
+        "parameters": [
+          {
+            "name": "ticketTypeId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateEscalationRuleRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Правило эскалации сохранено"
+          },
+          "404": {
+            "description": "Тип заявки не найден"
+          }
+        }
+      }
+    },
+    "/api/ticket-configuration/service-desk-head": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить назначенного руководителя службы поддержки (ESC-05)",
+        "description": "Только администратор. Руководитель службы поддержки — отдельная системная настройка и не совпадает с managerId, который задает организационную иерархию пользователя.",
+        "responses": {
+          "200": {
+            "description": "Назначенный руководитель либо отсутствие назначения",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceDeskHeadSetting"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Назначить руководителя службы поддержки (ESC-05)",
+        "description": "Только администратор. userId должен принадлежать активному инженеру технической поддержки. Руководитель является получателем эскалаций; это не изменение managerId или роли пользователя.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetServiceDeskHeadRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Руководитель службы поддержки назначен",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceDeskHeadSetting"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Пользователь не является активным инженером технической поддержки."
+          },
+          "404": {
+            "description": "Пользователь не найден."
+          }
+        }
+      }
+    },
+    "/api/criticality-levels": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить шкалу критичности",
+        "description": "Только администратор. В системе должно оставаться от 3 до 5 активных уровней (SD-11).",
+        "responses": {
+          "200": {
+            "description": "Уровни критичности",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CriticalityLevel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Добавить уровень критичности",
+        "description": "Только администратор. Не допускается превышать пять активных уровней.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCriticalityLevelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Уровень создан"
+          },
+          "409": {
+            "description": "Достигнут максимум уровней или код уже используется"
+          }
+        }
+      }
+    },
+    "/api/criticality-levels/{id}": {
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Изменить уровень критичности",
+        "description": "Только администратор. Уровни, используемые существующими заявками, не удаляются физически. При isActive=false должно остаться не менее 3 активных уровней; при isActive=true активных уровней должно быть не более 5. Нарушение ограничений возвращает 400.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCriticalityLevelRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Уровень критичности обновлен"
+          },
+          "400": {
+            "description": "Нарушено ограничение шкалы критичности: после изменения должно оставаться строго от 3 до 5 активных уровней (SD-11)."
+          },
+          "404": {
+            "description": "Уровень не найден"
+          }
+        }
+      }
+    },
+    "/api/ticket-statuses/{id}": {
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Изменить название или настройки статуса",
+        "description": "Только администратор. Стандартные статусы можно переименовать, но нельзя удалить.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateTicketStatusRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Статус обновлен"
+          },
+          "404": {
+            "description": "Статус не найден"
+          }
+        }
+      }
+    },
+    "/api/ticket-status-transitions": {
+      "get": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Получить разрешенные переходы между статусами",
+        "description": "Только администратор.",
+        "responses": {
+          "200": {
+            "description": "Правила переходов",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TicketStatusTransition"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "TicketConfiguration"
+        ],
+        "summary": "Заменить конфигурацию переходов статусов",
+        "description": "Только администратор. Каждый переход задает начальный статус, конечный статус и необязательный код роли. MVP принимает полный массив и заменяет всю матрицу. Удаление старых строк и вставка новых должны выполняться атомарно в одной транзакции. При одновременном редактировании несколькими администраторами сохраняется риск гонки и потери обновлений.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/SaveTicketStatusTransitionRequest"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Переходы сохранены"
+          }
+        }
+      }
+    }
   },
   "components": {
     "securitySchemes": {
@@ -3150,7 +3106,7 @@
         "type": "object",
         "required": [
           "name",
-          "assetClassId"
+          "assetClassCode"
         ],
         "anyOf": [
           {
@@ -3168,7 +3124,7 @@
           "inventoryNumber": {
             "type": "string",
             "nullable": true,
-            "description": "Для создания на складе обязателен вместе с warehouseId."
+            "description": "Для создания на складе обязателен вместе с warehouseCode."
           },
           "serialNumber": {
             "type": "string",
@@ -3177,20 +3133,20 @@
           "name": {
             "type": "string"
           },
-          "assetClassId": {
-            "type": "integer"
+          "assetClassCode": {
+            "type": "string"
           },
-          "warehouseId": {
-            "type": "integer",
+          "warehouseCode": {
+            "type": "string",
             "nullable": true,
-            "description": "Вместе с inventoryNumber создаёт актив на этапе «На складе»; без одного из этих полей актив остаётся на этапе «Закуплен». Склад можно менять только движением."
+            "description": "Активный код справочника warehouses. Вместе с inventoryNumber создаёт актив на этапе «На складе»."
           },
-          "locationId": {
-            "type": "integer",
+          "locationCode": {
+            "type": "string",
             "nullable": true
           },
-          "departmentId": {
-            "type": "integer",
+          "departmentCode": {
+            "type": "string",
             "nullable": true
           },
           "attributes": {
@@ -3211,6 +3167,23 @@
           }
         }
       },
+      "TicketLookupsResponse": {
+        "type": "object",
+        "properties": {
+          "types": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketTypeLookup"
+            }
+          },
+          "statuses": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketStatusLookup"
+            }
+          }
+        }
+      },
       "UpdateAssetRequest": {
         "type": "object",
         "properties": {
@@ -3226,25 +3199,25 @@
             "type": "string",
             "nullable": true
           },
-          "assetClassId": {
-            "type": "integer",
+          "assetClassCode": {
+            "type": "string",
             "nullable": true
           },
           "category": {
             "type": "string",
             "nullable": true
           },
-          "warehouseId": {
-            "type": "integer",
+          "warehouseCode": {
+            "type": "string",
             "nullable": true,
-            "description": "Нельзя менять этим запросом; для перемещения используйте POST /api/assets/{id}/movements."
+            "description": "Код текущего склада нельзя менять этим запросом; для перемещения используйте POST /api/assets/{id}/movements."
           },
-          "locationId": {
-            "type": "integer",
+          "locationCode": {
+            "type": "string",
             "nullable": true
           },
-          "departmentId": {
-            "type": "integer",
+          "departmentCode": {
+            "type": "string",
             "nullable": true
           },
           "attributes": {
@@ -3272,73 +3245,29 @@
             "enum": [
               "issue",
               "return",
-              "relocate"
+              "relocate",
+              "stocking"
             ]
           },
           "toUserId": {
             "type": "integer",
             "nullable": true
           },
-          "toWarehouseId": {
-            "type": "integer",
+          "toWarehouseCode": {
+            "type": "string",
             "nullable": true
           },
-          "toLocationId": {
-            "type": "integer",
+          "toLocationCode": {
+            "type": "string",
             "nullable": true
           },
-          "toDepartmentId": {
-            "type": "integer",
+          "toDepartmentCode": {
+            "type": "string",
             "nullable": true
           },
           "comment": {
             "type": "string",
             "nullable": true
-          }
-        }
-      },
-      "TicketLookupsResponse": {
-        "type": "object",
-        "properties": {
-          "types": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TicketTypeLookup"
-            }
-          },
-          "statuses": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TicketStatusLookup"
-            }
-          }
-        }
-      },
-      "TicketTypeLookup": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer"
-          },
-          "code": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          }
-        }
-      },
-      "TicketStatusLookup": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "integer"
-          },
-          "code": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
           }
         }
       },
@@ -3413,9 +3342,18 @@
             "type": "string"
           },
           "qrCodeImageBase64": {
-            "type": "string"
+            "type": "string",
+            "description": "PNG в Base64 без префикса data URI"
           },
           "message": {
+            "type": "string"
+          }
+        }
+      },
+      "SkipTwoFactorSetupRequest": {
+        "type": "object",
+        "properties": {
+          "challengeId": {
             "type": "string"
           }
         }
@@ -3481,14 +3419,6 @@
             "type": "string"
           },
           "code": {
-            "type": "string"
-          }
-        }
-      },
-      "SkipTwoFactorSetupRequest": {
-        "type": "object",
-        "properties": {
-          "challengeId": {
             "type": "string"
           }
         }
@@ -3607,10 +3537,10 @@
             "nullable": true,
             "description": "Обязателен для возврата в эксплуатацию, если у актива нет прежнего активного сотрудника."
           },
-          "repairToWarehouseId": {
-            "type": "integer",
+          "repairToWarehouseCode": {
+            "type": "string",
             "nullable": true,
-            "description": "Обязателен для возврата на склад, если у актива нет прежнего действующего склада."
+            "description": "Код активного склада; обязателен для возврата на склад, если у актива нет прежнего действующего склада."
           }
         }
       },
@@ -3629,103 +3559,9 @@
           },
           "attachments": {
             "type": "array",
-            "description": "Идентификаторы файлов, полученные при загрузке через POST /api/tickets/{id}/attachments. Каждый токен можно прикрепить один раз в течение 24 часов.",
             "items": {
               "type": "string"
             }
-          }
-        }
-      },
-      "TicketAttachmentUploadResponse": {
-        "type": "object",
-        "required": [
-          "id",
-          "fileName",
-          "sizeBytes",
-          "expiresAt"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "pattern": "^[0-9a-fA-F]{32}$",
-            "description": "Временный токен для передачи в attachments при создании сообщения."
-          },
-          "fileName": {
-            "type": "string"
-          },
-          "sizeBytes": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "expiresAt": {
-            "type": "string",
-            "format": "date-time"
-          }
-        }
-      },
-      "TicketAttachmentResponse": {
-        "type": "object",
-        "required": [
-          "id",
-          "fileName"
-        ],
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "fileName": {
-            "type": "string"
-          }
-        }
-      },
-      "TicketMessageResponse": {
-        "type": "object",
-        "required": [
-          "id",
-          "ticketId",
-          "authorId",
-          "authorName",
-          "messageBody",
-          "isInternal",
-          "attachments",
-          "createdAt"
-        ],
-        "properties": {
-          "id": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "ticketId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "authorId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "authorName": {
-            "type": "string"
-          },
-          "messageBody": {
-            "type": "string"
-          },
-          "isInternal": {
-            "type": "boolean"
-          },
-          "sourceType": {
-            "type": "string",
-            "nullable": true
-          },
-          "attachments": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/TicketAttachmentResponse"
-            }
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time"
           }
         }
       },
@@ -4636,7 +4472,7 @@
           },
           "code": {
             "type": "string",
-            "description": "Системный код роли, например tenant_admin, tenant_owner, admin, agent, manager или portal_user."
+            "description": "Системный код роли, например admin, agent, manager или client."
           },
           "name": {
             "type": "string",
@@ -4741,32 +4577,6 @@
             "type": "integer",
             "format": "int32",
             "minimum": 1
-          }
-        }
-      },
-      "TenantSettingsDto": {
-        "type": "object",
-        "required": [
-          "tenantId",
-          "allowAdminsCreateAdmins"
-        ],
-        "properties": {
-          "tenantId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "allowAdminsCreateAdmins": {
-            "type": "boolean",
-            "description": "Разрешает локальным администраторам создавать пользователей с ролью admin."
-          }
-        }
-      },
-      "UpdateTenantSettingsRequest": {
-        "type": "object",
-        "properties": {
-          "allowAdminsCreateAdmins": {
-            "type": "boolean",
-            "nullable": true
           }
         }
       },
@@ -5006,13 +4816,6 @@
             "items": {
               "type": "integer",
               "format": "int32"
-            }
-          },
-          "roleCodes": {
-            "type": "array",
-            "description": "Системные коды назначенных ролей, включая tenant_owner.",
-            "items": {
-              "type": "string"
             }
           },
           "isActive": {
@@ -5383,6 +5186,296 @@
           "requiredRoleCode": {
             "type": "string",
             "nullable": true
+          }
+        }
+      },
+      "TwoFactorSetupResponse": {
+        "type": "object",
+        "properties": {
+          "secret": {
+            "type": "string"
+          },
+          "otpAuthUri": {
+            "type": "string"
+          },
+          "qrCodeImageBase64": {
+            "type": "string",
+            "description": "PNG в Base64 без префикса data URI"
+          },
+          "issuer": {
+            "type": "string"
+          }
+        }
+      },
+      "AssetDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "inventoryNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "serialNumber": {
+            "type": "string",
+            "nullable": true
+          },
+          "name": {
+            "type": "string"
+          },
+          "assetClassCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "assetClassName": {
+            "type": "string",
+            "nullable": true
+          },
+          "warehouseCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "warehouseName": {
+            "type": "string",
+            "nullable": true
+          },
+          "locationCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "locationName": {
+            "type": "string",
+            "nullable": true
+          },
+          "departmentCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "departmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "category": {
+            "type": "string",
+            "nullable": true
+          },
+          "lifecycleStage": {
+            "type": "string"
+          },
+          "lifecycleStageName": {
+            "type": "string"
+          },
+          "assignedUserId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "assignedUserName": {
+            "type": "string",
+            "nullable": true
+          },
+          "licenseExpirationDate": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "attributes": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AssetMovementDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "assetId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "movementType": {
+            "type": "string"
+          },
+          "movementTypeName": {
+            "type": "string"
+          },
+          "fromWarehouseCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromWarehouseName": {
+            "type": "string",
+            "nullable": true
+          },
+          "toWarehouseCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "toWarehouseName": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromLocationCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromLocationName": {
+            "type": "string",
+            "nullable": true
+          },
+          "toLocationCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "toLocationName": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromDepartmentCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "fromDepartmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "toDepartmentCode": {
+            "type": "string",
+            "nullable": true
+          },
+          "toDepartmentName": {
+            "type": "string",
+            "nullable": true
+          }
+        }
+      },
+      "AssetDetailDto": {
+        "type": "object",
+        "properties": {
+          "asset": {
+            "$ref": "#/components/schemas/AssetDto"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssetHistoryItem"
+            }
+          },
+          "movements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssetMovementDto"
+            }
+          },
+          "relatedTickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AssetTicketHistoryItem"
+            }
+          }
+        }
+      },
+      "DictionaryDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isSystem": {
+            "type": "boolean"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "valuesCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DictionaryValueDto": {
+        "type": "object",
+        "properties": {
+          "dictionaryCode": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "DictionaryDetailDto": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "isSystem": {
+            "type": "boolean"
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "values": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DictionaryValueDto"
+            }
+          }
+        }
+      },
+      "TicketTypeLookup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        }
+      },
+      "TicketStatusLookup": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
           }
         }
       }

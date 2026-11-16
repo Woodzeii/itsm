@@ -51,7 +51,7 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     private readonly typeIds = new Map<string, number>();
     private readonly statusIds = new Map<string, number>();
     private readonly assigneeIds = new Map<string, number>();
-    private readonly assetClassIds = new Map<string, number>();
+    private readonly assetClassCodes = new Map<string, string>();
     private readonly assigneeNames = new Map<string, string>();
 
     getOverview() {
@@ -69,7 +69,9 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return this.http.get<BackendAsset[]>(`${this.baseUrl}/assets`).pipe(
             map(assets => assets.map(asset => {
                 if (asset.assetClassName) {
-                    this.assetClassIds.set(asset.assetClassName.toLocaleLowerCase(), asset.assetClassId!);
+                    if (asset.assetClassCode) {
+                        this.assetClassCodes.set(asset.assetClassName.toLocaleLowerCase(), asset.assetClassCode);
+                    }
                 }
                 return toAssetRecord(asset);
             })),
@@ -78,7 +80,7 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     getAssetClasses() {
         return this.http.get<{ id: number; code: string; name: string; isActive: boolean }[]>(`${this.baseUrl}/asset-classes`).pipe(
             switchMap(classes => {
-                classes.forEach(assetClass => this.assetClassIds.set(assetClass.name.toLocaleLowerCase(), assetClass.id));
+                classes.forEach(assetClass => this.assetClassCodes.set(assetClass.name.toLocaleLowerCase(), assetClass.code));
                 if (!classes.length) return of([] as AssetClassOption[]);
                 const requests = classes.map(assetClass => this.http
                     .get<{ code: string; name: string; dataType: string; isRequired: boolean; defaultValue: string | null; options: string | null }[]>(`${this.baseUrl}/asset-classes/${assetClass.id}/attributes`)
@@ -237,8 +239,8 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             }));
     }
     createAsset(request: CreateAssetRequest) {
-        const assetClassId = request.assetClassId ?? this.resolveAssetClassId(request.className);
-        if (!assetClassId) {
+        const assetClassCode = request.assetClassCode ?? this.resolveAssetClassCode(request.className);
+        if (!assetClassCode) {
             return throwError(() => new Error('Не удалось определить класс актива. Обновите список классов.'));
         }
 
@@ -246,10 +248,10 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             name: request.name?.trim(),
             inventoryNumber: request.id?.trim() || null,
             serialNumber: request.serialNumber?.trim() || null,
-            assetClassId,
-            warehouseId: request.warehouseId ?? null,
-            locationId: request.locationId ?? null,
-            departmentId: request.departmentId ?? null,
+            assetClassCode,
+            warehouseCode: request.warehouseCode ?? null,
+            locationCode: request.locationCode ?? null,
+            departmentCode: request.departmentCode ?? null,
             attributes: request.attributes ?? null,
         };
 
@@ -262,10 +264,10 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             name: changes.name,
             inventoryNumber: changes.id,
             serialNumber: changes.serialNumber,
-            assetClassId: changes.assetClassId,
-            warehouseId: changes.warehouseId,
-            locationId: changes.locationId,
-            departmentId: changes.departmentId,
+            assetClassCode: changes.assetClassCode ?? this.resolveAssetClassCode(changes.className),
+            warehouseCode: changes.warehouseCode,
+            locationCode: changes.locationCode,
+            departmentCode: changes.departmentCode,
             attributes: changes.attributes ?? null,
         };
 
@@ -283,9 +285,9 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         const body = {
             movementType,
             toUserId: request.toUserId ?? null,
-            toWarehouseId: request.toWarehouseId ?? null,
-            toLocationId: request.toLocationId ?? null,
-            toDepartmentId: request.toDepartmentId ?? null,
+            toWarehouseCode: request.toWarehouseCode ?? null,
+            toLocationCode: request.toLocationCode ?? null,
+            toDepartmentCode: request.toDepartmentCode ?? null,
             comment: request.comment?.trim()
                 || (request.from.trim() && request.to.trim() ? `${request.from.trim()} → ${request.to.trim()}` : null),
         };
@@ -326,7 +328,7 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
                         repairResolution: request.workDescription,
                         repairOutcome: repairOutcome(request.result),
                         repairToUserId: request.result === 'В эксплуатацию' ? request.repairToUserId ?? null : null,
-                        repairToWarehouseId: request.result === 'На склад' ? request.repairToWarehouseId ?? null : null,
+                        repairToWarehouseCode: request.result === 'На склад' ? request.repairToWarehouseCode ?? null : null,
                     })
                     .pipe(map(toTicket));
             }),
@@ -482,9 +484,9 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return source.get(value.trim().toLocaleLowerCase());
     }
 
-    private resolveAssetClassId(className: string | undefined): number | undefined {
+    private resolveAssetClassCode(className: string | undefined): string | undefined {
         if (!className) return undefined;
-        return this.resolveId(className, this.assetClassIds);
+        return this.assetClassCodes.get(className.trim().toLocaleLowerCase());
     }
 
     private resolveMovementType(kind: string): string | undefined {
@@ -667,18 +669,18 @@ interface BackendAsset {
     inventoryNumber?: string | null;
     serialNumber?: string | null;
     name?: string;
-    assetClassId?: number | null;
+    assetClassCode?: string | null;
     assetClassName?: string | null;
     category?: string | null;
     lifecycleStage?: string;
     lifecycleStageName?: string;
     assignedUserId?: number | null;
     assignedUserName?: string | null;
-    warehouseId?: number | null;
+    warehouseCode?: string | null;
     warehouseName?: string | null;
-    locationId?: number | null;
+    locationCode?: string | null;
     locationName?: string | null;
-    departmentId?: number | null;
+    departmentCode?: string | null;
     departmentName?: string | null;
     licenseExpirationDate?: string | null;
     createdAt?: string;
@@ -705,12 +707,18 @@ interface BackendAssetDetail {
         fromUserName?: string | null;
         toUserId?: number | null;
         toUserName?: string | null;
-        fromWarehouseId?: number | null;
-        toWarehouseId?: number | null;
-        fromLocationId?: number | null;
-        toLocationId?: number | null;
-        fromDepartmentId?: number | null;
-        toDepartmentId?: number | null;
+        fromWarehouseCode?: string | null;
+        fromWarehouseName?: string | null;
+        toWarehouseCode?: string | null;
+        toWarehouseName?: string | null;
+        fromLocationCode?: string | null;
+        fromLocationName?: string | null;
+        toLocationCode?: string | null;
+        toLocationName?: string | null;
+        fromDepartmentCode?: string | null;
+        fromDepartmentName?: string | null;
+        toDepartmentCode?: string | null;
+        toDepartmentName?: string | null;
         performedByName?: string;
         performedAt?: string;
         comment?: string | null;
@@ -796,6 +804,7 @@ interface BackendTicketEscalation {
 }
 
 const ASSET_MOVEMENT_TYPES: Record<string, string> = {
+    'Поступление на склад': 'stocking',
     'Перемещение между складами': 'relocate',
     'Выдача со склада': 'issue',
     'Возврат на склад': 'return',
@@ -821,15 +830,15 @@ function toAssetRecord(asset: BackendAsset): AssetRecord {
         type: asset.assetClassName ?? asset.category ?? '',
         className: asset.assetClassName ?? undefined,
         lifecycle: ASSET_LIFECYCLE_LABELS[stage] ?? (stage as AssetLifecycle),
-        warehouse: asset.warehouseName ?? (asset.warehouseId != null ? `Склад #${asset.warehouseId}` : undefined),
-        location: asset.locationName ?? (asset.locationId != null ? `Место #${asset.locationId}` : undefined),
-        department: asset.departmentName ?? (asset.departmentId != null ? `Подразделение #${asset.departmentId}` : undefined),
+        warehouse: asset.warehouseName ?? asset.warehouseCode ?? undefined,
+        location: asset.locationName ?? asset.locationCode ?? undefined,
+        department: asset.departmentName ?? asset.departmentCode ?? undefined,
         inventoryNumber: asset.inventoryNumber ?? undefined,
         serialNumber: asset.serialNumber ?? undefined,
-        assetClassId: asset.assetClassId ?? undefined,
-        warehouseId: asset.warehouseId ?? null,
-        locationId: asset.locationId ?? null,
-        departmentId: asset.departmentId ?? null,
+        assetClassCode: asset.assetClassCode ?? undefined,
+        warehouseCode: asset.warehouseCode ?? null,
+        locationCode: asset.locationCode ?? null,
+        departmentCode: asset.departmentCode ?? null,
         assignedUserId: asset.assignedUserId ?? null,
         attributes: asset.attributes ?? {},
     };
@@ -856,27 +865,33 @@ function toAssetDetails(detail: BackendAssetDetail): AssetDetails {
                 from: fromComment ?? movementTarget(
                     movement.fromUserName,
                     movement.fromUserId,
-                    movement.fromWarehouseId,
-                    movement.fromLocationId,
-                    movement.fromDepartmentId,
+                    movement.fromWarehouseName,
+                    movement.fromWarehouseCode,
+                    movement.fromLocationName,
+                    movement.fromLocationCode,
+                    movement.fromDepartmentName,
+                    movement.fromDepartmentCode,
                 ),
                 to: toComment ?? movementTarget(
                     movement.toUserName,
                     movement.toUserId,
-                    movement.toWarehouseId,
-                    movement.toLocationId,
-                    movement.toDepartmentId,
+                    movement.toWarehouseName,
+                    movement.toWarehouseCode,
+                    movement.toLocationName,
+                    movement.toLocationCode,
+                    movement.toDepartmentName,
+                    movement.toDepartmentCode,
                 ),
                 actor: movement.performedByName ?? '',
                 createdAt: movement.performedAt ?? '',
                 fromUserId: movement.fromUserId,
                 toUserId: movement.toUserId,
-                fromWarehouseId: movement.fromWarehouseId,
-                toWarehouseId: movement.toWarehouseId,
-                fromLocationId: movement.fromLocationId,
-                toLocationId: movement.toLocationId,
-                fromDepartmentId: movement.fromDepartmentId,
-                toDepartmentId: movement.toDepartmentId,
+                fromWarehouseCode: movement.fromWarehouseCode,
+                toWarehouseCode: movement.toWarehouseCode,
+                fromLocationCode: movement.fromLocationCode,
+                toLocationCode: movement.toLocationCode,
+                fromDepartmentCode: movement.fromDepartmentCode,
+                toDepartmentCode: movement.toDepartmentCode,
             };
         }),
         relatedTickets: (detail.relatedTickets ?? []).map(toAssetTicket),
@@ -886,15 +901,21 @@ function toAssetDetails(detail: BackendAssetDetail): AssetDetails {
 function movementTarget(
     userName?: string | null,
     userId?: number | null,
-    warehouseId?: number | null,
-    locationId?: number | null,
-    departmentId?: number | null,
+    warehouseName?: string | null,
+    warehouseCode?: string | null,
+    locationName?: string | null,
+    locationCode?: string | null,
+    departmentName?: string | null,
+    departmentCode?: string | null,
 ): string {
     if (userName) return userName;
     if (userId != null) return `Сотрудник #${userId}`;
-    if (warehouseId != null) return `Склад #${warehouseId}`;
-    if (locationId != null) return `Место #${locationId}`;
-    if (departmentId != null) return `Подразделение #${departmentId}`;
+    if (warehouseName) return warehouseName;
+    if (warehouseCode) return warehouseCode;
+    if (locationName) return locationName;
+    if (locationCode) return locationCode;
+    if (departmentName) return departmentName;
+    if (departmentCode) return departmentCode;
     return '—';
 }
 

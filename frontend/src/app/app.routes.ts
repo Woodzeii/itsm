@@ -18,6 +18,7 @@ export const routes: Routes = [
         children: [
             { path: 'dashboard', loadComponent: () => import('./pages/overview/overview').then(module => module.OverviewComponent), canActivate: [internalAccessGuard] },
             { path: 'tickets', loadComponent: () => import('./pages/tickets/ticket-queue').then(module => module.TicketQueueComponent), canActivate: [internalAccessGuard] },
+            { path: 'knowledge-base', loadComponent: () => import('./pages/knowledge-base/knowledge-base').then(module => module.KnowledgeBaseComponent), canActivate: [internalAccessGuard] },
             { path: 'assets', loadComponent: () => import('./pages/assets/assets-page').then(module => module.AssetsPageComponent), canActivate: [adminAccessGuard] },
             { path: 'escalations', loadComponent: () => import('./pages/workspace-section/workspace-section').then(module => module.WorkspaceSectionComponent), data: { section: 'escalations' }, canActivate: [internalAccessGuard] },
             { path: 'portal', loadComponent: () => import('./pages/portal/self-service-portal').then(module => module.SelfServicePortalComponent), canActivate: [portalAccessGuard] },

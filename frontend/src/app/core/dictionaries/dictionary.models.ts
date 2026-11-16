@@ -1,14 +1,13 @@
 export interface DictionaryDto {
-    id: number;
     code: string;
     name: string;
     isSystem: boolean;
+    isArchived: boolean;
     valuesCount: number;
 }
 
 export interface DictionaryValueDto {
-    id: number;
-    dictionaryId: number;
+    dictionaryCode: string;
     code: string;
     name: string;
     isArchived: boolean;
@@ -16,10 +15,10 @@ export interface DictionaryValueDto {
 }
 
 export interface DictionaryDetailDto {
-    id: number;
     code: string;
     name: string;
     isSystem: boolean;
+    isArchived: boolean;
     values: DictionaryValueDto[];
 }
 
@@ -34,6 +33,11 @@ export interface UpdateDictionaryRequest {
 
 export interface CreateDictionaryValueRequest {
     code: string;
+    name: string;
+    sortOrder: number;
+}
+
+export interface UpdateDictionaryValueRequest {
     name: string;
     sortOrder: number;
 }

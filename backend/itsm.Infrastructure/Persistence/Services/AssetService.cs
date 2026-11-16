@@ -13,15 +13,15 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
     private const string ClosedStatusCode = "closed";
 
     public async Task<IReadOnlyList<AssetDto>> GetAllAsync(
-        int? assetClassId,
+        string? assetClassCode,
         string? lifecycleStage,
         string? search,
         CancellationToken ct = default)
     {
         var query = db.Assets.AsNoTracking();
 
-        if (assetClassId is int classId)
-            query = query.Where(asset => asset.AssetClassId == classId);
+        if (!string.IsNullOrWhiteSpace(assetClassCode))
+            query = query.Where(asset => asset.AssetClass != null && asset.AssetClass.Code == assetClassCode);
 
         if (!string.IsNullOrWhiteSpace(lifecycleStage))
             query = query.Where(asset => asset.LifecycleStage == lifecycleStage);
@@ -41,7 +41,7 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
             .OrderByDescending(asset => asset.Id)
             .ToListAsync(ct);
 
-        return assets.Select(ToDto).ToArray();
+        return await ToDtosAsync(assets, ct);
     }
 
     public async Task<AssetDetailDto?> GetByIdAsync(int id, CancellationToken ct = default)
@@ -61,26 +61,34 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
             throw new ArgumentException("Сотрудника можно назначить только при выдаче актива со склада.");
 
         var assetClass = await db.AssetClasses
-            .Where(item => item.Id == request.AssetClassId)
+            .Where(item => item.Code == request.AssetClassCode)
             .Select(item => new { item.Id, item.IsActive })
             .FirstOrDefaultAsync(ct)
-            ?? throw new ArgumentException("Класс актива не найден.");
+            ?? throw new FieldValidationException(nameof(request.AssetClassCode), "Класс актива не найден.");
         if (!assetClass.IsActive)
-            throw new ArgumentException("Класс актива деактивирован.");
+            throw new FieldValidationException(nameof(request.AssetClassCode), "Класс актива деактивирован.");
 
         var inventoryNumber = NormalizeIdentifier(request.InventoryNumber);
         var serialNumber = NormalizeIdentifier(request.SerialNumber);
         if (inventoryNumber is null && serialNumber is null)
             throw new ArgumentException("Укажите инвентарный или серийный номер актива.");
-        if (request.WarehouseId is not null && inventoryNumber is null)
+        var warehouseId = await ResolveActiveDictionaryValueIdAsync(
+            "warehouses", request.WarehouseCode, nameof(request.WarehouseCode), ct);
+        var locationId = await ResolveActiveDictionaryValueIdAsync(
+            "locations", request.LocationCode, nameof(request.LocationCode), ct);
+        var departmentId = await ResolveActiveDictionaryValueIdAsync(
+            "departments", request.DepartmentCode, nameof(request.DepartmentCode), ct);
+
+        if (warehouseId is not null && inventoryNumber is null)
             throw new ArgumentException("Для размещения актива на складе укажите инвентарный номер.");
 
-        var stage = inventoryNumber is not null && request.WarehouseId is not null
+        var stage = inventoryNumber is not null && warehouseId is not null
             ? AssetLifecycleStages.InStock
             : AssetLifecycleStages.Purchased;
 
         await ValidateIdentifiersAreFreeAsync(inventoryNumber, serialNumber, exceptAssetId: null, ct);
-        await ValidateAssignmentsAsync(request.WarehouseId, request.LocationId, request.DepartmentId, request.AssignedUserId, ct);
+        if (request.AssignedUserId is int assignedUserId)
+            await ValidateUserIsActiveAsync(assignedUserId, "Ответственный сотрудник не найден.", ct);
 
         var now = DateTimeOffset.UtcNow;
         var asset = new Asset
@@ -92,9 +100,9 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
             Category = NormalizeIdentifier(request.Category),
             AttributesJson = SerializeAttributes(request.Attributes),
             LifecycleStage = stage,
-            WarehouseId = request.WarehouseId,
-            LocationId = request.LocationId,
-            DepartmentId = request.DepartmentId,
+            WarehouseId = warehouseId,
+            LocationId = locationId,
+            DepartmentId = departmentId,
             AssignedUserId = request.AssignedUserId,
             LicenseExpirationDate = request.LicenseExpirationDate,
             TenantId = db.GetCurrentTenantId(),
@@ -130,7 +138,7 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         await transaction.CommitAsync(ct);
 
         var saved = await AssetQuery().FirstAsync(item => item.Id == asset.Id, ct);
-        return ToDto(saved);
+        return await ToDtoAsync(saved, ct);
     }
 
     public async Task<AssetDto?> UpdateAsync(int id, UpdateAssetRequest request, int actorId, CancellationToken ct = default)
@@ -186,35 +194,42 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
             asset.SerialNumber = serialNumber;
         }
 
-        if (request.AssetClassId is int classId && classId != asset.AssetClassId)
+        if (request.AssetClassCode is string assetClassCode && assetClassCode != asset.AssetClass?.Code)
         {
             var assetClass = await db.AssetClasses
-                .Where(item => item.Id == classId)
+                .Where(item => item.Code == assetClassCode)
                 .Select(item => new { item.Id, item.IsActive })
                 .FirstOrDefaultAsync(ct)
-                ?? throw new ArgumentException("Класс актива не найден.");
+                ?? throw new FieldValidationException(nameof(request.AssetClassCode), "Класс актива не найден.");
             if (!assetClass.IsActive)
-                throw new ArgumentException("Класс актива деактивирован.");
+                throw new FieldValidationException(nameof(request.AssetClassCode), "Класс актива деактивирован.");
 
-            changes.Add(("assetClassId", asset.AssetClassId?.ToString(), assetClass.Id.ToString()));
+            changes.Add(("assetClassCode", asset.AssetClass?.Code, assetClassCode));
             asset.AssetClassId = assetClass.Id;
         }
 
-        if (request.WarehouseId is int warehouseId && warehouseId != asset.WarehouseId)
+        var requestedWarehouseId = await ResolveUpdatedDictionaryValueIdAsync(
+            "warehouses", request.WarehouseCode, asset.WarehouseId, nameof(request.WarehouseCode), ct);
+        if (request.WarehouseCode is not null && requestedWarehouseId != asset.WarehouseId)
             throw new InvalidOperationException("Склад можно изменить только через движение актива.");
 
-        await ValidateAssignmentsAsync(null, request.LocationId, request.DepartmentId, null, ct);
+        var requestedLocationId = await ResolveUpdatedDictionaryValueIdAsync(
+            "locations", request.LocationCode, asset.LocationId, nameof(request.LocationCode), ct);
+        var requestedDepartmentId = await ResolveUpdatedDictionaryValueIdAsync(
+            "departments", request.DepartmentCode, asset.DepartmentId, nameof(request.DepartmentCode), ct);
 
-        if (request.LocationId is int locationId && locationId != asset.LocationId)
+        if (request.LocationCode is not null && requestedLocationId != asset.LocationId)
         {
-            changes.Add(("locationId", asset.LocationId?.ToString(), locationId.ToString()));
-            asset.LocationId = locationId;
+            var value = await GetDictionaryValueAsync(requestedLocationId!.Value, ct);
+            changes.Add(("locationCode", await GetDictionaryValueCodeAsync(asset.LocationId, ct), value.Code));
+            asset.LocationId = requestedLocationId;
         }
 
-        if (request.DepartmentId is int departmentId && departmentId != asset.DepartmentId)
+        if (request.DepartmentCode is not null && requestedDepartmentId != asset.DepartmentId)
         {
-            changes.Add(("departmentId", asset.DepartmentId?.ToString(), departmentId.ToString()));
-            asset.DepartmentId = departmentId;
+            var value = await GetDictionaryValueAsync(requestedDepartmentId!.Value, ct);
+            changes.Add(("departmentCode", await GetDictionaryValueCodeAsync(asset.DepartmentId, ct), value.Code));
+            asset.DepartmentId = requestedDepartmentId;
         }
 
         if (request.LicenseExpirationDate is DateTimeOffset licenseExpiration
@@ -259,7 +274,7 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         await transaction.CommitAsync(ct);
 
         var saved = await AssetQuery().FirstAsync(item => item.Id == asset.Id, ct);
-        return ToDto(saved);
+        return await ToDtoAsync(saved, ct);
     }
 
     public async Task<bool> DeleteAsync(int id, int actorId, CancellationToken ct = default)
@@ -302,6 +317,13 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         if (asset is null)
             return null;
 
+        var toWarehouseId = await ResolveActiveDictionaryValueIdAsync(
+            "warehouses", request.ToWarehouseCode, nameof(request.ToWarehouseCode), ct);
+        var toLocationId = await ResolveActiveDictionaryValueIdAsync(
+            "locations", request.ToLocationCode, nameof(request.ToLocationCode), ct);
+        var toDepartmentId = await ResolveActiveDictionaryValueIdAsync(
+            "departments", request.ToDepartmentCode, nameof(request.ToDepartmentCode), ct);
+
         var now = DateTimeOffset.UtcNow;
         var movement = new AssetMovement
         {
@@ -312,9 +334,9 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
             FromLocationId = asset.LocationId,
             FromDepartmentId = asset.DepartmentId,
             ToUserId = request.ToUserId,
-            ToWarehouseId = request.ToWarehouseId,
-            ToLocationId = request.ToLocationId,
-            ToDepartmentId = request.ToDepartmentId,
+            ToWarehouseId = toWarehouseId,
+            ToLocationId = toLocationId,
+            ToDepartmentId = toDepartmentId,
             PerformedById = actorId,
             PerformedAt = now,
             Comment = NormalizeIdentifier(request.Comment)
@@ -323,6 +345,21 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         var oldStage = asset.LifecycleStage;
         switch (request.MovementType)
         {
+            case AssetMovementTypes.Stocking:
+                if (asset.LifecycleStage != AssetLifecycleStages.Purchased)
+                    throw new InvalidOperationException(
+                        $"Поступление на склад доступно только для актива на этапе «{AssetLifecycleStages.GetRussianName(AssetLifecycleStages.Purchased)}» (текущий этап: {AssetLifecycleStages.GetRussianName(asset.LifecycleStage)}).");
+                if (string.IsNullOrWhiteSpace(asset.InventoryNumber))
+                    throw new FieldValidationException(nameof(asset.InventoryNumber), "Для размещения актива на складе укажите инвентарный номер.");
+                if (toWarehouseId is not int stockingWarehouse)
+                    throw new FieldValidationException(nameof(request.ToWarehouseCode), "Для поступления на склад укажите склад.");
+                if (request.ToUserId is not null || request.ToLocationCode is not null || request.ToDepartmentCode is not null)
+                    throw new FieldValidationException(nameof(request.ToWarehouseCode), "Для поступления на склад укажите только склад-получатель.");
+
+                asset.LifecycleStage = AssetLifecycleStages.InStock;
+                asset.WarehouseId = stockingWarehouse;
+                break;
+
             case AssetMovementTypes.Issue:
                 if (asset.LifecycleStage != AssetLifecycleStages.InStock)
                     throw new InvalidOperationException(
@@ -331,8 +368,8 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
                     throw new InvalidOperationException("Для выдачи актив должен быть привязан к складу.");
                 if (request.ToUserId is not int issuedTo || issuedTo <= 0)
                     throw new ArgumentException("Для выдачи со склада укажите сотрудника, которому выдается актив.");
-                if (request.ToWarehouseId is not null || request.ToLocationId is not null || request.ToDepartmentId is not null)
-                    throw new ArgumentException("Для выдачи укажите только сотрудника-получателя.");
+                if (request.ToWarehouseCode is not null || request.ToLocationCode is not null || request.ToDepartmentCode is not null)
+                    throw new FieldValidationException(nameof(request.ToWarehouseCode), "Для выдачи укажите только сотрудника-получателя.");
 
                 await ValidateUserIsActiveAsync(issuedTo, "Сотрудник для выдачи не найден.", ct);
                 asset.LifecycleStage = AssetLifecycleStages.InUse;
@@ -346,12 +383,11 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
                         $"Возврат на склад доступен только для актива в эксплуатации (текущий этап: {AssetLifecycleStages.GetRussianName(asset.LifecycleStage)}).");
                 if (asset.AssignedUserId is null)
                     throw new InvalidOperationException("Для возврата актив должен быть закреплен за сотрудником.");
-                if (request.ToWarehouseId is not int returnWarehouse || returnWarehouse <= 0)
-                    throw new ArgumentException("Для возврата на склад укажите склад.");
-                if (request.ToUserId is not null || request.ToLocationId is not null || request.ToDepartmentId is not null)
-                    throw new ArgumentException("Для возврата укажите только склад-получатель.");
+                if (toWarehouseId is not int returnWarehouse)
+                    throw new FieldValidationException(nameof(request.ToWarehouseCode), "Для возврата на склад укажите склад.");
+                if (request.ToUserId is not null || request.ToLocationCode is not null || request.ToDepartmentCode is not null)
+                    throw new FieldValidationException(nameof(request.ToWarehouseCode), "Для возврата укажите только склад-получатель.");
 
-                await ValidateWarehouseAsync(returnWarehouse, ct);
                 asset.LifecycleStage = AssetLifecycleStages.InStock;
                 asset.AssignedUserId = null;
                 asset.WarehouseId = returnWarehouse;
@@ -363,14 +399,13 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
                         $"Перемещение между складами доступно только для актива на складе (текущий этап: {AssetLifecycleStages.GetRussianName(asset.LifecycleStage)}).");
                 if (asset.WarehouseId is null)
                     throw new InvalidOperationException("Для перемещения актив должен быть привязан к складу.");
-                if (request.ToWarehouseId is not int newWarehouse || newWarehouse <= 0)
-                    throw new ArgumentException("Для перемещения укажите склад назначения.");
+                if (toWarehouseId is not int newWarehouse)
+                    throw new FieldValidationException(nameof(request.ToWarehouseCode), "Для перемещения укажите склад назначения.");
                 if (newWarehouse == asset.WarehouseId)
-                    throw new ArgumentException("Склад назначения должен отличаться от текущего склада.");
-                if (request.ToUserId is not null || request.ToLocationId is not null || request.ToDepartmentId is not null)
-                    throw new ArgumentException("Для перемещения укажите только склад назначения.");
+                    throw new FieldValidationException(nameof(request.ToWarehouseCode), "Склад назначения должен отличаться от текущего склада.");
+                if (request.ToUserId is not null || request.ToLocationCode is not null || request.ToDepartmentCode is not null)
+                    throw new FieldValidationException(nameof(request.ToWarehouseCode), "Для перемещения укажите только склад назначения.");
 
-                await ValidateWarehouseAsync(newWarehouse, ct);
                 asset.WarehouseId = newWarehouse;
                 break;
 
@@ -383,6 +418,16 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         await db.SaveChangesAsync(ct);
 
+        var movementValues = await GetDictionaryValuesAsync(
+            [
+                movement.FromWarehouseId,
+                movement.ToWarehouseId,
+                movement.FromLocationId,
+                movement.ToLocationId,
+                movement.FromDepartmentId,
+                movement.ToDepartmentId
+            ],
+            ct);
         await LogAsync(
             asset.Id,
             actorId,
@@ -394,12 +439,12 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
                 movementType = movement.MovementType,
                 fromUserId = movement.FromUserId,
                 toUserId = movement.ToUserId,
-                fromWarehouseId = movement.FromWarehouseId,
-                toWarehouseId = movement.ToWarehouseId,
-                fromLocationId = movement.FromLocationId,
-                toLocationId = movement.ToLocationId,
-                fromDepartmentId = movement.FromDepartmentId,
-                toDepartmentId = movement.ToDepartmentId
+                fromWarehouseCode = ResolveDictionaryValue(movementValues, movement.FromWarehouseId, "warehouses")?.Code,
+                toWarehouseCode = ResolveDictionaryValue(movementValues, movement.ToWarehouseId, "warehouses")?.Code,
+                fromLocationCode = ResolveDictionaryValue(movementValues, movement.FromLocationId, "locations")?.Code,
+                toLocationCode = ResolveDictionaryValue(movementValues, movement.ToLocationId, "locations")?.Code,
+                fromDepartmentCode = ResolveDictionaryValue(movementValues, movement.FromDepartmentId, "departments")?.Code,
+                toDepartmentCode = ResolveDictionaryValue(movementValues, movement.ToDepartmentId, "departments")?.Code
             }),
             ct);
 
@@ -433,28 +478,13 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         await db.SaveChangesAsync(ct);
         await transaction.CommitAsync(ct);
 
-        var performer = await UserNameAsync(actorId, ct);
-        var fromUserName = movement.FromUserId is int fromUserIdForDto ? await UserNameAsync(fromUserIdForDto, ct) : null;
-        var toUserName = movement.ToUserId is int toUserIdForDto ? await UserNameAsync(toUserIdForDto, ct) : null;
-        return new AssetMovementDto(
-            movement.Id,
-            movement.AssetId,
-            movement.MovementType,
-            AssetMovementTypes.GetRussianName(movement.MovementType),
-            movement.FromUserId,
-            fromUserName,
-            movement.ToUserId,
-            toUserName,
-            movement.FromWarehouseId,
-            movement.ToWarehouseId,
-            movement.FromLocationId,
-            movement.ToLocationId,
-            movement.FromDepartmentId,
-            movement.ToDepartmentId,
-            movement.PerformedById,
-            performer,
-            movement.PerformedAt,
-            movement.Comment);
+        var savedMovement = await db.AssetMovements
+            .AsNoTracking()
+            .Include(item => item.FromUser)
+            .Include(item => item.ToUser)
+            .Include(item => item.PerformedBy)
+            .FirstAsync(item => item.Id == movement.Id, ct);
+        return (await ToMovementDtosAsync([savedMovement], ct)).Single();
     }
 
     public async Task<IReadOnlyList<AssetMovementDto>?> GetMovementsAsync(int id, CancellationToken ct = default)
@@ -472,7 +502,7 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
             .ThenByDescending(movement => movement.Id)
             .ToListAsync(ct);
 
-        return movements.Select(ToMovementDto).ToArray();
+        return await ToMovementDtosAsync(movements, ct);
     }
 
     public async Task<IReadOnlyList<AssetHistoryItemDto>?> GetHistoryAsync(int id, CancellationToken ct = default)
@@ -539,7 +569,7 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         var movements = await GetMovementsAsync(asset.Id, ct) ?? [];
         var tickets = await GetTicketsAsync(asset.Id, ct) ?? [];
 
-        return new AssetDetailDto(ToDto(asset), history, movements, tickets);
+        return new AssetDetailDto(await ToDtoAsync(asset, ct), history, movements, tickets);
     }
 
     private async Task ValidateIdentifiersAreFreeAsync(
@@ -565,37 +595,49 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         }
     }
 
-    private async Task ValidateAssignmentsAsync(
-        int? warehouseId,
-        int? locationId,
-        int? departmentId,
-        int? assignedUserId,
+    private async Task<int?> ResolveActiveDictionaryValueIdAsync(
+        string dictionaryCode,
+        string? valueCode,
+        string field,
         CancellationToken ct)
     {
-        if (warehouseId is int warehouse)
-            await ValidateWarehouseAsync(warehouse, ct);
+        if (valueCode is null)
+            return null;
 
-        if (locationId is int location)
-            await ValidateDictionaryValueAsync("locations", location, "Место не найдено.", ct);
+        var normalizedCode = valueCode.Trim();
+        if (normalizedCode.Length == 0)
+            throw new FieldValidationException(field, "Укажите код значения справочника.");
 
-        if (departmentId is int department)
-            await ValidateDictionaryValueAsync("departments", department, "Подразделение не найдено.", ct);
+        var valueId = await db.DictionaryValues
+            .Where(value =>
+                value.Code == normalizedCode
+                && value.Dictionary.Code == dictionaryCode
+                && value.Dictionary.TenantId == db.GetCurrentTenantId()
+                && !value.Dictionary.IsArchived
+                && !value.IsArchived)
+            .Select(value => (int?)value.Id)
+            .FirstOrDefaultAsync(ct);
 
-        if (assignedUserId is int userId)
-            await ValidateUserIsActiveAsync(userId, "Ответственный сотрудник не найден.", ct);
+        return valueId
+            ?? throw new FieldValidationException(
+                field, $"Активное значение с кодом '{normalizedCode}' не найдено в справочнике '{dictionaryCode}'.");
     }
 
-    private async Task ValidateWarehouseAsync(int warehouseId, CancellationToken ct) =>
-        await ValidateDictionaryValueAsync("warehouses", warehouseId, "Склад не найден.", ct);
-
-    private async Task ValidateDictionaryValueAsync(string dictionaryCode, int valueId, string error, CancellationToken ct)
+    private async Task<int?> ResolveUpdatedDictionaryValueIdAsync(
+        string dictionaryCode,
+        string? valueCode,
+        int? currentValueId,
+        string field,
+        CancellationToken ct)
     {
-        var exists = await db.DictionaryValues
-            .AnyAsync(value => value.Id == valueId
-                && !value.IsArchived
-                && value.Dictionary.Code == dictionaryCode, ct);
-        if (!exists)
-            throw new ArgumentException(error);
+        if (valueCode is null)
+            return null;
+
+        var currentCode = await GetDictionaryValueCodeAsync(currentValueId, ct);
+        if (string.Equals(valueCode.Trim(), currentCode, StringComparison.Ordinal))
+            return currentValueId;
+
+        return await ResolveActiveDictionaryValueIdAsync(dictionaryCode, valueCode, field, ct);
     }
 
     private async Task ValidateUserIsActiveAsync(int userId, string error, CancellationToken ct)
@@ -657,47 +699,147 @@ public sealed class AssetService(ItsmDbContext db) : IAssetService
         exception.InnerException is DbException dbException
         && dbException.SqlState == "23505";
 
-    private static AssetDto ToDto(Asset asset) => new(
-        asset.Id,
-        string.IsNullOrEmpty(asset.InventoryNumber) ? null : asset.InventoryNumber,
-        asset.SerialNumber,
-        asset.Name,
-        asset.AssetClassId,
-        asset.AssetClass?.Name,
-        asset.Category,
-        asset.LifecycleStage,
-        AssetLifecycleStages.GetRussianName(asset.LifecycleStage),
-        asset.AssignedUserId,
-        asset.AssignedUser?.FullName,
-        asset.WarehouseId,
-        null,
-        asset.LocationId,
-        null,
-        asset.DepartmentId,
-        null,
-        asset.LicenseExpirationDate,
-        asset.CreatedAt,
-        DeserializeAttributes(asset.AttributesJson));
+    private async Task<AssetDto> ToDtoAsync(Asset asset, CancellationToken ct)
+    {
+        var values = await GetDictionaryValuesAsync(
+            [asset.WarehouseId, asset.LocationId, asset.DepartmentId], ct);
+        return ToDto(asset, values);
+    }
 
-    private static AssetMovementDto ToMovementDto(AssetMovement movement) => new(
-        movement.Id,
-        movement.AssetId,
-        movement.MovementType,
-        AssetMovementTypes.GetRussianName(movement.MovementType),
-        movement.FromUserId,
-        movement.FromUser?.FullName,
-        movement.ToUserId,
-        movement.ToUser?.FullName,
-        movement.FromWarehouseId,
-        movement.ToWarehouseId,
-        movement.FromLocationId,
-        movement.ToLocationId,
-        movement.FromDepartmentId,
-        movement.ToDepartmentId,
-        movement.PerformedById,
-        movement.PerformedBy?.FullName ?? string.Empty,
-        movement.PerformedAt,
-        movement.Comment);
+    private async Task<IReadOnlyList<AssetDto>> ToDtosAsync(IReadOnlyCollection<Asset> assets, CancellationToken ct)
+    {
+        var values = await GetDictionaryValuesAsync(
+            assets.SelectMany(asset => new[] { asset.WarehouseId, asset.LocationId, asset.DepartmentId }), ct);
+        return assets.Select(asset => ToDto(asset, values)).ToArray();
+    }
+
+    private async Task<IReadOnlyList<AssetMovementDto>> ToMovementDtosAsync(
+        IReadOnlyCollection<AssetMovement> movements,
+        CancellationToken ct)
+    {
+        var values = await GetDictionaryValuesAsync(
+            movements.SelectMany(movement => new[]
+            {
+                movement.FromWarehouseId,
+                movement.ToWarehouseId,
+                movement.FromLocationId,
+                movement.ToLocationId,
+                movement.FromDepartmentId,
+                movement.ToDepartmentId
+            }), ct);
+
+        return movements.Select(movement => ToMovementDto(movement, values)).ToArray();
+    }
+
+    private async Task<Dictionary<int, DictionaryValueReference>> GetDictionaryValuesAsync(
+        IEnumerable<int?> valueIds,
+        CancellationToken ct)
+    {
+        var ids = valueIds.Where(id => id.HasValue).Select(id => id!.Value).Distinct().ToArray();
+        if (ids.Length == 0)
+            return [];
+
+        var tenantId = db.GetCurrentTenantId();
+        var values = await db.DictionaryValues
+            .AsNoTracking()
+            .Where(value => ids.Contains(value.Id) && value.Dictionary.TenantId == tenantId)
+            .Select(value => new DictionaryValueReference(
+                value.Id, value.Dictionary.Code, value.Code, value.Name))
+            .ToListAsync(ct);
+
+        return values.ToDictionary(value => value.Id);
+    }
+
+    private static AssetDto ToDto(Asset asset, IReadOnlyDictionary<int, DictionaryValueReference> values)
+    {
+        var warehouse = ResolveDictionaryValue(values, asset.WarehouseId, "warehouses");
+        var location = ResolveDictionaryValue(values, asset.LocationId, "locations");
+        var department = ResolveDictionaryValue(values, asset.DepartmentId, "departments");
+        return new AssetDto(
+            asset.Id,
+            string.IsNullOrEmpty(asset.InventoryNumber) ? null : asset.InventoryNumber,
+            asset.SerialNumber,
+            asset.Name,
+            asset.AssetClass?.Code,
+            asset.AssetClass?.Name,
+            asset.Category,
+            asset.LifecycleStage,
+            AssetLifecycleStages.GetRussianName(asset.LifecycleStage),
+            asset.AssignedUserId,
+            asset.AssignedUser?.FullName,
+            warehouse?.Code,
+            warehouse?.Name,
+            location?.Code,
+            location?.Name,
+            department?.Code,
+            department?.Name,
+            asset.LicenseExpirationDate,
+            asset.CreatedAt,
+            DeserializeAttributes(asset.AttributesJson));
+    }
+
+    private static AssetMovementDto ToMovementDto(
+        AssetMovement movement,
+        IReadOnlyDictionary<int, DictionaryValueReference> values)
+    {
+        var fromWarehouse = ResolveDictionaryValue(values, movement.FromWarehouseId, "warehouses");
+        var toWarehouse = ResolveDictionaryValue(values, movement.ToWarehouseId, "warehouses");
+        var fromLocation = ResolveDictionaryValue(values, movement.FromLocationId, "locations");
+        var toLocation = ResolveDictionaryValue(values, movement.ToLocationId, "locations");
+        var fromDepartment = ResolveDictionaryValue(values, movement.FromDepartmentId, "departments");
+        var toDepartment = ResolveDictionaryValue(values, movement.ToDepartmentId, "departments");
+        return new AssetMovementDto(
+            movement.Id,
+            movement.AssetId,
+            movement.MovementType,
+            AssetMovementTypes.GetRussianName(movement.MovementType),
+            movement.FromUserId,
+            movement.FromUser?.FullName,
+            movement.ToUserId,
+            movement.ToUser?.FullName,
+            fromWarehouse?.Code,
+            fromWarehouse?.Name,
+            toWarehouse?.Code,
+            toWarehouse?.Name,
+            fromLocation?.Code,
+            fromLocation?.Name,
+            toLocation?.Code,
+            toLocation?.Name,
+            fromDepartment?.Code,
+            fromDepartment?.Name,
+            toDepartment?.Code,
+            toDepartment?.Name,
+            movement.PerformedById,
+            movement.PerformedBy?.FullName ?? string.Empty,
+            movement.PerformedAt,
+            movement.Comment);
+    }
+
+    private static DictionaryValueReference? ResolveDictionaryValue(
+        IReadOnlyDictionary<int, DictionaryValueReference> values,
+        int? valueId,
+        string expectedDictionary)
+    {
+        if (valueId is int id
+            && values.TryGetValue(id, out var value)
+            && value.DictionaryCode == expectedDictionary)
+            return value;
+        return null;
+    }
+
+    private async Task<DictionaryValue> GetDictionaryValueAsync(int id, CancellationToken ct) =>
+        await db.DictionaryValues.FirstAsync(value =>
+            value.Id == id && value.Dictionary.TenantId == db.GetCurrentTenantId(), ct);
+
+    private async Task<string?> GetDictionaryValueCodeAsync(int? id, CancellationToken ct) =>
+        id is int valueId
+            ? await db.DictionaryValues
+                .Where(value => value.Id == valueId && value.Dictionary.TenantId == db.GetCurrentTenantId())
+                .Select(value => value.Code)
+                .FirstOrDefaultAsync(ct)
+            : null;
+
+    private sealed record DictionaryValueReference(int Id, string DictionaryCode, string Code, string Name);
 
     private static AssetHistoryItemDto ToHistoryDto(AssetHistoryLog log) => new(
         log.Id,

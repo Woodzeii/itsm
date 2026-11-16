@@ -314,14 +314,21 @@
         "summary": "Получить список активов с фильтрацией",
         "parameters": [
           {
-            "name": "classId",
+            "name": "assetClassCode",
             "in": "query",
             "schema": {
-              "type": "integer"
+              "type": "string"
             }
           },
           {
-            "name": "status",
+            "name": "lifecycleStage",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "search",
             "in": "query",
             "schema": {
               "type": "string"
@@ -330,7 +337,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssetDto"
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -350,8 +367,15 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetDto"
+                }
+              }
+            }
           }
         }
       }
@@ -374,7 +398,14 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetDetailDto"
+                }
+              }
+            }
           }
         }
       },
@@ -405,7 +436,14 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetDto"
+                }
+              }
+            }
           }
         }
       },
@@ -463,7 +501,45 @@
         },
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AssetMovementDto"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Assets"
+        ],
+        "summary": "Получить движения актива",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Движения актива",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AssetMovementDto"
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -595,9 +671,29 @@
         "tags": [
           "Dictionaries"
         ],
+        "parameters": [
+          {
+            "name": "includeArchived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DictionaryDto"
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -615,31 +711,45 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "OK"
+          "201": {
+            "description": "Created"
           }
         }
       }
     },
-    "/api/dictionaries/{id}": {
+    "/api/dictionaries/{code}": {
       "get": {
         "tags": [
           "Dictionaries"
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeArchived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryDetailDto"
+                }
+              }
+            }
           }
         }
       },
@@ -649,12 +759,11 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           }
         ],
@@ -679,12 +788,61 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "409": {
+            "description": "Справочник используется или не может быть удален"
+          }
+        }
+      }
+    },
+    "/api/dictionaries/{code}/archive": {
+      "post": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "409": {
+            "description": "Системный справочник нельзя архивировать"
+          }
+        }
+      }
+    },
+    "/api/dictionaries/{code}/restore": {
+      "post": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -695,25 +853,42 @@
         }
       }
     },
-    "/api/dictionaries/{id}/values": {
+    "/api/dictionaries/{code}/values": {
       "get": {
         "tags": [
           "Dictionaries"
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
+            }
+          },
+          {
+            "name": "includeArchived",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DictionaryValueDto"
+                  }
+                }
+              }
+            }
           }
         }
       },
@@ -723,12 +898,11 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           }
         ],
@@ -748,28 +922,26 @@
         }
       }
     },
-    "/api/dictionaries/{id}/values/{valueId}": {
+    "/api/dictionaries/{code}/values/{valueCode}": {
       "put": {
         "tags": [
           "Dictionaries"
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           },
           {
-            "name": "valueId",
+            "name": "valueCode",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           }
         ],
@@ -794,21 +966,19 @@
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           },
           {
-            "name": "valueId",
+            "name": "valueCode",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           }
         ],
@@ -825,28 +995,56 @@
         }
       }
     },
-    "/api/dictionaries/{id}/values/{valueId}/archive": {
+    "/api/dictionaries/{code}/values/{valueCode}/archive": {
       "post": {
         "tags": [
           "Dictionaries"
         ],
         "parameters": [
           {
-            "name": "id",
+            "name": "code",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
             }
           },
           {
-            "name": "valueId",
+            "name": "valueCode",
             "in": "path",
             "required": true,
             "schema": {
-              "type": "integer",
-              "format": "int32"
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+    },
+    "/api/dictionaries/{code}/values/{valueCode}/restore": {
+      "post": {
+        "tags": [
+          "Dictionaries"
+        ],
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "valueCode",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -860,6 +1058,24 @@
   },
   "components": {
     "schemas": {
+      "AssetDetailDto": {
+        "$ref": "../components/schemas.json#/components/schemas/AssetDetailDto"
+      },
+      "AssetDto": {
+        "$ref": "../components/schemas.json#/components/schemas/AssetDto"
+      },
+      "DictionaryDetailDto": {
+        "$ref": "../components/schemas.json#/components/schemas/DictionaryDetailDto"
+      },
+      "AssetMovementDto": {
+        "$ref": "../components/schemas.json#/components/schemas/AssetMovementDto"
+      },
+      "DictionaryDto": {
+        "$ref": "../components/schemas.json#/components/schemas/DictionaryDto"
+      },
+      "DictionaryValueDto": {
+        "$ref": "../components/schemas.json#/components/schemas/DictionaryValueDto"
+      },
       "AssetHistoryItem": {
         "$ref": "../components/schemas.json#/components/schemas/AssetHistoryItem"
       },

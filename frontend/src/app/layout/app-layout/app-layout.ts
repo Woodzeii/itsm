@@ -34,6 +34,10 @@ import { AuthService } from '../../core/auth/auth.service';
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 22 20H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg>
             <span>Эскалации</span>
           </a>
+          <a routerLink="/knowledge-base" routerLinkActive="active">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5A2.5 2.5 0 0 0 4 21V5.5Z"/><path d="M4 17.5A2.5 2.5 0 0 1 6.5 15H20M8 7h8m-8 4h8"/></svg>
+            <span>База знаний</span>
+          </a>
           @if (isAdmin) {
             <a routerLink="/dictionaries" routerLinkActive="active">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4.5h14a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H5A2.5 2.5 0 0 1 2.5 17V7A2.5 2.5 0 0 1 5 4.5Z"/><path d="M7.5 8.5h9m-9 4h9m-9 4h5"/></svg>
@@ -61,11 +65,6 @@ import { AuthService } from '../../core/auth/auth.service';
         }
 
         <div class="sidebar-spacer"></div>
-        <div class="sidebar-profile">
-          <div class="avatar">{{ userInitial }}</div>
-          <div class="user-meta"><strong>{{ userTitle }}</strong><small>{{ userRole }}</small></div>
-          <span class="profile-more" aria-hidden="true">···</span>
-        </div>
       </aside>
 
       <div class="main-panel">
@@ -220,14 +219,6 @@ import { AuthService } from '../../core/auth/auth.service';
         border-radius: 50%;
         background: #21a675;
       }
-      .sidebar-profile {
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        padding: 12px 10px;
-        background: #f6f7f9;
-        border-radius: 9px;
-      }
       .avatar {
         width: 32px;
         height: 32px;
@@ -244,7 +235,6 @@ import { AuthService } from '../../core/auth/auth.service';
       .user-meta strong, .user-meta small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .user-meta strong { color: #303846; font-size: 11px; font-weight: 650; }
       .user-meta small { color: #939baa; font-size: 10px; }
-      .profile-more { margin-left: auto; color: #9aa3b1; font-size: 20px; line-height: 1; }
       .top-actions { display: flex; align-items: center; gap: 16px; }
       .role-switch {
         display: inline-flex;
@@ -315,7 +305,7 @@ import { AuthService } from '../../core/auth/auth.service';
         .sidebar { width: 100%; min-height: 0; flex: 0 0 auto; padding: 0 12px 10px; border-right: 0; border-bottom: 1px solid #e2e6ed; }
         .brand { height: 62px; min-height: 62px; margin: 0 -12px 8px; padding: 0 16px; }
         .brand-logo { width: 48px; height: 48px; flex-basis: 48px; }
-        .nav-caption, .sidebar-spacer, .workspace-note, .sidebar-profile { display: none; }
+        .nav-caption, .sidebar-spacer, .workspace-note { display: none; }
         .nav { flex-direction: row; overflow-x: auto; }
         .nav a { min-height: 36px; padding: 8px 10px; white-space: nowrap; }
         .nav a svg { width: 15px; height: 15px; }

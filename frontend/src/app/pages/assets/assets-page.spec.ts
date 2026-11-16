@@ -34,6 +34,14 @@ describe('AssetsPageComponent backend integration', () => {
         const classesRequest = http.expectOne(`${environment.apiBaseUrl}/asset-classes`);
         expect(classesRequest.request.method).toBe('GET');
 
+        for (const code of ['warehouses', 'locations', 'departments']) {
+            const valuesRequest = http.expectOne(
+                `${environment.apiBaseUrl}/dictionaries/${code}/values?includeArchived=true`,
+            );
+            expect(valuesRequest.request.method).toBe('GET');
+            valuesRequest.flush([]);
+        }
+
         classesRequest.flush([{
             id: 3,
             code: 'laptop',
@@ -53,7 +61,7 @@ describe('AssetsPageComponent backend integration', () => {
             id: 15,
             inventoryNumber: 'INV-15',
             name: 'Ноутбук Dell',
-            assetClassId: 3,
+            assetClassCode: 'laptop',
             assetClassName: 'Ноутбуки',
             lifecycleStage: 'InStock',
             lifecycleStageName: 'На складе',
