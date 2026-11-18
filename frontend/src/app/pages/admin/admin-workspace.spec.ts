@@ -76,6 +76,13 @@ describe('AdminWorkspaceComponent user list', () => {
                             manualAssignerName: null,
                             activeAgentsCount: 2,
                         }),
+                        saveAssignmentSettingWithAssigner: (mode: 'auto' | 'manual') => of({
+                            mode,
+                            manualAssignerUserId: null,
+                            manualAssignerName: null,
+                            activeAgentsCount: 2,
+                        }),
+                        getUsers: () => of([]),
                     },
                 },
                 {

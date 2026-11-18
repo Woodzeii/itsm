@@ -22,6 +22,9 @@ import {
     Escalation,
     AssignmentSetting,
     AutoAssignResult,
+    AssignmentHistoryItem,
+    AgentGroupOption,
+    AssignmentSettingMode,
     FormFieldDefinition,
     OverviewData,
     PortalTicketType,
@@ -174,6 +177,30 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return this.http
             .put<BackendAssignmentSetting>(`${this.baseUrl}/tickets/assignment-setting`, { mode })
             .pipe(map(toAssignmentSetting));
+    }
+    saveAssignmentSettingWithAssigner(mode: AssignmentSettingMode, manualAssignerUserId?: number | null) {
+        return this.http
+            .put<BackendAssignmentSetting>(`${this.baseUrl}/tickets/assignment-setting`, {
+                mode,
+                manualAssignerUserId: manualAssignerUserId ?? null,
+            })
+            .pipe(map(toAssignmentSetting));
+    }
+    getAssignmentHistory(assigneeId?: number) {
+        const query = assigneeId != null ? `?assigneeId=${assigneeId}` : '';
+        return this.http
+            .get<BackendAssignmentHistoryItem[]>(`${this.baseUrl}/tickets/assignment-history${query}`)
+            .pipe(map(items => items.map(toAssignmentHistoryItem)));
+    }
+    getAgentGroups() {
+        return this.http
+            .get<{ id?: number; code?: string; name?: string; memberCount?: number }[]>(`${this.baseUrl}/tickets/assignment-groups`)
+            .pipe(map(groups => groups.map(group => ({
+                id: group.id ?? 0,
+                code: group.code ?? '',
+                name: group.name ?? '',
+                memberCount: group.memberCount ?? 0,
+            } satisfies AgentGroupOption))));
     }
     changeTicketPriority(ticketId: string, priority: string) {
         return this.http
@@ -648,11 +675,41 @@ interface BackendTenantSettings {
     reportAccessRoles?: string[];
 }
 
+interface BackendAssignmentHistoryItem {
+    ticketId?: number;
+    ticketNumber?: string;
+    title?: string;
+    previousAssigneeId?: number | null;
+    previousAssigneeName?: string | null;
+    newAssigneeId?: number | null;
+    newAssigneeName?: string | null;
+    strategy?: string;
+    openTicketsCount?: number;
+    createdAt?: string;
+    actorName?: string;
+}
+
 interface BackendAssignmentSetting {
     mode?: string;
     manualAssignerUserId?: number | null;
     manualAssignerName?: string | null;
     activeAgentsCount?: number;
+}
+
+function toAssignmentHistoryItem(item: BackendAssignmentHistoryItem): AssignmentHistoryItem {
+    return {
+        ticketId: item.ticketId ?? 0,
+        ticketNumber: item.ticketNumber ?? '',
+        title: item.title ?? '',
+        previousAssigneeId: item.previousAssigneeId ?? null,
+        previousAssigneeName: item.previousAssigneeName ?? null,
+        newAssigneeId: item.newAssigneeId ?? null,
+        newAssigneeName: item.newAssigneeName ?? null,
+        strategy: item.strategy ?? '',
+        openTicketsCount: item.openTicketsCount ?? 0,
+        createdAt: item.createdAt ?? '',
+        actorName: item.actorName ?? '',
+    };
 }
 
 function toAssignmentSetting(setting: BackendAssignmentSetting): AssignmentSetting {

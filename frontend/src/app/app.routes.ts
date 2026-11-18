@@ -20,6 +20,7 @@ export const routes: Routes = [
             { path: 'tickets', loadComponent: () => import('./pages/tickets/ticket-queue').then(module => module.TicketQueueComponent), canActivate: [internalAccessGuard] },
             { path: 'knowledge-base', loadComponent: () => import('./pages/knowledge-base/knowledge-base').then(module => module.KnowledgeBaseComponent), canActivate: [internalAccessGuard] },
             { path: 'assets', loadComponent: () => import('./pages/assets/assets-page').then(module => module.AssetsPageComponent), canActivate: [adminAccessGuard] },
+            { path: 'assignments', loadComponent: () => import('./pages/assignment-history/assignment-history').then(module => module.AssignmentHistoryComponent), canActivate: [internalAccessGuard] },
             { path: 'escalations', loadComponent: () => import('./pages/workspace-section/workspace-section').then(module => module.WorkspaceSectionComponent), data: { section: 'escalations' }, canActivate: [internalAccessGuard] },
             { path: 'portal', loadComponent: () => import('./pages/portal/self-service-portal').then(module => module.SelfServicePortalComponent), canActivate: [portalAccessGuard] },
             { path: 'admin/tenants', loadComponent: () => import('./pages/tenant-admin/tenant-management').then(module => module.TenantManagementComponent), canActivate: [tenantAdminAccessGuard] },

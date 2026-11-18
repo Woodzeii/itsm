@@ -16,6 +16,9 @@ import {
     EscalationPolicy,
     Escalation,
     AssignmentSetting,
+    AssignmentSettingMode,
+    AssignmentHistoryItem,
+    AgentGroupOption,
     AutoAssignResult,
     FormFieldDefinition,
     OverviewData,
@@ -51,6 +54,13 @@ export abstract class WorkspaceApi {
     abstract autoAssignTicket(ticketId: string): Observable<AutoAssignResult>;
     abstract getAssignmentSetting(): Observable<AssignmentSetting>;
     abstract saveAssignmentSetting(mode: 'auto' | 'manual'): Observable<AssignmentSetting>;
+
+    abstract saveAssignmentSettingWithAssigner(
+        mode: 'auto' | 'manual',
+        manualAssignerUserId?: number | null,
+    ): Observable<AssignmentSetting>;
+    abstract getAssignmentHistory(assigneeId?: number): Observable<AssignmentHistoryItem[]>;
+    abstract getAgentGroups(): Observable<AgentGroupOption[]>;
     abstract changeTicketPriority(ticketId: string, priority: string): Observable<Ticket>;
     abstract getTicketComments(ticketId: string): Observable<TicketComment[]>;
     abstract getTicketHistory(ticketId: string): Observable<TicketHistory[]>;
