@@ -24,6 +24,8 @@ import {
     Escalation,
     AssignmentSetting,
     AutoAssignResult,
+    AssignmentHistoryItem,
+    AgentGroupOption,
     FormFieldDefinition,
     OverviewData,
     PortalTicketType,
@@ -87,6 +89,11 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     private readonly assetHistory = new Map<string, AssetHistoryEntry[]>();
     private readonly assetMovements = new Map<string, AssetMovement[]>();
     private readonly escalationHistory: EscalationHistoryEntry[] = [];
+    private manualAssignerUserId: number | null = null;
+    private readonly agentGroups: AgentGroupOption[] = [
+        { id: 1, code: 'network', name: 'Сеть', memberCount: 1 },
+        { id: 2, code: 'workplace', name: 'Рабочие места', memberCount: 1 },
+    ];
     private readonly auth = inject(AuthService);
     private tenants: TenantRecord[] = [
         { 
@@ -279,10 +286,38 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     getAssignmentSetting(): Observable<AssignmentSetting> {
         return of({
             mode: this.settings.assignmentMode === 'manual' ? 'manual' : 'auto',
-            manualAssignerUserId: null,
+            manualAssignerUserId: this.manualAssignerUserId,
             manualAssignerName: null,
             activeAgentsCount: this.settings.engineers?.length ?? 0,
         });
+    }
+
+    saveAssignmentSettingWithAssigner(mode: 'auto' | 'manual', manualAssignerUserId?: number | null): Observable<AssignmentSetting> {
+        this.settings.assignmentMode = mode === 'manual' ? 'manual' : 'automatic';
+        this.manualAssignerUserId = manualAssignerUserId ?? null;
+        return this.getAssignmentSetting();
+    }
+
+    getAssignmentHistory(assigneeId?: number): Observable<AssignmentHistoryItem[]> {
+        return of(this.tickets
+            .filter(ticket => assigneeId == null || ticket.assigneeId === assigneeId)
+            .map(ticket => ({
+                ticketId: Number(ticket.id.replace(/\D/g, '')) || 0,
+                ticketNumber: ticket.ticketNumber ?? ticket.id,
+                title: ticket.title,
+                previousAssigneeId: null,
+                previousAssigneeName: null,
+                newAssigneeId: ticket.assigneeId ?? null,
+                newAssigneeName: ticket.assignee ?? null,
+                strategy: 'least-loaded',
+                openTicketsCount: 0,
+                createdAt: ticket.createdAt ?? '',
+                actorName: 'Система',
+            } satisfies AssignmentHistoryItem)));
+    }
+
+    getAgentGroups(): Observable<AgentGroupOption[]> {
+        return of(this.agentGroups.map(group => ({ ...group })));
     }
 
     saveAssignmentSetting(mode: 'auto' | 'manual'): Observable<AssignmentSetting> {

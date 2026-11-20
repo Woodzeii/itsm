@@ -246,6 +246,7 @@ public sealed record UpdateAssignmentSettingRequest
     [Required]
     [RegularExpression("^(auto|manual)$", ErrorMessage = "Режим должен быть auto или manual.")]
     public required string Mode { get; init; }
+    public int? ManualAssignerUserId { get; init; }
 }
 
 /// <summary>Результат автоматического назначения исполнителя.</summary>
@@ -255,6 +256,27 @@ public sealed record AutoAssignResponse(
     string AssigneeName,
     int OpenTicketsCount,
     string Reason);
+
+public sealed record AssignmentHistoryItem(
+    int TicketId,
+    string TicketNumber,
+    string Title,
+    int? PreviousAssigneeId,
+    string? PreviousAssigneeName,
+    int? NewAssigneeId,
+    string? NewAssigneeName,
+    string Strategy,
+    int OpenTicketsCount,
+    DateTimeOffset CreatedAt,
+    string ActorName);
+
+public sealed record AgentGroupOption(int Id, string Code, string Name, int MemberCount);
+
+public sealed record AssignmentGroupRequest
+{
+    [Range(1, int.MaxValue)]
+    public required int GroupId { get; init; }
+}
 
 /// <summary>Эскалированная заявка в очереди принятия.</summary>
 public sealed record PendingEscalationResponse(

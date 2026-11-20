@@ -1,5 +1,6 @@
 ﻿import { Injectable, inject } from '@angular/core';
 import { WorkspaceApi } from './workspace-api';
+import { AssignmentSettingMode } from './workspace.models';
 import {
     AdminSettings,
     AssetMovementRequest,
@@ -40,6 +41,12 @@ export class WorkspaceService {
     autoAssignTicket(ticketId: string) { return this.api.autoAssignTicket(ticketId); }
     getAssignmentSetting() { return this.api.getAssignmentSetting(); }
     saveAssignmentSetting(mode: 'auto' | 'manual') { return this.api.saveAssignmentSetting(mode); }
+
+    saveAssignmentSettingWithAssigner(mode: AssignmentSettingMode, manualAssignerUserId?: number | null) {
+        return this.api.saveAssignmentSettingWithAssigner(mode, manualAssignerUserId);
+    }
+    getAssignmentHistory(assigneeId?: number) { return this.api.getAssignmentHistory(assigneeId); }
+    getAgentGroups() { return this.api.getAgentGroups(); }
     changeTicketPriority(ticketId: string, priority: string) { return this.api.changeTicketPriority(ticketId, priority); }
     getTicketComments(ticketId: string) { return this.api.getTicketComments(ticketId); }
     addTicketComment(ticketId: string, comment: Parameters<typeof this.api.addTicketComment>[1], attachments: File[]) { return this.api.addTicketComment(ticketId, comment, attachments); }

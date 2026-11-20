@@ -59,6 +59,25 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.ToTable("agent_groups", "public");
                 });
 
+            modelBuilder.Entity("itsm.Domain.Entities.AgentGroupMember", b =>
+                {
+                    b.Property<int>("AgentGroupId")
+                        .HasColumnType("integer")
+                        .HasColumnName("agent_group_id");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("AgentGroupId", "UserId")
+                        .HasName("pk_agent_group_members");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("ix_agent_group_members_user_id");
+
+                    b.ToTable("agent_group_members", "public");
+                });
+
             modelBuilder.Entity("itsm.Domain.Entities.Asset", b =>
                 {
                     b.Property<int>("Id")
@@ -436,12 +455,13 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("itsm.Domain.Entities.AssignmentSetting", b =>
                 {
+                    b.Property<int>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<int?>("ManualAssignerUserId")
                         .HasColumnType("integer")
@@ -460,7 +480,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnName("updated_at")
                         .HasDefaultValueSql("now()");
 
-                    b.HasKey("Id")
+                    b.HasKey("TenantId", "Id")
                         .HasName("pk_assignment_settings");
 
                     b.HasIndex("ManualAssignerUserId")
@@ -471,6 +491,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.HasData(
                         new
                         {
+                            TenantId = 1,
                             Id = 1,
                             Mode = "auto",
                             UpdatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0))
@@ -2488,6 +2509,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("AssignmentGroupId")
+                        .HasColumnType("integer")
+                        .HasColumnName("assignment_group_id");
+
                     b.Property<string>("Code")
                         .HasColumnType("text")
                         .HasColumnName("code");
@@ -2515,6 +2540,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id")
                         .HasName("pk_ticket_types");
+
+                    b.HasIndex("AssignmentGroupId")
+                        .HasDatabaseName("ix_ticket_types_assignment_group_id");
 
                     b.HasIndex("TenantId")
                         .HasDatabaseName("ix_ticket_types_tenant_id");
@@ -2813,6 +2841,27 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             Name = "8x5 Стандартный",
                             ScheduleType = "work_hours"
                         });
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.AgentGroupMember", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.AgentGroup", "AgentGroup")
+                        .WithMany("Members")
+                        .HasForeignKey("AgentGroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_agent_group_members_agent_groups_agent_group_id");
+
+                    b.HasOne("itsm.Domain.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_agent_group_members_users_user_id");
+
+                    b.Navigation("AgentGroup");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.Asset", b =>
@@ -3425,6 +3474,17 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Navigation("ToStatus");
                 });
 
+            modelBuilder.Entity("itsm.Domain.Entities.TicketType", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.AgentGroup", "AssignmentGroup")
+                        .WithMany()
+                        .HasForeignKey("AssignmentGroupId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_ticket_types_agent_groups_assignment_group_id");
+
+                    b.Navigation("AssignmentGroup");
+                });
+
             modelBuilder.Entity("itsm.Domain.Entities.User", b =>
                 {
                     b.HasOne("itsm.Domain.Entities.User", "Manager")
@@ -3479,6 +3539,8 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("itsm.Domain.Entities.AgentGroup", b =>
                 {
+                    b.Navigation("Members");
+
                     b.Navigation("Tickets");
                 });
 

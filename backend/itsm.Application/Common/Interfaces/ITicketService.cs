@@ -18,6 +18,9 @@ public interface ITicketService
     Task<AutoAssignResponse?> AutoAssignAsync(int id, int actorId, CancellationToken ct = default);
     Task<AssignmentSettingResponse> GetAssignmentSettingAsync(CancellationToken ct = default);
     Task<AssignmentSettingResponse> UpdateAssignmentSettingAsync(UpdateAssignmentSettingRequest request, CancellationToken ct = default);
+    Task<IReadOnlyList<AssignmentHistoryItem>> GetAssignmentHistoryAsync(int? assigneeId, DateTimeOffset? from, DateTimeOffset? to, CancellationToken ct = default);
+    Task<IReadOnlyList<AgentGroupOption>> GetAgentGroupsAsync(CancellationToken ct = default);
+    Task ReassignUnavailableTicketsAsync(CancellationToken ct = default);
     Task<TicketEscalationResponse?> EscalateAsync(int id, int actorId, CancellationToken ct = default);
     Task<IReadOnlyList<TicketEscalationResponse>?> GetTicketEscalationsAsync(int id, CancellationToken ct = default);
     Task<IReadOnlyList<PendingEscalationResponse>?> GetPendingEscalationsAsync(CancellationToken ct = default);

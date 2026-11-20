@@ -237,11 +237,29 @@ public sealed class TicketsController(ITicketService service) : ControllerBase
             var updated = await service.AssignAsync(id, request, actorId, ct);
             return updated is null ? NotFound() : Ok(updated);
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return ForbidWithProblem(ex.Message);
+        }
         catch (ArgumentException ex)
         {
             return BadRequest(new ProblemDetails { Title = "Некорректный исполнитель", Detail = ex.Message, Status = 400 });
         }
     }
+
+    [HttpGet("assignment-history")]
+    [Authorize(Roles = "admin,tenant_owner,manager,agent")]
+    public async Task<ActionResult<IReadOnlyList<AssignmentHistoryItem>>> GetAssignmentHistory(
+        [FromQuery] int? assigneeId,
+        [FromQuery] DateTimeOffset? from,
+        [FromQuery] DateTimeOffset? to,
+        CancellationToken ct)
+        => Ok(await service.GetAssignmentHistoryAsync(assigneeId, from, to, ct));
+
+    [HttpGet("assignment-groups")]
+    [Authorize(Roles = "admin,tenant_owner,manager,agent")]
+    public async Task<ActionResult<IReadOnlyList<AgentGroupOption>>> GetAssignmentGroups(CancellationToken ct)
+        => Ok(await service.GetAgentGroupsAsync(ct));
 
     [HttpPost("{ticketRef}/escalate")]
     [EndpointSummary("Запустить ручную эскалацию заявки")]

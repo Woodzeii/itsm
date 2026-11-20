@@ -178,8 +178,31 @@ export interface Escalation {
     slaRemaining: string;
 }
 
+export interface AssignmentHistoryItem {
+    ticketId: number;
+    ticketNumber: string;
+    title: string;
+    previousAssigneeId?: number | null;
+    previousAssigneeName?: string | null;
+    newAssigneeId?: number | null;
+    newAssigneeName?: string | null;
+    strategy: string;
+    openTicketsCount: number;
+    createdAt: string;
+    actorName: string;
+}
+
+export interface AgentGroupOption {
+    id: number;
+    code: string;
+    name: string;
+    memberCount: number;
+}
+
+export type AssignmentSettingMode = 'auto' | 'manual';
+
 export interface AssignmentSetting {
-    mode: 'auto' | 'manual';
+    mode: AssignmentSettingMode;
     manualAssignerUserId?: number | null;
     manualAssignerName?: string | null;
     activeAgentsCount: number;
