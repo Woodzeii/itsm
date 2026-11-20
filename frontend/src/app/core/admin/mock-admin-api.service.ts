@@ -92,4 +92,18 @@ export class MockAdminApiService extends AdminApi {
     updateUser(id: number, request: UpdateAdminUserRequest): Observable<UserSummary> {
         return of<UserSummary>({ id, ...request }).pipe(delay(150));
     }
+    resetMfa(id: number): Observable<UserSummary> {
+        return of<UserSummary>({
+            id,
+            username: '',
+            email: '',
+            fullName: '',
+            department: null,
+            managerId: null,
+            tenantId: null,
+            roleIds: [],
+            isActive: true,
+            isTwoFactorEnabled: false,
+        }).pipe(delay(150));
+    }
 }

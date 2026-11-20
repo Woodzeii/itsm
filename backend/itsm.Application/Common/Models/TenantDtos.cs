@@ -69,11 +69,15 @@ public class TenantSettingsDto
 {
     public int TenantId { get; set; }
     public bool AllowAdminsCreateAdmins { get; set; } = true;
+    public string TwoFactorMode { get; set; } = "all";
+    public int TwoFactorGraceDays { get; set; }
 }
 
 public class UpdateTenantSettingsRequest
 {
     public bool? AllowAdminsCreateAdmins { get; set; }
+    public string? TwoFactorMode { get; set; }
+    public int? TwoFactorGraceDays { get; set; }
 }
 
 public class UpdateTenantStatusRequest

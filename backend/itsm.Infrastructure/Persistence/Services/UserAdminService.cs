@@ -122,6 +122,10 @@ public class UserAdminService : IUserAdminService
         };
         foreach (var roleId in roleIds)
             user.RoleMappings.Add(new UserRoleMapping { RoleId = roleId });
+        var tenantPolicy = await _db.Tenants.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == tenantId, ct);
+        if (tenantPolicy is { TwoFactorGraceDays: > 0 })
+            user.TwoFactorGraceEndsAt = user.CreatedAt.AddDays(tenantPolicy.TwoFactorGraceDays);
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);

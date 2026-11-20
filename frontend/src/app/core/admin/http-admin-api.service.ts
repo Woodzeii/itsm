@@ -47,6 +47,9 @@ export class HttpAdminApiService extends AdminApi {
     updateUser(id: number, request: UpdateAdminUserRequest): Observable<UserSummary> {
         return this.http.put<UserSummary>(`${this.baseUrl}/users/${id}`, request);
     }
+    resetMfa(id: number): Observable<UserSummary> {
+        return this.http.post<UserSummary>(`${this.baseUrl}/users/${id}/mfa/reset`, {});
+    }
 }
 
 function parseUsersResponse(response: unknown): UserSummary[] {
@@ -86,6 +89,7 @@ function parseUserSummary(value: unknown): UserSummary {
     const roleIds = value['roleIds'] ?? value['RoleIds'];
     const roleCodes = value['roleCodes'] ?? value['RoleCodes'];
     const isActive = value['isActive'] ?? value['IsActive'];
+    const isTwoFactorEnabled = value['isTwoFactorEnabled'] ?? value['IsTwoFactorEnabled'];
 
     if (
         typeof id !== 'number'
@@ -114,6 +118,7 @@ function parseUserSummary(value: unknown): UserSummary {
         roleIds,
         ...(roleCodes === undefined ? {} : { roleCodes }),
         isActive,
+        isTwoFactorEnabled: typeof isTwoFactorEnabled === 'boolean' ? isTwoFactorEnabled : false,
     };
 }
 

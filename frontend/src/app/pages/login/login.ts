@@ -326,6 +326,14 @@ export class LoginComponent {
 
         this.auth.login(u, p).subscribe({
             next: (res) => {
+                if (res.accessToken) {
+                    this.busy = false;
+                    if (res.twoFactorGraceEndsAt) {
+                        localStorage.setItem('itsm-two-factor-grace-end', res.twoFactorGraceEndsAt);
+                    }
+                    this.navigateAfterLogin();
+                    return;
+                }
                 this.challengeId = res.challengeId;
                 this.requiresSetup = res.requiresTwoFactorSetup;
                 this.canSkipSetup = res.canSkipTwoFactorSetup;

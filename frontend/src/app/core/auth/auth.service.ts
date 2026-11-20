@@ -29,7 +29,9 @@ export class AuthService {
 
     login(username: string, password: string): Observable<LoginResponse> {
         const body: LoginRequest = { username, password };
-        return this.api.login(body);
+        return this.api.login(body).pipe(tap(res => {
+            if (res.accessToken) this.saveToken(res.accessToken);
+        }));
     }
 
     verifyTwoFactor(challengeId: string, code: string, useRecoveryCode = false): Observable<VerifyTwoFactorResponse> {

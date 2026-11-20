@@ -17,4 +17,8 @@ public class LoginResponse
     public string OtpAuthUri { get; set; } = string.Empty;
     public string QrCodeImageBase64 { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
+    public string? AccessToken { get; set; }
+    public string? TokenType { get; set; }
+    public int? ExpiresIn { get; set; }
+    public DateTimeOffset? TwoFactorGraceEndsAt { get; set; }
 }

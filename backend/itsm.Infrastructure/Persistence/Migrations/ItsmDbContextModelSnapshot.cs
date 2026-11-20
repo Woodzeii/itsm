@@ -1738,6 +1738,15 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<int>("TwoFactorGraceDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("two_factor_grace_days");
+
+                    b.Property<string>("TwoFactorMode")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("two_factor_mode");
+
                     b.Property<DateTimeOffset?>("UserLimitGraceEndsAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("user_limit_grace_ends_at");
@@ -1768,7 +1777,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             MaxStorageBytes = 10737418240L,
                             MaxTickets = 10000,
                             MaxUsers = 100,
-                            Name = "Default Tenant"
+                            Name = "Default Tenant",
+                            TwoFactorGraceDays = 0,
+                            TwoFactorMode = "all"
                         });
                 });
 
@@ -2694,6 +2705,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("TwoFactorEnabledAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("two_factor_enabled_at");
+
+                    b.Property<DateTimeOffset?>("TwoFactorGraceEndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("two_factor_grace_ends_at");
 
                     b.Property<string>("Username")
                         .IsRequired()
