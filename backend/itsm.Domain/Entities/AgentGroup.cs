@@ -8,4 +8,5 @@ public class AgentGroup : IMultiTenant
     public string Name { get; set; } = string.Empty;
 
     public ICollection<Ticket> Tickets { get; set; } = new List<Ticket>();
+    public ICollection<AgentGroupMember> Members { get; set; } = new List<AgentGroupMember>();
 }

@@ -8,4 +8,6 @@ public class TicketType : IMultiTenant
     public string Name { get; set; } = string.Empty;
     public bool IsBuiltIn { get; set; } = false;
     public bool IsPortalAvailable { get; set; } = true;
+    public int? AssignmentGroupId { get; set; }
+    public AgentGroup? AssignmentGroup { get; set; }
 }

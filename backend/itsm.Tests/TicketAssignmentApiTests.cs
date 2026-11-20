@@ -4,6 +4,7 @@ using System.Net.Http.Json;
 using FluentAssertions;
 using itsm.Application.Common.Interfaces;
 using itsm.Application.Common.Models;
+using itsm.Domain.Entities;
 using itsm.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -166,6 +167,64 @@ public class TicketAssignmentApiTests
     }
 
     [Fact]
+    public async Task AssignmentGroupsEndpointReturnsGroups()
+    {
+        var adminClient = CreateClient("admin", "admin");
+        var agentId = await GetUserIdAsync("p.petrov");
+        var groupId = await CreateGroupAsync("net", "Сеть", agentId);
+
+        var groups = await adminClient.GetFromJsonAsync<List<AgentGroupOption>>("/api/tickets/assignment-groups");
+
+        groups.Should().NotBeNull();
+        var group = groups!.Single(item => item.Id == groupId);
+        group.Code.Should().Be("net");
+        group.MemberCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task AssignmentHistoryEndpointReturnsAutoAssignedTickets()
+    {
+        var adminClient = CreateClient("admin", "admin");
+        await SetModeAsync(adminClient, "auto");
+        var creatorClient = CreateClient("m.maria", "portal_user");
+        var ticketId = await CreateTicketAsync(creatorClient);
+        var history = await adminClient.GetFromJsonAsync<List<AssignmentHistoryItem>>("/api/tickets/assignment-history");
+
+        history.Should().NotBeNull();
+        var entry = history!.FirstOrDefault(item => item.TicketId == ticketId);
+        entry.Should().NotBeNull();
+        entry!.TicketNumber.Should().NotBeNullOrWhiteSpace();
+        entry.NewAssigneeId.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task ManualAssignmentByUnlistedManagerReturnsForbidden()
+    {
+        var adminClient = CreateClient("admin", "admin");
+        await SetModeAsync(adminClient, "manual");
+        var managerId = await GetUserIdAsync("i.ivanov");
+        var otherManagerId = await GetUserIdAsync("s.sidorov");
+        var targetAgentId = await GetUserIdAsync("p.petrov");
+        var ticketId = await CreateTicketAsync(CreateClient("m.maria", "portal_user"));
+        var setting = await adminClient.PutAsJsonAsync("/api/tickets/assignment-setting", new
+        {
+            mode = "manual",
+            manualAssignerUserId = managerId
+        });
+        setting.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var allowed = await CreateClient("i.ivanov", "manager").PostAsJsonAsync(
+            $"/api/tickets/{ticketId}/assign",
+            new { assigneeId = targetAgentId });
+        allowed.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var denied = await adminClient.PostAsJsonAsync(
+            $"/api/tickets/{ticketId}/assign",
+            new { assigneeId = otherManagerId });
+        denied.StatusCode.Should().Be(HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task AutoAssignForUnknownTicketReturnsNotFound()
     {
         var adminClient = CreateClient("admin", "admin");
@@ -186,6 +245,19 @@ public class TicketAssignmentApiTests
         var token = jwt.GenerateToken(user.Id, user.Username, user.Email, user.TenantId ?? 1, roles);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
+    }
+
+    private async Task<int> CreateGroupAsync(string code, string name, int memberId)
+    {
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ItsmDbContext>();
+
+        var group = new AgentGroup { TenantId = db.GetCurrentTenantId(), Code = code, Name = name };
+        db.AgentGroups.Add(group);
+        await db.SaveChangesAsync();
+        db.AgentGroupMembers.Add(new AgentGroupMember { AgentGroupId = group.Id, UserId = memberId });
+        await db.SaveChangesAsync();
+        return group.Id;
     }
 
     private async Task<int> GetUserIdAsync(string username)

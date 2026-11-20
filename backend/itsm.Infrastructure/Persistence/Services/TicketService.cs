@@ -216,10 +216,10 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         });
         if (await IsAutoAssignmentEnabledAsync(ct)
             && ticket.Type.Code != RepairTypeCode
-            && await PickLeastLoadedAgentAsync(excludeUserId: null, ct) is { } autoAssignee)
+            && await PickLeastLoadedAgentAsync(type.AssignmentGroupId, null, ct) is { } autoAssignee)
         {
             ticket.AssigneeId = autoAssignee.UserId;
-            ticket.AssigneeGroupId = null;
+            ticket.AssigneeGroupId = type.AssignmentGroupId;
             db.TicketAuditLogs.Add(new TicketAuditLog
             {
                 TicketId = ticket.Id,
@@ -287,6 +287,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
         if (request.AssigneeId.ValueKind != JsonValueKind.Undefined)
         {
+            await EnsureManualAssignerAsync(actorId, ct);
             int? assigneeId = request.AssigneeId.ValueKind switch
             {
                 JsonValueKind.Null => null,
@@ -515,6 +516,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         if (ticket is null)
             return null;
 
+        await EnsureManualAssignerAsync(actorId, ct);
+
         await ValidateActiveAgentAsync(request.AssigneeId, ct);
         var oldAssigneeId = ticket.AssigneeId;
         ticket.AssigneeId = request.AssigneeId;
@@ -537,11 +540,12 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         if (ticket.Status.Code == ClosedStatusCode)
             throw new InvalidOperationException("Закрытую заявку нельзя перераспределить.");
 
-        var candidate = await PickLeastLoadedAgentAsync(excludeUserId: null, ct)
+        var groupId = ticket.Type.AssignmentGroupId;
+        var candidate = await PickLeastLoadedAgentAsync(groupId, null, ct)
             ?? throw new InvalidOperationException("Нет доступных активных инженеров для назначения.");
 
         var oldAssigneeId = ticket.AssigneeId;
-        if (oldAssigneeId == candidate.UserId)
+        if (oldAssigneeId == candidate.UserId && ticket.AssigneeGroupId == groupId)
             return new AutoAssignResponse(
                 ticket.Id,
                 candidate.UserId,
@@ -551,14 +555,14 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
         ticket.AssigneeId = candidate.UserId;
         ticket.Assignee = await db.Users.FirstAsync(user => user.Id == candidate.UserId, ct);
-        ticket.AssigneeGroupId = null;
+        ticket.AssigneeGroupId = groupId;
         ticket.UpdatedAt = DateTimeOffset.UtcNow;
         AddAudit(ticket, actorId, "assigneeId", oldAssigneeId?.ToString(), candidate.UserId.ToString());
         AddAudit(
             ticket,
             actorId,
             "autoAssigned",
-            null,
+            oldAssigneeId?.ToString(),
             JsonSerializer.Serialize(new
             {
                 assigneeId = candidate.UserId,
@@ -596,20 +600,34 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         UpdateAssignmentSettingRequest request,
         CancellationToken ct = default)
     {
+        if (request.ManualAssignerUserId is int manualAssignerId && !await db.Users.AnyAsync(user =>
+            user.Id == manualAssignerId && user.IsActive && user.RoleMappings.Any(mapping =>
+                mapping.Role.Code == "admin" || mapping.Role.Code == "tenant_owner" || mapping.Role.Code == "manager"), ct))
+            throw new ArgumentException("Ответственным руководителем может быть только активный администратор или менеджер.");
+
         var setting = await db.AssignmentSettings.FirstOrDefaultAsync(item => item.Id == 1, ct);
         if (setting is null)
         {
-            setting = new AssignmentSetting { Id = 1, Mode = request.Mode };
+            setting = new AssignmentSetting { Id = 1, TenantId = db.CurrentTenantId, Mode = request.Mode, ManualAssignerUserId = request.ManualAssignerUserId };
             db.AssignmentSettings.Add(setting);
         }
         else
         {
             setting.Mode = request.Mode;
+            setting.ManualAssignerUserId = request.ManualAssignerUserId;
             setting.UpdatedAt = DateTimeOffset.UtcNow;
         }
 
         await db.SaveChangesAsync(ct);
         return await GetAssignmentSettingAsync(ct);
+    }
+
+    private async Task EnsureManualAssignerAsync(int actorId, CancellationToken ct)
+    {
+        var requiredId = await db.AssignmentSettings.Where(item => item.Id == 1)
+            .Select(item => item.ManualAssignerUserId).FirstOrDefaultAsync(ct);
+        if (requiredId is int id && (actorId != id || !await db.Users.AnyAsync(user => user.Id == id && user.IsActive, ct)))
+            throw new UnauthorizedAccessException("Ручное назначение разрешено только ответственному руководителю.");
     }
 
     private async Task<bool> IsAutoAssignmentEnabledAsync(CancellationToken ct)
@@ -628,17 +646,31 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
     private sealed record AgentCandidate(int UserId, string FullName, int OpenTickets);
 
-    private async Task<AgentCandidate?> PickLeastLoadedAgentAsync(int? excludeUserId, CancellationToken ct)
+    private async Task<AgentCandidate?> PickLeastLoadedAgentAsync(int? groupId, int? excludeUserId, CancellationToken ct)
+    {
+        // Группа без участников не должна блокировать назначение — откатываемся на общий пул.
+        if (groupId is int knownGroupId
+            && !await db.AgentGroupMembers.AnyAsync(member => member.AgentGroupId == knownGroupId, ct))
+        {
+            groupId = null;
+        }
+
+        return await PickLeastLoadedFromPoolAsync(groupId, excludeUserId, ct);
+    }
+
+    private async Task<AgentCandidate?> PickLeastLoadedFromPoolAsync(int? groupId, int? excludeUserId, CancellationToken ct)
     {
         var closedStatusId = await db.TicketStatuses
             .Where(status => status.Code == ClosedStatusCode)
             .Select(status => (int?)status.Id)
             .FirstOrDefaultAsync(ct);
 
-        var agents = await db.Users
+        return await db.Users
             .AsNoTracking()
             .Where(user => user.IsActive
                 && user.RoleMappings.Any(mapping => mapping.Role.Code == "agent")
+                && (user.LockedUntil == null || user.LockedUntil <= DateTimeOffset.UtcNow)
+                && (groupId == null || db.AgentGroupMembers.Any(member => member.AgentGroupId == groupId && member.UserId == user.Id && member.AgentGroup.TenantId == db.CurrentTenantId))
                 && (excludeUserId == null || user.Id != excludeUserId))
             .Select(user => new
             {
@@ -651,14 +683,62 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
                     .Select(ticket => (DateTimeOffset?)ticket.CreatedAt)
                     .FirstOrDefault()
             })
-            .ToListAsync(ct);
-
-        return agents
             .OrderBy(agent => agent.OpenTickets)
             .ThenBy(agent => agent.LastAssignedAt ?? DateTimeOffset.MinValue)
             .ThenBy(agent => agent.Id)
             .Select(agent => new AgentCandidate(agent.Id, agent.FullName, agent.OpenTickets))
-            .FirstOrDefault();
+            .FirstOrDefaultAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<AssignmentHistoryItem>> GetAssignmentHistoryAsync(int? assigneeId, DateTimeOffset? from, DateTimeOffset? to, CancellationToken ct = default)
+    {
+        var query = db.TicketAuditLogs.AsNoTracking().Where(log => log.FieldName == "autoAssigned");
+        if (from is DateTimeOffset start) query = query.Where(log => log.ChangedAt >= start);
+        if (to is DateTimeOffset end) query = query.Where(log => log.ChangedAt <= end);
+        var logs = await query.Include(log => log.Ticket).ThenInclude(ticket => ticket.Assignee).Include(log => log.User).OrderByDescending(log => log.ChangedAt).ToListAsync(ct);
+        return logs.Where(log => assigneeId == null || log.Ticket.AssigneeId == assigneeId).Select(log => new AssignmentHistoryItem(log.TicketId, log.Ticket.TicketNumber, log.Ticket.Title, null, null, log.Ticket.AssigneeId, log.Ticket.Assignee?.FullName, "least-loaded", 0, log.ChangedAt, log.User.FullName)).ToArray();
+    }
+
+    public async Task<IReadOnlyList<AgentGroupOption>> GetAgentGroupsAsync(CancellationToken ct = default) =>
+        await db.AgentGroups.AsNoTracking().OrderBy(group => group.Name).Select(group => new AgentGroupOption(group.Id, group.Code ?? "", group.Name, group.Members.Count)).ToArrayAsync(ct);
+
+    public async Task<TicketResponse?> SetTicketAssignmentGroupAsync(int id, AssignmentGroupRequest request, int actorId, CancellationToken ct = default)
+    {
+        var ticket = await TicketQuery().FirstOrDefaultAsync(item => item.Id == id, ct);
+        if (ticket is null) return null;
+        if (!await db.AgentGroups.AnyAsync(group => group.Id == request.GroupId, ct)) throw new ArgumentException("Группа исполнителей не найдена.");
+        ticket.AssigneeGroupId = request.GroupId;
+        ticket.AssigneeId = null;
+        AddAudit(ticket, actorId, "assigneeGroupId", null, request.GroupId.ToString());
+        await db.SaveChangesAsync(ct);
+        return ToResponse(await TicketQuery().FirstAsync(item => item.Id == id, ct));
+    }
+
+    public async Task ReassignTicketsFromUserAsync(int userId, int actorId, CancellationToken ct = default)
+    {
+        var tickets = await db.Tickets.Where(ticket => ticket.AssigneeId == userId && ticket.Status.Code != ClosedStatusCode).ToListAsync(ct);
+        foreach (var ticket in tickets)
+        {
+            var groupId = await db.TicketTypes.Where(type => type.Id == ticket.TypeId).Select(type => type.AssignmentGroupId).FirstOrDefaultAsync(ct);
+            var candidate = await PickLeastLoadedAgentAsync(groupId, userId, ct);
+            ticket.AssigneeId = candidate?.UserId;
+            ticket.AssigneeGroupId = candidate is null ? ticket.AssigneeGroupId : null;
+            AddAudit(ticket, actorId, "assigneeId", userId.ToString(), candidate?.UserId.ToString());
+            AddAudit(ticket, actorId, "autoAssigned", null, JsonSerializer.Serialize(new { reason = "assignee-deactivated", assigneeId = candidate?.UserId }));
+        }
+        await db.SaveChangesAsync(ct);
+    }
+
+    public async Task ReassignUnavailableTicketsAsync(CancellationToken ct = default)
+    {
+        var unavailable = await db.Tickets
+            .Where(ticket => ticket.AssigneeId != null && ticket.Assignee != null && !ticket.Assignee.IsActive && ticket.Status.Code != ClosedStatusCode)
+            .Select(ticket => ticket.AssigneeId!.Value)
+            .Distinct()
+            .ToArrayAsync(ct);
+
+        foreach (var userId in unavailable)
+            await ReassignTicketsFromUserAsync(userId, userId, ct);
     }
 
     public async Task<TicketEscalationResponse?> EscalateAsync(

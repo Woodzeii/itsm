@@ -1,4 +1,5 @@
 using itsm.Infrastructure.Persistence.Services;
+using itsm.Application.Common.Interfaces;
 
 namespace itsm.WebApi.HostedServices;
 
@@ -24,6 +25,7 @@ public sealed class UserQuotaEnforcementWorker(
             await using var scope = serviceScopeFactory.CreateAsyncScope();
             var tenantService = scope.ServiceProvider.GetRequiredService<ITenantService>();
             await tenantService.EnforceExpiredUserLimitsAsync(ct);
+            await scope.ServiceProvider.GetRequiredService<ITicketService>().ReassignUnavailableTicketsAsync(ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

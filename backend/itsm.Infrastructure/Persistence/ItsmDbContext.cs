@@ -11,6 +11,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
     public DbSet<SystemRole> SystemRoles => Set<SystemRole>();
     public DbSet<UserRoleMapping> UserRoleMappings => Set<UserRoleMapping>();
     public DbSet<AgentGroup> AgentGroups => Set<AgentGroup>();
+    public DbSet<AgentGroupMember> AgentGroupMembers => Set<AgentGroupMember>();
     public DbSet<ServiceCatalog> ServiceCatalog => Set<ServiceCatalog>();
     public DbSet<FormTemplate> FormTemplates => Set<FormTemplate>();
     public DbSet<FormField> FormFields => Set<FormField>();
@@ -110,6 +111,14 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
         });
 
+        modelBuilder.Entity<AgentGroupMember>(entity =>
+        {
+            entity.ToTable("agent_group_members");
+            entity.HasKey(x => new { x.AgentGroupId, x.UserId });
+            entity.HasOne(x => x.AgentGroup).WithMany(x => x.Members).HasForeignKey(x => x.AgentGroupId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         modelBuilder.Entity<ServiceCatalog>(entity =>
         {
             entity.ToTable("service_catalog");
@@ -164,6 +173,8 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.HasKey(x => x.Id);
             entity.HasIndex(x => x.TenantId);
             entity.HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
+            entity.HasIndex(x => x.AssignmentGroupId);
+            entity.HasOne(x => x.AssignmentGroup).WithMany().HasForeignKey(x => x.AssignmentGroupId).OnDelete(DeleteBehavior.Restrict);
             entity.Property(x => x.IsBuiltIn).HasDefaultValue(false);
             entity.Property(x => x.IsPortalAvailable).HasDefaultValue(true);
         });
@@ -239,7 +250,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
         modelBuilder.Entity<AssignmentSetting>(entity =>
         {
             entity.ToTable("assignment_settings");
-            entity.HasKey(x => x.Id);
+            entity.HasKey(x => new { x.TenantId, x.Id });
             entity.Property(x => x.Mode).HasDefaultValue("auto");
             entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
 

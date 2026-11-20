@@ -51,6 +51,9 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 
           <section class="panel"><header><h2>Общие параметры</h2><p>Назначение, режим SLA и доступ портала</p></header><div class="field-grid">
             <label>Назначение исполнителя<select name="assignment" [(ngModel)]="settings.assignmentMode"><option value="automatic">Автоматическое: минимальная открытая очередь</option><option value="manual">Ручное</option></select></label>
+            @if (settings.assignmentMode === 'manual') {
+              <label>Ответственный за ручное назначение<select name="manualAssigner" [(ngModel)]="manualAssignerUserId"><option [ngValue]="null">Любой администратор или менеджер</option>@for (user of assignerOptions; track user.id) { <option [ngValue]="user.id">{{ user.fullName }}</option> }</select></label>
+            }
             <label>Руководитель (инженер ТП)<select name="manager" [(ngModel)]="settings.manager">@for (engineer of settings.engineers ?? []; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label>
             <label>Поставка<select name="tenantMode" [(ngModel)]="settings.tenantMode"><option value="on-premise">On-premise</option><option value="saas">SaaS с изоляцией тенантов</option></select></label>
             <label>Учёт SLA<select name="slaMode" [(ngModel)]="settings.slaMode"><option value="24/7">Круглосуточно</option><option value="working-hours">По рабочему графику</option></select></label>
@@ -327,6 +330,8 @@ export class AdminWorkspaceComponent implements OnInit {
 
     section: AdminSection = 'settings';
     settings: AdminSettings | null = null;
+    manualAssignerUserId: number | null = null;
+    assignerOptions: { id: number; fullName: string }[] = [];
     ticketTypes: TicketType[] = [];
     forms: TicketFormDefinition[] = [];
     formId = '';
@@ -423,6 +428,7 @@ export class AdminWorkspaceComponent implements OnInit {
         if (this.section === 'settings') {
             this.workspace.getAssignmentSetting().subscribe({
                 next: assignment => {
+                    this.manualAssignerUserId = assignment.manualAssignerUserId ?? null;
                     if (!this.settings) return;
                     this.settings = {
                         ...this.settings,
@@ -430,6 +436,14 @@ export class AdminWorkspaceComponent implements OnInit {
                     };
                 },
                 error: err => this.error = err?.error?.detail ?? err.message,
+            });
+            this.workspace.getUsers().subscribe({
+                next: users => {
+                    this.assignerOptions = users
+                        .filter(user => user.isActive && (user.roleIds.includes(2) || user.roleIds.includes(4)))
+                        .map(user => ({ id: user.id, fullName: user.fullName }));
+                },
+                error: () => this.assignerOptions = [],
             });
         }
         if (this.section === 'settings' || this.section === 'users') {
@@ -490,7 +504,13 @@ export class AdminWorkspaceComponent implements OnInit {
             },
             error: err => this.error = err.message,
         });
-        this.workspace.saveAssignmentSetting(currentSettings.assignmentMode === 'manual' ? 'manual' : 'auto').subscribe({
+        this.workspace.saveAssignmentSettingWithAssigner(
+            currentSettings.assignmentMode === 'manual' ? 'manual' : 'auto',
+            currentSettings.assignmentMode === 'manual' ? this.manualAssignerUserId : null,
+        ).subscribe({
+            next: assignment => {
+                this.manualAssignerUserId = assignment.manualAssignerUserId ?? null;
+            },
             error: err => this.error = err?.error?.detail ?? err.message,
         });
         if (this.workspace.supportsTicketTypeConfiguration) {

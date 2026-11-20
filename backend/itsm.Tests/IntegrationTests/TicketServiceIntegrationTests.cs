@@ -878,6 +878,182 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
     }
 
     [Fact]
+    public async Task AutoAssignmentRespectsSpecializationGroup()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "auto" });
+        var creator = await CreateUserAsync(scope.Db);
+        var groupOneAgent = await CreateUserAsync(scope.Db, "agent");
+        var groupTwoAgent = await CreateUserAsync(scope.Db, "agent");
+
+        var groupOne = new AgentGroup { TenantId = scope.Db.GetCurrentTenantId(), Code = "network", Name = "Сеть" };
+        var groupTwo = new AgentGroup { TenantId = scope.Db.GetCurrentTenantId(), Code = "office", Name = "Офис" };
+        scope.Db.AgentGroups.AddRange(groupOne, groupTwo);
+        await scope.Db.SaveChangesAsync();
+        scope.Db.AgentGroupMembers.AddRange(
+            new AgentGroupMember { AgentGroupId = groupOne.Id, UserId = groupOneAgent.Id },
+            new AgentGroupMember { AgentGroupId = groupTwo.Id, UserId = groupTwoAgent.Id });
+        var ticketType = await scope.Db.TicketTypes.FirstAsync(type => type.Id == 2);
+        ticketType.AssignmentGroupId = groupTwo.Id;
+        await scope.Db.SaveChangesAsync();
+
+        var ticket = await service.CreateAsync(
+            NewTicketRequest(typeId: 2),
+            creator.Id,
+            isStaff: false,
+            isEngineer: false);
+
+        Assert.Equal(groupTwoAgent.Id, ticket.AssigneeId);
+        Assert.Equal(groupTwo.Id, ticket.AssigneeGroupId);
+    }
+
+    [Fact]
+    public async Task AutoAssignmentFallsBackWhenGroupHasNoMembers()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "auto" });
+        var creator = await CreateUserAsync(scope.Db);
+        await CreateUserAsync(scope.Db, "agent");
+
+        var emptyGroup = new AgentGroup { TenantId = scope.Db.GetCurrentTenantId(), Code = "empty", Name = "Пустая" };
+        scope.Db.AgentGroups.Add(emptyGroup);
+        await scope.Db.SaveChangesAsync();
+        var ticketType = await scope.Db.TicketTypes.FirstAsync(type => type.Id == 2);
+        ticketType.AssignmentGroupId = emptyGroup.Id;
+        await scope.Db.SaveChangesAsync();
+
+        var ticket = await service.CreateAsync(
+            NewTicketRequest(typeId: 2),
+            creator.Id,
+            isStaff: false,
+            isEngineer: false);
+
+        Assert.NotNull(ticket.AssigneeId);
+    }
+
+    [Fact]
+    public async Task ReassignUnavailableTicketsMovesOpenTicketsToAvailableAgent()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var leavingAgent = await CreateUserAsync(scope.Db, "agent");
+        var remainingAgent = await CreateUserAsync(scope.Db, "agent");
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id, assigneeId: leavingAgent.Id);
+
+        leavingAgent.IsActive = false;
+        await scope.Db.SaveChangesAsync();
+        await service.ReassignUnavailableTicketsAsync();
+
+        var updated = await scope.Db.Tickets.FirstAsync(item => item.Id == ticket.Id);
+        Assert.Equal(remainingAgent.Id, updated.AssigneeId);
+        Assert.True(await scope.Db.TicketAuditLogs.AnyAsync(log =>
+            log.TicketId == ticket.Id && log.FieldName == "autoAssigned" &&
+            log.NewValue!.Contains("assignee-deactivated")));
+    }
+
+    [Fact]
+    public async Task ReassignUnavailableTicketsSkipsClosedTickets()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var leavingAgent = await CreateUserAsync(scope.Db, "agent");
+        await CreateUserAsync(scope.Db, "agent");
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id, assigneeId: leavingAgent.Id, statusId: 5);
+
+        leavingAgent.IsActive = false;
+        await scope.Db.SaveChangesAsync();
+        await service.ReassignUnavailableTicketsAsync();
+
+        var updated = await scope.Db.Tickets.FirstAsync(item => item.Id == ticket.Id);
+        Assert.Equal(leavingAgent.Id, updated.AssigneeId);
+    }
+
+    [Fact]
+    public async Task ManualAssignmentRequiresConfiguredAssigner()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var creator = await CreateUserAsync(scope.Db);
+        var manager = await CreateUserAsync(scope.Db, "manager");
+        var otherManager = await CreateUserAsync(scope.Db, "manager");
+        var targetAgent = await CreateUserAsync(scope.Db, "agent");
+        var ticket = await CreateTicketAsync(scope.Db, creator.Id);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest
+        {
+            Mode = "manual",
+            ManualAssignerUserId = manager.Id
+        });
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.AssignAsync(
+            ticket.Id,
+            new AssignTicketRequest { AssigneeId = targetAgent.Id },
+            otherManager.Id));
+
+        var assigned = await service.AssignAsync(
+            ticket.Id,
+            new AssignTicketRequest { AssigneeId = targetAgent.Id },
+            manager.Id);
+
+        Assert.Equal(targetAgent.Id, assigned!.AssigneeId);
+    }
+
+    [Fact]
+    public async Task AssignmentSettingRejectsNonManagerManualAssigner()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var agent = await CreateUserAsync(scope.Db, "agent");
+
+        await Assert.ThrowsAsync<ArgumentException>(() => service.UpdateAssignmentSettingAsync(
+            new UpdateAssignmentSettingRequest { Mode = "manual", ManualAssignerUserId = agent.Id }));
+    }
+
+    [Fact]
+    public async Task AssignmentHistoryReturnsAutoAssignedEntriesWithFilters()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "auto" });
+        var creator = await CreateUserAsync(scope.Db);
+        await CreateUserAsync(scope.Db, "agent");
+
+        var ticket = await service.CreateAsync(
+            NewTicketRequest(),
+            creator.Id,
+            isStaff: false,
+            isEngineer: false);
+
+        var history = await service.GetAssignmentHistoryAsync(ticket.AssigneeId, null, null);
+        var entry = Assert.Single(history);
+        Assert.Equal(ticket.Id, entry.TicketId);
+        Assert.Equal(ticket.TicketNumber, entry.TicketNumber);
+        Assert.Equal(ticket.AssigneeId, entry.NewAssigneeId);
+
+        Assert.Empty(await service.GetAssignmentHistoryAsync(ticket.AssigneeId, DateTimeOffset.UtcNow.AddHours(1), null));
+    }
+
+    [Fact]
+    public async Task AgentGroupsListReturnsMembersCount()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        var agent = await CreateUserAsync(scope.Db, "agent");
+        var group = new AgentGroup { TenantId = scope.Db.GetCurrentTenantId(), Code = "net", Name = "Сеть" };
+        scope.Db.AgentGroups.Add(group);
+        await scope.Db.SaveChangesAsync();
+        scope.Db.AgentGroupMembers.Add(new AgentGroupMember { AgentGroupId = group.Id, UserId = agent.Id });
+        await scope.Db.SaveChangesAsync();
+
+        var groups = await service.GetAgentGroupsAsync();
+        var option = Assert.Single(groups, item => item.Id == group.Id);
+        Assert.Equal(1, option.MemberCount);
+    }
+
+    [Fact]
     public async Task AutoAssignmentOnCreatePicksLeastLoadedAgent()
     {
         await using var scope = await fixture.CreateScopeAsync();
