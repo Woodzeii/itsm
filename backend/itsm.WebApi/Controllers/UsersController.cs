@@ -98,6 +98,10 @@ public class UsersController : ControllerBase
     public Task<IActionResult> ResetMfa(int id, CancellationToken ct)
         => Run(async () => Ok(await _service.ResetMfaAsync(id, ActorId, Ip, ct)));
 
+    [HttpPost("{id:int}/password/reset")]
+    public Task<IActionResult> ResetPassword(int id, [FromBody] ResetUserPasswordRequest request, CancellationToken ct)
+        => Run(async () => Ok(await _service.ResetPasswordAsync(id, request.NewPassword, ActorId, Ip, ct)));
+
     [HttpPost("{id:int}/unlock")]
     public Task<IActionResult> Unlock(int id, CancellationToken ct)
         => Run(async () => Ok(await _service.UnlockAsync(id, ActorId, Ip, ct)));

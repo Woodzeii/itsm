@@ -19,3 +19,8 @@ export interface TwoFactorStatusResponse {
 export interface DisableTwoFactorRequest {
     password: string;
 }
+
+export interface ChangePasswordRequest {
+    currentPassword: string;
+    newPassword: string;
+}

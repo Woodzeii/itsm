@@ -33,4 +33,5 @@ export class AdminService {
         return this.api.updateUser(id, request);
     }
     resetMfa(id: number): Observable<UserSummary> { return this.api.resetMfa(id); }
+    resetPassword(id: number, newPassword: string): Observable<UserSummary> { return this.api.resetPassword(id, newPassword); }
 }

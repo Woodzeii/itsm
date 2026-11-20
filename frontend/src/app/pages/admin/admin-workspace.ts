@@ -249,6 +249,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
                       <td data-label="2FA"><span class="mfa-badge" [class.enabled]="user.isTwoFactorEnabled">{{ user.isTwoFactorEnabled ? 'Активна' : 'Не настроена' }}</span></td>
                       <td class="actions" data-label="Действия">
                         <button type="button" [disabled]="!canEditUser(user)" [title]="canEditUser(user) ? 'Редактировать пользователя' : 'Изменять владельца может только глобальный администратор'" [attr.aria-label]="'Редактировать пользователя ' + user.fullName" (click)="editUser(user)">✎</button>
+                        <button type="button" [disabled]="!canEditUser(user)" [title]="'Сбросить пароль для ' + user.fullName" [attr.aria-label]="'Сбросить пароль для ' + user.fullName" (click)="resetUserPassword(user)">🔑</button>
                         @if (user.isTwoFactorEnabled) { <button type="button" [disabled]="!canEditUser(user)" [title]="'Сбросить 2FA для ' + user.fullName" [attr.aria-label]="'Сбросить 2FA для ' + user.fullName" (click)="resetUserMfa(user)">↻</button> }
                       </td>
                     </tr>
@@ -706,6 +707,30 @@ export class AdminWorkspaceComponent implements OnInit {
             },
             error: err => {
                 this.error = err.message || 'Не удалось сбросить 2FA.';
+                this.changeDetector.markForCheck();
+            },
+        });
+    }
+
+    resetUserPassword(user: UserSummary): void {
+        if (!this.canEditUser(user)) return;
+        const newPassword = prompt(`Введите новый пароль для «${user.fullName}» (не менее 8 символов):`);
+        if (newPassword === null) return;
+        if (newPassword.length < 8) {
+            this.error = 'Новый пароль должен содержать не менее 8 символов.';
+            return;
+        }
+
+        this.error = '';
+        this.notice = '';
+        this.admin.resetPassword(user.id, newPassword).subscribe({
+            next: updated => {
+                this.usersList = this.usersList.map(item => item.id === updated.id ? updated : item);
+                this.notice = `Пароль пользователя «${user.fullName}» сброшен.`;
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                this.error = err.error?.message || err.message || 'Не удалось сбросить пароль.';
                 this.changeDetector.markForCheck();
             },
         });

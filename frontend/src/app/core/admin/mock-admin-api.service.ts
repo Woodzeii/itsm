@@ -106,4 +106,17 @@ export class MockAdminApiService extends AdminApi {
             isTwoFactorEnabled: false,
         }).pipe(delay(150));
     }
+    resetPassword(id: number, _newPassword: string): Observable<UserSummary> {
+        return of<UserSummary>({
+            id,
+            username: '',
+            email: '',
+            fullName: '',
+            department: null,
+            managerId: null,
+            tenantId: null,
+            roleIds: [],
+            isActive: true,
+        }).pipe(delay(150));
+    }
 }

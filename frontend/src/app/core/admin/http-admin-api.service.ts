@@ -50,6 +50,9 @@ export class HttpAdminApiService extends AdminApi {
     resetMfa(id: number): Observable<UserSummary> {
         return this.http.post<UserSummary>(`${this.baseUrl}/users/${id}/mfa/reset`, {});
     }
+    resetPassword(id: number, newPassword: string): Observable<UserSummary> {
+        return this.http.post<UserSummary>(`${this.baseUrl}/users/${id}/password/reset`, { newPassword });
+    }
 }
 
 function parseUsersResponse(response: unknown): UserSummary[] {

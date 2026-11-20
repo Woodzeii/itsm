@@ -182,7 +182,7 @@ public class AuthController : ControllerBase
             });
         }
 
-        if (isOptional || !isTwoFactorRequired)
+        if (isOptional || (!isTwoFactorRequired && !isPortalOnlyUser))
         {
             var token = CreateTokenResponse(user, roles);
             return Ok(new LoginResponse
@@ -517,6 +517,37 @@ public class AuthController : ControllerBase
             IsRequired = isRequired,
             GraceEndsAt = user.TwoFactorGraceEndsAt
         });
+    }
+
+    [Authorize]
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.CurrentPassword))
+            return BadRequest(new { message = "Текущий пароль обязателен" });
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 8)
+            return BadRequest(new { message = "Новый пароль должен содержать не менее 8 символов" });
+
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == userId.Value);
+        if (user is null) return NotFound();
+
+        if (string.IsNullOrEmpty(user.PasswordHash)
+            || !_passwordHasher.Verify(request.CurrentPassword, user.PasswordHash))
+            return Unauthorized(new { message = "Неверный текущий пароль" });
+
+        if (_passwordHasher.Verify(request.NewPassword, user.PasswordHash))
+            return BadRequest(new { message = "Новый пароль должен отличаться от текущего" });
+
+        user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
+        user.PasswordChangedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Пароль изменён пользователем {Login}", user.Username);
+        return Ok(new { message = "Пароль успешно изменён" });
     }
 
     [Authorize]

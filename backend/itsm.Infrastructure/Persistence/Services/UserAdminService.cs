@@ -336,6 +336,27 @@ public class UserAdminService : IUserAdminService
         return ToDto(user);
     }
 
+    public async Task<UserAdminDto> ResetPasswordAsync(int id, string newPassword, int actorId, string? ip, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+            throw new UserAdminException(UserAdminErrorKind.Validation, "Новый пароль должен содержать не менее 8 символов");
+
+        var user = await LoadAsync(id, ct);
+        await EnsureCanManageTenantOwnerAsync(user, actorId, await IsTenantAdminAsync(actorId, ct), ct);
+
+        var old = new { PasswordChanged = false };
+        user.PasswordHash = _hasher.Hash(newPassword);
+        user.PasswordChangedAt = DateTimeOffset.UtcNow;
+        user.FailedLoginAttempts = 0;
+        user.LockedUntil = null;
+
+        AddAudit(actorId, id, "user_password_reset", old,
+            new { PasswordChanged = true, PasswordChangedAt = user.PasswordChangedAt }, ip);
+        await _db.SaveChangesAsync(ct);
+
+        return ToDto(user);
+    }
+
     public async Task<UserAdminDto> UnlockAsync(int id, int actorId, string? ip, CancellationToken ct = default)
     {
         var user = await LoadAsync(id, ct);
