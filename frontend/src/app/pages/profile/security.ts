@@ -32,7 +32,7 @@ import {
           <div>
             <h2>Двухфакторная аутентификация (TOTP)</h2>
             <p class="card-subtitle">
-              Используйте Google Authenticator, Microsoft Authenticator или Authy.
+              Подойдут Google Authenticator, Яндекс.Ключ или 2FAS.
             </p>
           </div>
 
@@ -79,11 +79,14 @@ import {
             <h3>Шаг 2. Введите код из приложения</h3>
             <div class="code-form">
               <input
+                #verificationInput
                 type="text"
                 inputmode="numeric"
+                autocomplete="one-time-code"
                 maxlength="6"
                 placeholder="000000"
                 [(ngModel)]="verificationCode"
+                (ngModelChange)="onVerificationCodeChange($event)"
                 (keyup.enter)="confirmSetup()"
                 class="code-input" />
               <button class="primary" (click)="confirmSetup()" [disabled]="busy || verificationCode.length !== 6">
@@ -93,6 +96,29 @@ import {
                 Отмена
               </button>
             </div>
+          </div>
+        }
+
+        @if (recoveryCodes.length) {
+          <div class="section recovery-section">
+            <h3>Резервные коды</h3>
+            <p>Сохраните коды в надежном месте. Каждый код одноразовый.</p>
+            <div class="recovery-grid">
+              @for (recoveryCode of recoveryCodes; track recoveryCode) {
+                <code>{{ recoveryCode }}</code>
+              }
+            </div>
+            <button class="primary" (click)="downloadRecoveryCodes()">Скачать коды</button>
+            <label class="saved-codes">
+              <input type="checkbox" [(ngModel)]="recoveryCodesSaved" />
+              Я сохранил коды в надежном месте
+            </label>
+            <button
+              class="primary"
+              [disabled]="!recoveryCodesSaved"
+              (click)="finishRecoverySetup()">
+              Завершить настройку
+            </button>
           </div>
         }
 
@@ -226,6 +252,18 @@ import {
       .error { color: #b91c1c; padding: 10px 12px; background: #fef2f2; border-radius: 8px; margin-bottom: 12px; }
       .success { color: #166534; padding: 10px 12px; background: #f0fdf4; border-radius: 8px; margin-bottom: 12px; }
       .loading { color: #6b7280; }
+      .recovery-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+        padding: 12px;
+        margin: 10px 0;
+        background: var(--app-surface-2);
+        border: 1px solid var(--app-border);
+        border-radius: 8px;
+      }
+      .recovery-grid code { text-align: center; letter-spacing: 1px; }
+      .saved-codes { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 0.88rem; }
     `,
     ],
 })
@@ -241,6 +279,8 @@ export class SecurityComponent implements OnInit {
     verificationCode = '';
     disablePassword = '';
     showDisableForm = false;
+    recoveryCodes: string[] = [];
+    recoveryCodesSaved = false;
 
     busy = false;
     errorMessage = '';
@@ -277,6 +317,11 @@ export class SecurityComponent implements OnInit {
                 this.verificationCode = '';
                 this.busy = false;
                 this.cdr.detectChanges();
+                setTimeout(() => {
+                    const input = document.querySelector<HTMLInputElement>('input.code-input');
+                    input?.focus();
+                    input?.select();
+                });
             },
             error: err => {
                 this.errorMessage = `Ошибка: ${err.status} ${err.error?.message ?? ''}`;
@@ -291,12 +336,15 @@ export class SecurityComponent implements OnInit {
         this.clearMessages();
         this.busy = true;
         this.api.verifySetup({ code: this.verificationCode }).subscribe({
-            next: () => {
+            next: (res) => {
                 this.successMessage = '2FA успешно включена';
                 this.setupData = null;
                 this.verificationCode = '';
                 this.busy = false;
-                this.loadStatus();
+                this.recoveryCodes = res.recoveryCodes ?? [];
+                this.recoveryCodesSaved = false;
+                if (!this.recoveryCodes.length) this.loadStatus();
+                this.cdr.detectChanges();
             },
             error: err => {
                 this.errorMessage = `Неверный код или ошибка: ${err.status} ${err.error?.message ?? ''}`;
@@ -310,6 +358,37 @@ export class SecurityComponent implements OnInit {
         this.setupData = null;
         this.verificationCode = '';
         this.clearMessages();
+    }
+
+    onVerificationCodeChange(value: string): void {
+        const digits = value.replace(/\D/g, '').slice(0, 6);
+        this.verificationCode = digits;
+        if (digits.length === 6) this.confirmSetup();
+    }
+
+    downloadRecoveryCodes(): void {
+        const content = [
+            'Резервные коды ITSM',
+            '',
+            ...this.recoveryCodes,
+            '',
+            'Каждый код можно использовать один раз.',
+        ].join('\n');
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'itsm-recovery-codes.txt';
+        link.click();
+        URL.revokeObjectURL(url);
+        this.recoveryCodesSaved = true;
+    }
+
+    finishRecoverySetup(): void {
+        if (!this.recoveryCodesSaved) return;
+        this.recoveryCodes = [];
+        this.recoveryCodesSaved = false;
+        this.loadStatus();
     }
 
     disableTwoFactor(): void {

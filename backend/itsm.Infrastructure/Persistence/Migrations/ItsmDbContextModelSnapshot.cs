@@ -2644,6 +2644,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("password_hash");
 
+                    b.Property<string>("RecoveryCodesJson")
+                        .HasColumnType("text")
+                        .HasColumnName("recovery_codes_json");
+
                     b.Property<string>("Status")
                         .IsRequired()
                         .ValueGeneratedOnAdd()

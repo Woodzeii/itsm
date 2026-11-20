@@ -63,11 +63,23 @@ export class MockAuthApiService extends AuthApi {
     verifyTwoFactor(request: VerifyTwoFactorRequest): Observable<VerifyTwoFactorResponse> {
         const pending = this.pendingUsers.get(request.challengeId);
         if (!pending) return throwError(() => new Error('Сессия входа не найдена. Начните вход заново.'));
-        if (!/^\d{6}$/.test(request.code)) return throwError(() => new Error('Введите шестизначный код.'));
+        if (request.useRecoveryCode) {
+            if (!/^[A-Z0-9-]{10,14}$/i.test(request.code.trim())) {
+                return throwError(() => new Error('Введите резервный код.'));
+            }
+        } else if (!/^\d{6}$/.test(request.code)) {
+            return throwError(() => new Error('Введите шестизначный код.'));
+        }
 
         this.pendingUsers.delete(request.challengeId);
         if (pending.isSetup) this.enrolledUsers.add(pending.username.toLocaleLowerCase());
-        return of(this.createTokenResponse(pending.userId, pending.username, pending.roles, null));
+        const response = this.createTokenResponse(pending.userId, pending.username, pending.roles, null);
+        if (pending.isSetup) {
+            response.recoveryCodes = Array.from({ length: 10 }, (_, index) =>
+                `TOTP-${String(index + 1).padStart(2, '0')}-${Math.random().toString(36).slice(2, 10).toUpperCase()}`,
+            );
+        }
+        return of(response);
     }
 
     skipTwoFactorSetup(request: SkipTwoFactorSetupRequest): Observable<VerifyTwoFactorResponse> {

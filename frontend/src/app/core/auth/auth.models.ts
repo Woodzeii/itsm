@@ -18,6 +18,7 @@ export interface LoginResponse {
 export interface VerifyTwoFactorRequest {
     challengeId: string;
     code: string;
+    useRecoveryCode?: boolean;
 }
 
 export interface SkipTwoFactorSetupRequest {
@@ -28,6 +29,7 @@ export interface VerifyTwoFactorResponse {
     accessToken: string;
     tokenType: string;
     expiresIn: number;
+    recoveryCodes?: string[];
 }
 
 /** Ответ GET /api/auth/session — роли и активная роль сессии берутся с бэкенда. */

@@ -19,8 +19,8 @@ export class TwoFactorService {
         return this.http.post<TwoFactorSetupResponse>(`${API}/2fa/setup`, {});
     }
 
-    verifySetup(req: VerifyTwoFactorSetupRequest): Observable<{ message: string }> {
-        return this.http.post<{ message: string }>(`${API}/2fa/verify-setup`, req);
+    verifySetup(req: VerifyTwoFactorSetupRequest): Observable<{ message: string; recoveryCodes?: string[] }> {
+        return this.http.post<{ message: string; recoveryCodes?: string[] }>(`${API}/2fa/verify-setup`, req);
     }
 
     status(): Observable<TwoFactorStatusResponse> {

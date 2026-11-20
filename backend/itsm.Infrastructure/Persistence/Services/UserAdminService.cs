@@ -324,6 +324,7 @@ public class UserAdminService : IUserAdminService
         user.IsTwoFactorEnabled = false;
         user.TwoFaSecret = null;
         user.TwoFactorEnabledAt = null;
+        user.RecoveryCodesJson = null;
 
         AddAudit(actorId, id, "user_mfa_reset", old, new { IsTwoFactorEnabled = false }, ip);
         await _db.SaveChangesAsync(ct);
