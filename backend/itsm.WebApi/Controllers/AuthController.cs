@@ -11,6 +11,7 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 using System.Security.Cryptography;
 using System.Security.Claims;
+using System.Text.Json;
 
 namespace itsm.WebApi.Controllers;
 
@@ -223,18 +224,38 @@ public class AuthController : ControllerBase
         if (!challenge.IsSetup && !dbUser.IsTwoFactorEnabled)
             return Unauthorized(new { message = "Сессия входа недействительна. Начните вход заново." });
 
-        if (!_totp.VerifyCode(dbUser.TwoFaSecret, request.Code))
+        if (request.UseRecoveryCode)
         {
-            _logger.LogWarning("2FA (TOTP): неверный код для userId={UserId}", dbUser.Id);
-            return Unauthorized(new { message = "Неверный или истёкший код" });
+            if (!TryConsumeRecoveryCode(dbUser, request.Code))
+            {
+                _logger.LogWarning("2FA: неверный или использованный резервный код для userId={UserId}", dbUser.Id);
+                return Unauthorized(new { message = "Неверный или уже использованный резервный код" });
+            }
+            await _db.SaveChangesAsync(ct);
+        }
+        else
+        {
+            if (!_totp.VerifyCode(dbUser.TwoFaSecret, request.Code))
+            {
+                _logger.LogWarning("2FA (TOTP): неверный код для userId={UserId}", dbUser.Id);
+                return Unauthorized(new { message = "Неверный или истёкший код" });
+            }
         }
 
         if (challenge.IsSetup && !dbUser.IsTwoFactorEnabled)
         {
             dbUser.IsTwoFactorEnabled = true;
             dbUser.TwoFactorEnabledAt = DateTimeOffset.UtcNow;
+            var recoveryCodes = GenerateRecoveryCodes();
+            dbUser.RecoveryCodesJson = JsonSerializer.Serialize(recoveryCodes.Select(HashRecoveryCode).ToList());
             await _db.SaveChangesAsync(ct);
             _logger.LogInformation("2FA (TOTP) включена для пользователя {Login}", dbUser.Username);
+            var setupToken = CreateTokenResponse(
+                dbUser,
+                await _userService.GetRolesAsync(dbUser.Id, ct));
+            setupToken.RecoveryCodes = recoveryCodes;
+            _cache.Remove(GetLoginChallengeKey(request.ChallengeId));
+            return Ok(setupToken);
         }
 
         _cache.Remove(GetLoginChallengeKey(request.ChallengeId));
@@ -401,11 +422,13 @@ public class AuthController : ControllerBase
 
         user.IsTwoFactorEnabled = true;
         user.TwoFactorEnabledAt = DateTimeOffset.UtcNow;
+        var recoveryCodes = GenerateRecoveryCodes();
+        user.RecoveryCodesJson = JsonSerializer.Serialize(recoveryCodes.Select(HashRecoveryCode).ToList());
         await _db.SaveChangesAsync();
 
         _logger.LogInformation("2FA (TOTP) включена для пользователя {Login}", user.Username);
 
-        return Ok(new { message = "2FA успешно включена" });
+        return Ok(new { message = "2FA успешно включена", recoveryCodes });
     }
 
     [Authorize]
@@ -457,6 +480,7 @@ public class AuthController : ControllerBase
         user.IsTwoFactorEnabled = false;
         user.TwoFaSecret = null;
         user.TwoFactorEnabledAt = null;
+        user.RecoveryCodesJson = null;
         await _db.SaveChangesAsync();
 
         _logger.LogWarning("2FA (TOTP) отключена для пользователя {Login}", user.Username);
@@ -497,6 +521,62 @@ public class AuthController : ControllerBase
         => _cache.TryGetValue(GetLoginChallengeKey(challengeId), out challenge!);
 
     private static string GetLoginChallengeKey(string challengeId) => $"auth:login:2fa:{challengeId}";
+
+    private static List<string> GenerateRecoveryCodes()
+    {
+        var codes = new List<string>(10);
+        for (var i = 0; i < 10; i++)
+        {
+            var bytes = RandomNumberGenerator.GetBytes(5);
+            var value = Convert.ToHexString(bytes);
+            codes.Add($"{value[..4]}-{value.Substring(4, 4)}-{value.Substring(8, 2)}");
+        }
+        return codes;
+    }
+
+    private static string NormalizeRecoveryCode(string code)
+        => code.Replace("-", string.Empty).Trim().ToUpperInvariant();
+
+    private static string HashRecoveryCode(string code)
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(NormalizeRecoveryCode(code));
+        return Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+    }
+
+    private static bool TryConsumeRecoveryCode(Domain.Entities.User user, string code)
+    {
+        if (string.IsNullOrWhiteSpace(user.RecoveryCodesJson))
+            return false;
+
+        var normalized = NormalizeRecoveryCode(code);
+        if (normalized.Length != 10)
+            return false;
+
+        List<string>? stored;
+        try
+        {
+            stored = JsonSerializer.Deserialize<List<string>>(user.RecoveryCodesJson);
+        }
+        catch (JsonException)
+        {
+            return false;
+        }
+
+        if (stored is null)
+            return false;
+
+        var hash = HashRecoveryCode(normalized);
+        var index = stored.FindIndex(value =>
+            string.Equals(value, hash, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(NormalizeRecoveryCode(value), normalized, StringComparison.OrdinalIgnoreCase));
+
+        if (index < 0)
+            return false;
+
+        stored.RemoveAt(index);
+        user.RecoveryCodesJson = JsonSerializer.Serialize(stored);
+        return true;
+    }
 
     private VerifyTwoFactorResponse CreateTokenResponse(
         itsm.Domain.Entities.User user,

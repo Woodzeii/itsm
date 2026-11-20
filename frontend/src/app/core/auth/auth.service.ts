@@ -32,8 +32,8 @@ export class AuthService {
         return this.api.login(body);
     }
 
-    verifyTwoFactor(challengeId: string, code: string): Observable<VerifyTwoFactorResponse> {
-        const body: VerifyTwoFactorRequest = { challengeId, code };
+    verifyTwoFactor(challengeId: string, code: string, useRecoveryCode = false): Observable<VerifyTwoFactorResponse> {
+        const body: VerifyTwoFactorRequest = { challengeId, code, useRecoveryCode };
         return this.api
             .verifyTwoFactor(body)
             .pipe(tap(res => this.saveToken(res.accessToken)));

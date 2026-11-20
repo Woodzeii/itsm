@@ -13,6 +13,7 @@ public class User
     public string? TwoFaSecret { get; set; }
     public bool IsTwoFactorEnabled { get; set; } = false;
     public DateTimeOffset? TwoFactorEnabledAt { get; set; }
+    public string? RecoveryCodesJson { get; set; }
     public string Status { get; set; } = "Unverified";
     public string? PasswordHash { get; set; }
     public string? VerificationTokenHash { get; set; }

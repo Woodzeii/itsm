@@ -623,6 +623,10 @@
           },
           "code": {
             "type": "string"
+          },
+          "useRecoveryCode": {
+            "type": "boolean",
+            "default": false
           }
         }
       },
@@ -646,6 +650,12 @@
           "expiresIn": {
             "type": "integer",
             "format": "int32"
+          },
+          "recoveryCodes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
