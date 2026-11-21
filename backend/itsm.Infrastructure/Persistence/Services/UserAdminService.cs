@@ -322,6 +322,8 @@ public class UserAdminService : IUserAdminService
     public async Task<UserAdminDto> ResetMfaAsync(int id, int actorId, string? ip, CancellationToken ct = default)
     {
         var user = await LoadAsync(id, ct);
+        if (user.Id == actorId)
+            throw new UserAdminException(UserAdminErrorKind.Forbidden, "Нельзя сбросить собственную 2FA из меню управления пользователями");
         await EnsureCanManageTenantOwnerAsync(user, actorId, await IsTenantAdminAsync(actorId, ct), ct);
 
         var old = new { user.IsTwoFactorEnabled };
@@ -342,7 +344,21 @@ public class UserAdminService : IUserAdminService
             throw new UserAdminException(UserAdminErrorKind.Validation, "Новый пароль должен содержать не менее 8 символов");
 
         var user = await LoadAsync(id, ct);
+        if (user.Id == actorId)
+            throw new UserAdminException(UserAdminErrorKind.Forbidden, "Нельзя сбросить собственный пароль из меню управления пользователями");
         await EnsureCanManageTenantOwnerAsync(user, actorId, await IsTenantAdminAsync(actorId, ct), ct);
+        var targetIsTenantOwner = user.RoleMappings.Any(mapping => mapping.Role.Code == TenantOwnerRoleCode);
+        var targetIsAdmin = user.RoleMappings.Any(mapping => mapping.Role.Code == AdminRoleCode);
+        if (targetIsAdmin && !targetIsTenantOwner)
+        {
+            var actorIsOwnerOfTargetTenant = await _db.UserRoleMappings.AnyAsync(
+                mapping => mapping.UserId == actorId
+                           && mapping.Role.Code == TenantOwnerRoleCode
+                           && mapping.User.TenantId == user.TenantId,
+                ct);
+            if (!actorIsOwnerOfTargetTenant)
+                throw new UserAdminException(UserAdminErrorKind.Forbidden, "Сбрасывать пароль администратора может только владелец его тенанта");
+        }
 
         var old = new { PasswordChanged = false };
         user.PasswordHash = _hasher.Hash(newPassword);

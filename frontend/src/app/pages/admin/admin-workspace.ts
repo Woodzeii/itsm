@@ -249,8 +249,12 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
                       <td data-label="2FA"><span class="mfa-badge" [class.enabled]="user.isTwoFactorEnabled">{{ user.isTwoFactorEnabled ? 'Активна' : 'Не настроена' }}</span></td>
                       <td class="actions" data-label="Действия">
                         <button type="button" [disabled]="!canEditUser(user)" [title]="canEditUser(user) ? 'Редактировать пользователя' : 'Изменять владельца может только глобальный администратор'" [attr.aria-label]="'Редактировать пользователя ' + user.fullName" (click)="editUser(user)">✎</button>
-                        <button type="button" [disabled]="!canEditUser(user)" [title]="'Сбросить пароль для ' + user.fullName" [attr.aria-label]="'Сбросить пароль для ' + user.fullName" (click)="resetUserPassword(user)">🔑</button>
-                        @if (user.isTwoFactorEnabled) { <button type="button" [disabled]="!canEditUser(user)" [title]="'Сбросить 2FA для ' + user.fullName" [attr.aria-label]="'Сбросить 2FA для ' + user.fullName" (click)="resetUserMfa(user)">↻</button> }
+                        @if (canResetUserPassword(user)) {
+                          <button type="button" [title]="'Сбросить пароль для ' + user.fullName" [attr.aria-label]="'Сбросить пароль для ' + user.fullName" (click)="resetUserPassword(user)">🔑</button>
+                        }
+                        @if (user.isTwoFactorEnabled && canResetUserMfa(user)) {
+                          <button type="button" [title]="'Сбросить 2FA для ' + user.fullName" [attr.aria-label]="'Сбросить 2FA для ' + user.fullName" (click)="resetUserMfa(user)">↻</button>
+                        }
                       </td>
                     </tr>
                   }
@@ -831,6 +835,21 @@ export class AdminWorkspaceComponent implements OnInit {
 
     canEditUser(user: UserSummary): boolean {
         return !this.isTenantOwner(user) || this.auth.isTenantAdmin() || this.auth.isTenantOwner();
+    }
+
+    canResetUserMfa(user: UserSummary): boolean {
+        return !this.isCurrentUser(user) && this.canEditUser(user);
+    }
+
+    canResetUserPassword(user: UserSummary): boolean {
+        if (this.isCurrentUser(user) || !this.canEditUser(user)) return false;
+        const targetIsAdmin = user.roleCodes?.includes('admin')
+            || this.getUserRoles(user).some(role => role.code === 'admin');
+        return !targetIsAdmin || this.isTenantOwner(user) || this.auth.isTenantOwner();
+    }
+
+    private isCurrentUser(user: UserSummary): boolean {
+        return user.username.toLocaleLowerCase() === this.auth.getLogin().toLocaleLowerCase();
     }
 
     isSelfTenantOwner(user: UserSummary): boolean {
