@@ -1572,6 +1572,39 @@ app-ticket-queue .file-picker input[type="file"] {
     cursor: pointer;
 }
 
+html[data-theme='dark'] app-layout .notification-badge {
+    border-color: var(--app-surface);
+}
+
+html[data-theme='dark'] app-layout .notification-dropdown {
+    border-color: var(--app-border);
+    background: var(--app-surface);
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-layout .notification-dropdown header,
+html[data-theme='dark'] app-layout .notification-item {
+    border-color: var(--app-border);
+}
+
+html[data-theme='dark'] app-layout .notification-item {
+    background: var(--app-surface);
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-layout .notification-item:hover {
+    background: #1a2638;
+}
+
+html[data-theme='dark'] app-layout .notification-item.unread {
+    background: #172b48;
+}
+
+html[data-theme='dark'] app-layout .notification-item small,
+html[data-theme='dark'] app-layout .notification-empty {
+    color: var(--app-muted);
+}
+
 html[data-theme='dark'] app-ticket-queue .comment-composer {
     border-color: var(--app-divider) !important;
     background: var(--app-surface) !important;

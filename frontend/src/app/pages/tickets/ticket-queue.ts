@@ -259,6 +259,7 @@ export class TicketQueueComponent implements OnInit {
     attachments: File[] = [];
     isSendingComment = false;
     private attachmentInput?: HTMLInputElement;
+    private pendingTicketId: number | null = null;
     repairDescription = '';
     repairResult: 'В эксплуатацию' | 'На склад' | 'Списать' = 'В эксплуатацию';
     repairToUserId: number | null = null;
@@ -321,6 +322,12 @@ export class TicketQueueComponent implements OnInit {
         this.route.queryParamMap.subscribe(params => {
             this.query = params.get('q') ?? '';
             if (params.get('create') === 'true') this.openCreate();
+            const ticketId = Number(params.get('ticketId'));
+            if (Number.isFinite(ticketId) && ticketId > 0) {
+                this.pendingTicketId = ticketId;
+                const ticket = this.tickets.find(item => item.id === String(ticketId));
+                if (ticket) this.select(ticket);
+            }
             this.changeDetector.markForCheck();
         });
     }
@@ -650,7 +657,18 @@ export class TicketQueueComponent implements OnInit {
         };
         this.loadHistory(ticket.id);
     }
-    private load(resetSelection = true): void { this.ticketsApi.getTickets().subscribe({ next: tickets => { this.tickets = tickets; if (resetSelection) this.selected = null; this.changeDetector.markForCheck(); }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } }); }
+    private load(resetSelection = true): void { this.ticketsApi.getTickets().subscribe({ next: tickets => {
+        this.tickets = tickets;
+        if (resetSelection) this.selected = null;
+        if (this.pendingTicketId !== null) {
+            const ticket = tickets.find(item => item.id === String(this.pendingTicketId));
+            if (ticket) {
+                this.pendingTicketId = null;
+                this.select(ticket);
+            }
+        }
+        this.changeDetector.markForCheck();
+    }, error: err => { this.error = err.message; this.changeDetector.markForCheck(); } }); }
     private loadHistory(ticketId: string): void {
         this.loadingHistory = true;
         this.loadingOlderHistory = false;

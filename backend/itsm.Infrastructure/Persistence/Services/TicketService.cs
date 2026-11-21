@@ -9,6 +9,17 @@ namespace itsm.Infrastructure.Persistence.Services;
 
 public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage attachmentStorage) : ITicketService
 {
+    private INotificationService? notificationService;
+
+    public TicketService(
+        ItsmDbContext db,
+        ITicketAttachmentStorage attachmentStorage,
+        INotificationService notificationService)
+        : this(db, attachmentStorage)
+    {
+        this.notificationService = notificationService;
+    }
+
     private const string RepairTypeCode = "repair";
     private const string ClosedStatusCode = "closed";
     private const string EscalatedStatusCode = "escalated";
@@ -502,6 +513,12 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         AddAudit(ticket, actorId, "statusId", oldStatusId.ToString(), targetStatus.Id.ToString());
 
         await db.SaveChangesAsync(ct);
+        await NotifyRecipientsAsync(
+            ticket,
+            actorId,
+            "TicketStatusChanged",
+            $"Статус заявки «{ticket.Title}» изменён на «{targetStatus.Name}».",
+            ct);
         var updatedTicket = await TicketQuery().FirstAsync(item => item.Id == ticket.Id, ct);
         return ToResponse(updatedTicket);
     }
@@ -527,6 +544,15 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         AddAudit(ticket, actorId, "assigneeId", oldAssigneeId?.ToString(), request.AssigneeId.ToString());
 
         await db.SaveChangesAsync(ct);
+        if (request.AssigneeId != actorId)
+        {
+            await CreateNotificationAsync(
+                request.AssigneeId,
+                "TicketAssigned",
+                $"Вам назначена заявка «{ticket.Title}».",
+                ticket.Id,
+                ct);
+        }
         var updatedTicket = await TicketQuery().FirstAsync(item => item.Id == ticket.Id, ct);
         return ToResponse(updatedTicket);
     }
@@ -842,15 +868,12 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
         foreach (var recipientId in notifiedUserIds)
         {
-            db.Notifications.Add(new Notification
-            {
-                UserId = recipientId,
-                Type = "TicketEscalated",
-                Title = "Эскалация заявки",
-                Body = $"Заявка «{ticket.Title}» была эскалирована.",
-                TicketId = ticket.Id,
-                CreatedAt = now
-            });
+            await CreateNotificationAsync(
+                recipientId,
+                "TicketEscalated",
+                $"Заявка «{ticket.Title}» была эскалирована.",
+                ticket.Id,
+                ct);
         }
 
         await db.SaveChangesAsync(ct);
@@ -978,15 +1001,12 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             && openEscalation.InitiatorUserId != actorId;
         if (initiatorNotified)
         {
-            db.Notifications.Add(new Notification
-            {
-                UserId = openEscalation.InitiatorUserId!.Value,
-                Type = "TicketEscalationAccepted",
-                Title = "Эскалация принята",
-                Body = $"Эскалация по заявке «{ticket.Title}» принята. Заявка передана в работу.",
-                TicketId = ticket.Id,
-                CreatedAt = now
-            });
+            await CreateNotificationAsync(
+                openEscalation.InitiatorUserId!.Value,
+                "TicketEscalationAccepted",
+                $"Эскалация по заявке «{ticket.Title}» принята. Заявка передана в работу.",
+                ticket.Id,
+                ct);
         }
 
         await db.SaveChangesAsync(ct);
@@ -1229,6 +1249,16 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
         await db.Entry(message).Reference(item => item.Author).LoadAsync(ct);
         await db.Entry(message).Collection(item => item.Attachments).LoadAsync(ct);
+        if (!request.IsInternal)
+        {
+            await db.Entry(ticket).Reference(item => item.Assignee).LoadAsync(ct);
+            await NotifyRecipientsAsync(
+                ticket,
+                authorId,
+                "TicketCommentAdded",
+                $"В заявке «{ticket.Title}» добавлено новое сообщение.",
+                ct);
+        }
         return ToMessageResponse(message);
     }
 
@@ -1454,6 +1484,49 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             throw new ArgumentException("customFieldsData должен быть JSON-объектом.");
 
         return value.Clone();
+    }
+
+    private async Task NotifyRecipientsAsync(
+        Ticket ticket,
+        int actorId,
+        string type,
+        string message,
+        CancellationToken ct)
+    {
+        var recipientIds = new HashSet<int> { ticket.CreatorId };
+        if (ticket.RequesterId is int requesterId)
+            recipientIds.Add(requesterId);
+        if (ticket.AssigneeId is int assigneeId)
+            recipientIds.Add(assigneeId);
+        recipientIds.Remove(actorId);
+
+        foreach (var recipientId in recipientIds)
+            await CreateNotificationAsync(recipientId, type, message, ticket.Id, ct);
+    }
+
+    private async Task CreateNotificationAsync(
+        int userId,
+        string type,
+        string message,
+        int? ticketId,
+        CancellationToken ct)
+    {
+        if (notificationService is not null)
+        {
+            await notificationService.CreateNotification(userId, type, message, ticketId, ct);
+            return;
+        }
+
+        db.Notifications.Add(new Notification
+        {
+            UserId = userId,
+            Type = type,
+            Title = message,
+            Body = null,
+            TicketId = ticketId,
+            IsRead = false,
+            CreatedAt = DateTimeOffset.UtcNow
+        });
     }
 
     private static void AddAudit(Ticket ticket, int userId, string field, string? oldValue, string? newValue)
