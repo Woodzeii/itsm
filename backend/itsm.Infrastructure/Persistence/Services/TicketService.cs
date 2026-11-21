@@ -11,6 +11,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 {
     private const string RepairTypeCode = "repair";
     private const string ClosedStatusCode = "closed";
+    private const string ReviewStatusCode = "review";
     private const string EscalatedStatusCode = "escalated";
     private const string InProgressStatusCode = "in_progress";
     private const long MaxAttachmentSizeBytes = 10 * 1024 * 1024;
@@ -154,6 +155,46 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
         var now = DateTimeOffset.UtcNow;
         var tenantId = db.GetCurrentTenantId();
+        var criticalityLevelId = request.CriticalityLevelId is int selectedCriticalityId
+            ? await db.CriticalityLevels
+                .Where(level => level.Id == selectedCriticalityId && level.IsActive)
+                .Select(level => (int?)level.Id)
+                .FirstOrDefaultAsync(ct)
+                ?? throw new ArgumentException("Уровень критичности не найден или неактивен.")
+            : await db.CriticalityLevels
+                .Where(level => level.IsActive && level.Name.ToLower() == request.Priority.Trim().ToLower())
+                .Select(level => (int?)level.Id)
+                .FirstOrDefaultAsync(ct);
+
+        var slaPolicy = criticalityLevelId is int matchedCriticalityId
+            ? await db.SlaPolicies.FirstOrDefaultAsync(policy =>
+                policy.TicketTypeId == type.Id
+                && policy.CriticalityLevelId == matchedCriticalityId, ct)
+            : null;
+        WorkingCalendarSnapshot? calendarSnapshot = null;
+        if (slaPolicy is not null)
+        {
+            if (slaPolicy.ReactionTimeMinutes <= 0 || slaPolicy.ResolutionTimeMinutes <= 0)
+                throw new InvalidOperationException("Время реакции и решения в политике SLA должно быть больше нуля.");
+
+            var scheduleType = slaPolicy.ScheduleType ?? "24x7";
+            var schedules = db.WorkingSchedules.Where(item => item.IsActive);
+            schedules = slaPolicy.WorkingScheduleId is int workingScheduleId
+                ? schedules.Where(item => item.Id == workingScheduleId)
+                : schedules.Where(item => item.ScheduleType == scheduleType);
+            var schedule = await schedules
+                .OrderBy(item => item.Id)
+                .FirstOrDefaultAsync(ct)
+                ?? throw new InvalidOperationException($"Не найден активный календарь SLA типа '{scheduleType}'.");
+            var hours = await db.WorkingHours
+                .Where(item => item.WorkingScheduleId == schedule.Id)
+                .ToListAsync(ct);
+            var exceptions = await db.CalendarExceptions
+                .Where(item => item.WorkingScheduleId == null || item.WorkingScheduleId == schedule.Id)
+                .ToListAsync(ct);
+            calendarSnapshot = WorkingTimeCalculator.CreateSnapshot(schedule, hours, exceptions);
+        }
+
         var ticketNumber = await GenerateTicketNumberAsync(tenantId, ct);
 
         var ticket = new Ticket
@@ -163,6 +204,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             TypeId = type.Id,
             StatusId = initialStatusId,
             Priority = request.Priority.Trim(),
+            CriticalityLevelId = criticalityLevelId,
             CreatorId = creatorId,
             RequesterId = requesterId,
             TenantId = tenantId,
@@ -172,6 +214,17 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             CreatedAt = now,
             UpdatedAt = now
         };
+        if (slaPolicy is not null && calendarSnapshot is not null)
+        {
+            ticket.SlaPolicyId = slaPolicy.Id;
+            ticket.SlaCalendarSnapshot = WorkingTimeCalculator.Serialize(calendarSnapshot);
+            ticket.SlaReactionStartedAt = now;
+            ticket.SlaResolutionStartedAt = now;
+            ticket.SlaReactionDeadline = WorkingTimeCalculator.AddWorkingMinutes(
+                now, slaPolicy.ReactionTimeMinutes, calendarSnapshot);
+            ticket.SlaResolutionDeadline = WorkingTimeCalculator.AddWorkingMinutes(
+                now, slaPolicy.ResolutionTimeMinutes, calendarSnapshot);
+        }
 
         db.Tickets.Add(ticket);
         var assetHistory = new List<AssetHistoryLog>();
@@ -495,8 +548,11 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         ticket.StatusId = targetStatus.Id;
         ticket.Status = targetStatus;
         ticket.IsSlaPaused = targetStatus.IsSlaPausing;
-        ticket.SlaTimerPaused = targetStatus.IsSlaPausing;
-        if (targetStatus.Code == ClosedStatusCode)
+        ApplySlaStatusTransition(ticket, targetStatus, now);
+        if ((targetStatus.Code is "pending" or InProgressStatusCode) && ticket.ActualReactionTime is null)
+            ticket.ActualReactionTime = now;
+        if ((targetStatus.Code == ReviewStatusCode || targetStatus.Code == ClosedStatusCode)
+            && ticket.ActualResolutionTime is null)
             ticket.ActualResolutionTime = now;
         ticket.UpdatedAt = now;
         AddAudit(ticket, actorId, "statusId", oldStatusId.ToString(), targetStatus.Id.ToString());
@@ -824,6 +880,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
         ticket.StatusId = escalatedStatus.Id;
         ticket.Status = escalatedStatus;
+        ticket.IsSlaPaused = escalatedStatus.IsSlaPausing;
+        ApplySlaStatusTransition(ticket, escalatedStatus, now);
         AddAudit(ticket, actorId, "statusId", oldStatusId.ToString(), escalatedStatus.Id.ToString());
 
         ticket.EscalationLevel++;
@@ -965,6 +1023,10 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
         ticket.StatusId = inProgressStatus.Id;
         ticket.Status = inProgressStatus;
+        ticket.IsSlaPaused = inProgressStatus.IsSlaPausing;
+        ApplySlaStatusTransition(ticket, inProgressStatus, now);
+        if (ticket.ActualReactionTime is null)
+            ticket.ActualReactionTime = now;
         ticket.AssigneeId = actorId;
         ticket.Assignee = await db.Users.FirstAsync(user => user.Id == actorId, ct);
         ticket.AssigneeGroupId = null;
@@ -1444,6 +1506,43 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
                 && user.RoleMappings.Any(mapping => mapping.Role.Code == "agent"), ct);
         if (!isActiveAgent)
             throw new ArgumentException("Исполнитель должен быть активным инженером технической поддержки.");
+    }
+
+    private static void ApplySlaStatusTransition(Ticket ticket, TicketStatus targetStatus, DateTimeOffset now)
+    {
+        if (!ticket.SlaTimerPaused && targetStatus.IsSlaPausing)
+        {
+            ticket.SlaTimerPaused = true;
+            ticket.SlaPauseStartedAt = now;
+            return;
+        }
+
+        if (ticket.SlaTimerPaused && !targetStatus.IsSlaPausing)
+        {
+            if (ticket.SlaPauseStartedAt is DateTimeOffset pauseStart
+                && ticket.SlaCalendarSnapshot is string calendarJson)
+            {
+                var calendar = WorkingTimeCalculator.Deserialize(calendarJson);
+                var pausedMinutes = WorkingTimeCalculator.WorkingMinutesBetween(pauseStart, now, calendar);
+                ticket.SlaAccumulatedPauseMinutes = checked(ticket.SlaAccumulatedPauseMinutes + pausedMinutes);
+                if (ticket.SlaReactionDeadline is DateTimeOffset reactionDeadline
+                    && ticket.ActualReactionTime is null
+                    && pauseStart < reactionDeadline)
+                    ticket.SlaReactionDeadline = WorkingTimeCalculator.AddWorkingMinutes(
+                        reactionDeadline, pausedMinutes, calendar);
+                if (ticket.SlaResolutionDeadline is DateTimeOffset resolutionDeadline
+                    && ticket.ActualResolutionTime is null
+                    && pauseStart < resolutionDeadline)
+                    ticket.SlaResolutionDeadline = WorkingTimeCalculator.AddWorkingMinutes(
+                        resolutionDeadline, pausedMinutes, calendar);
+            }
+
+            ticket.SlaTimerPaused = false;
+            ticket.SlaPauseStartedAt = null;
+            return;
+        }
+
+        ticket.SlaTimerPaused = targetStatus.IsSlaPausing;
     }
 
     private static JsonElement? CloneObject(JsonElement? element)

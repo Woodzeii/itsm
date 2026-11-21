@@ -16,6 +16,9 @@ public sealed record CreateTicketRequest
     [Range(1, int.MaxValue)]
     public required int TypeId { get; init; }
 
+    [Range(1, int.MaxValue)]
+    public int? CriticalityLevelId { get; init; }
+
     [Required, StringLength(50, MinimumLength = 1)]
     public required string Priority { get; init; }
 
