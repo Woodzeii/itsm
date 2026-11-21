@@ -48,6 +48,32 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
               }
             </div>
           </section>
+          <section class="panel tenant-security-policy">
+            <header><h2>Политики безопасности</h2><p>Двухфакторная аутентификация для сотрудников организации</p></header>
+            <div class="field-grid">
+              <label>Режим 2FA
+                <select name="twoFactorMode" [(ngModel)]="twoFactorMode" [disabled]="!canManageAdminCreationSetting || savingTenantPolicy">
+                  <option value="all">Обязательно для всех сотрудников (рекомендуется)</option>
+                  <option value="admins">Обязательно только для администраторов</option>
+                  <option value="optional">Необязательно, по желанию пользователя</option>
+                </select>
+              </label>
+              <label>Льготный период
+                <select name="twoFactorGraceDays" [(ngModel)]="twoFactorGraceDays" [disabled]="twoFactorMode === 'optional' || !canManageAdminCreationSetting || savingTenantPolicy">
+                  <option [ngValue]="0">Без отсрочки — мгновенно</option>
+                  <option [ngValue]="3">3 дня</option>
+                  <option [ngValue]="7">7 дней</option>
+                </select>
+              </label>
+            </div>
+            @if (canManageAdminCreationSetting) {
+              <button class="primary" type="button" [disabled]="savingTenantPolicy" (click)="saveTenantSecurityPolicy()">
+                {{ savingTenantPolicy ? 'Сохранение…' : 'Сохранить политики безопасности' }}
+              </button>
+            } @else {
+              <p class="field-note">Политики безопасности может изменять только владелец тенанта.</p>
+            }
+          </section>
 
           <section class="panel"><header><h2>Общие параметры</h2><p>Назначение, режим SLA и доступ портала</p></header><div class="field-grid">
             <label>Назначение исполнителя<select name="assignment" [(ngModel)]="settings.assignmentMode"><option value="automatic">Автоматическое: минимальная открытая очередь</option><option value="manual">Ручное</option></select></label>
@@ -185,7 +211,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
           @if (!usersLoading && filteredUsers.length) {
             <table class="users-table">
               <thead>
-                <tr><th>ФИО</th><th>Email</th><th>Username</th><th>Департамент</th><th>Руководитель</th><th>Статус</th><th>Роли</th><th></th></tr>
+                <tr><th>ФИО</th><th>Email</th><th>Username</th><th>Департамент</th><th>Руководитель</th><th>Статус</th><th>Роли</th><th>2FA</th><th></th></tr>
               </thead>
               <tbody>
                 @for (user of filteredUsers; track user.id) {
@@ -198,6 +224,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
                       <td data-label="Руководитель"><select name="managerId" [(ngModel)]="editingUser!.managerId"><option [ngValue]="null">Не назначен</option>@for (manager of usersList.filter(u => u.id !== user.id && u.isActive); track manager.id) { <option [ngValue]="manager.id">{{ manager.fullName }}</option> }</select></td>
                       <td data-label="Статус"><label class="check"><input type="checkbox" [(ngModel)]="editingUser!.isActive" [disabled]="isSelfTenantOwner(user)" /><span>Активен</span></label></td>
                       <td class="roles-cell" data-label="Роли"><div class="roles-list">@for (role of assignableRoles; track role.id) { <label class="role-check"><input type="radio" [name]="'edit-role-' + user.id" [checked]="(editingUser?.roleIds || []).includes(role.id)" (change)="toggleEditingUserRole(role.id, $event)" [disabled]="role.code === 'admin' && !canCreateAdminRoleForCurrentUser" /><span>{{ role.name }}@if (role.code === 'admin' && !canCreateAdminRoleForCurrentUser) { <small> — Создание админа недоступно. Обратитесь к владельцу тенанта</small> }</span></label> }</div></td>
+                      <td data-label="2FA"><span class="mfa-badge" [class.enabled]="user.isTwoFactorEnabled">{{ user.isTwoFactorEnabled ? 'Активна' : 'Не настроена' }}</span></td>
                       <td class="actions" data-label="Действия"><button type="button" aria-label="Сохранить пользователя" (click)="saveUser(user.id)">✓</button><button type="button" aria-label="Отменить редактирование" (click)="cancelEdit()">✕</button></td>
                     </tr>
                   } @else {
@@ -219,7 +246,16 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
                       <td data-label="Руководитель">{{ findUserName(user.managerId) || '—' }}</td>
                       <td data-label="Статус"><span class="status" [class.active]="user.isActive" [class.inactive]="!user.isActive">{{ user.isActive ? 'Активен' : 'Неактивен' }}</span></td>
                       <td data-label="Роли"><span class="role-tags">@if (isTenantOwner(user)) { <span class="owner-badge">Владелец</span> }@for (role of getUserRoles(user); track role.id) { @if (role.code !== 'tenant_owner') { <span>{{ role.name }}</span> } }@if (!user.roleIds.length) { — }</span></td>
-                      <td class="actions" data-label="Действия"><button type="button" [disabled]="!canEditUser(user)" [title]="canEditUser(user) ? 'Редактировать пользователя' : 'Изменять владельца может только глобальный администратор'" [attr.aria-label]="'Редактировать пользователя ' + user.fullName" (click)="editUser(user)">✎</button></td>
+                      <td data-label="2FA"><span class="mfa-badge" [class.enabled]="user.isTwoFactorEnabled">{{ user.isTwoFactorEnabled ? 'Активна' : 'Не настроена' }}</span></td>
+                      <td class="actions" data-label="Действия">
+                        <button type="button" [disabled]="!canEditUser(user)" [title]="canEditUser(user) ? 'Редактировать пользователя' : 'Изменять владельца может только глобальный администратор'" [attr.aria-label]="'Редактировать пользователя ' + user.fullName" (click)="editUser(user)">✎</button>
+                        @if (canResetUserPassword(user)) {
+                          <button type="button" [title]="'Сбросить пароль для ' + user.fullName" [attr.aria-label]="'Сбросить пароль для ' + user.fullName" (click)="resetUserPassword(user)">🔑</button>
+                        }
+                        @if (user.isTwoFactorEnabled && canResetUserMfa(user)) {
+                          <button type="button" [title]="'Сбросить 2FA для ' + user.fullName" [attr.aria-label]="'Сбросить 2FA для ' + user.fullName" (click)="resetUserMfa(user)">↻</button>
+                        }
+                      </td>
                     </tr>
                   }
                 }
@@ -236,8 +272,9 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
       }
     </section>
   `,
-    styles: [`
-      :host { display:block; color:#202734; } .page { max-width:1300px; margin:auto; padding:25px 28px 38px; }
+  styles: [
+      `
+        :host { display:block; color:#202734; } .page { max-width:1300px; margin:auto; padding:25px 28px 38px; }
       .heading { margin-bottom:16px; } .eyebrow { margin:0 0 4px; color:#8993a1; font-size:10px; } h1 { margin:0; font-size:23px; }
       h2 { margin:0; font-size:13px; } h3 { margin:0; font-size:11px; }
       .admin-nav { display:flex; gap:4px; margin-bottom:17px; overflow-x:auto; border-bottom:1px solid #e2e7ed; }
@@ -356,6 +393,8 @@ export class AdminWorkspaceComponent implements OnInit {
     tenantPolicyLoaded = false;
     tenantPolicyError = '';
     allowAdminsCreateAdmins = false;
+    twoFactorMode: 'all' | 'admins' | 'optional' = 'all';
+    twoFactorGraceDays = 0;
     error = '';
     notice = '';
     newCriticality = '';
@@ -452,6 +491,8 @@ export class AdminWorkspaceComponent implements OnInit {
             this.tenantSettingsApi.getTenantAdminCreationPolicy().subscribe({
                 next: policy => {
                     this.allowAdminsCreateAdmins = policy.allowAdminsCreateAdmins;
+                    this.twoFactorMode = policy.twoFactorMode ?? 'all';
+                    this.twoFactorGraceDays = policy.twoFactorGraceDays ?? 0;
                     this.tenantPolicyLoaded = true;
                     this.tenantPolicyLoading = false;
                     this.changeDetector.markForCheck();
@@ -544,6 +585,29 @@ export class AdminWorkspaceComponent implements OnInit {
         this.allowAdminsCreateAdmins = (event.target as HTMLInputElement).checked;
     }
 
+    saveTenantSecurityPolicy(): void {
+        if (!this.tenantPolicyLoaded || !this.canManageAdminCreationSetting || this.savingTenantPolicy) return;
+        this.savingTenantPolicy = true;
+        this.tenantPolicyError = '';
+        this.tenantSettingsApi.saveTenantSecurityPolicy(
+            this.twoFactorMode,
+            this.twoFactorMode === 'optional' ? 0 : this.twoFactorGraceDays,
+        ).subscribe({
+            next: policy => {
+                this.twoFactorMode = policy.twoFactorMode ?? 'all';
+                this.twoFactorGraceDays = policy.twoFactorGraceDays ?? 0;
+                this.notice = 'Политики безопасности сохранены.';
+                this.savingTenantPolicy = false;
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                this.tenantPolicyError = err.message || 'Не удалось сохранить политики безопасности.';
+                this.savingTenantPolicy = false;
+                this.changeDetector.markForCheck();
+            },
+        });
+    }
+
     addCriticality(): void { if (!this.settings || this.settings.criticalities.length >= 5 || !this.newCriticality.trim()) return; this.settings.criticalities.push(this.newCriticality.trim()); this.newCriticality = ''; }
     removeCriticality(index: number): void { if (this.settings && this.settings.criticalities.length > 3) this.settings.criticalities.splice(index, 1); }
     addStatus(): void { if (!this.settings || !this.newStatus.trim()) return; const name = this.newStatus.trim(); this.settings.statuses.push({ name, pausesSla: false, immutable: false }); this.settings.statusTransitions[name] = []; this.newStatus = ''; }
@@ -633,6 +697,47 @@ export class AdminWorkspaceComponent implements OnInit {
             ? [...user.roleIds]
             : user.roleIds.filter(roleId => this.assignableRoles.some(role => role.id === roleId)).slice(0, 1);
         this.editingUser = { ...user, roleIds };
+    }
+
+    resetUserMfa(user: UserSummary): void {
+        if (!this.canEditUser(user) || !confirm(`Сбросить 2FA для пользователя «${user.fullName}»? При следующем входе потребуется настроить её заново.`)) return;
+        this.error = '';
+        this.notice = '';
+        this.admin.resetMfa(user.id).subscribe({
+            next: updated => {
+                this.usersList = this.usersList.map(item => item.id === updated.id ? updated : item);
+                this.notice = `2FA пользователя «${user.fullName}» сброшена.`;
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                this.error = err.message || 'Не удалось сбросить 2FA.';
+                this.changeDetector.markForCheck();
+            },
+        });
+    }
+
+    resetUserPassword(user: UserSummary): void {
+        if (!this.canEditUser(user)) return;
+        const newPassword = prompt(`Введите новый пароль для «${user.fullName}» (не менее 8 символов):`);
+        if (newPassword === null) return;
+        if (newPassword.length < 8) {
+            this.error = 'Новый пароль должен содержать не менее 8 символов.';
+            return;
+        }
+
+        this.error = '';
+        this.notice = '';
+        this.admin.resetPassword(user.id, newPassword).subscribe({
+            next: updated => {
+                this.usersList = this.usersList.map(item => item.id === updated.id ? updated : item);
+                this.notice = `Пароль пользователя «${user.fullName}» сброшен.`;
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                this.error = err.error?.message || err.message || 'Не удалось сбросить пароль.';
+                this.changeDetector.markForCheck();
+            },
+        });
     }
 
     toggleUserDetails(userId: number): void {
@@ -730,6 +835,21 @@ export class AdminWorkspaceComponent implements OnInit {
 
     canEditUser(user: UserSummary): boolean {
         return !this.isTenantOwner(user) || this.auth.isTenantAdmin() || this.auth.isTenantOwner();
+    }
+
+    canResetUserMfa(user: UserSummary): boolean {
+        return !this.isCurrentUser(user) && this.canEditUser(user);
+    }
+
+    canResetUserPassword(user: UserSummary): boolean {
+        if (this.isCurrentUser(user) || !this.canEditUser(user)) return false;
+        const targetIsAdmin = user.roleCodes?.includes('admin')
+            || this.getUserRoles(user).some(role => role.code === 'admin');
+        return !targetIsAdmin || this.isTenantOwner(user) || this.auth.isTenantOwner();
+    }
+
+    private isCurrentUser(user: UserSummary): boolean {
+        return user.username.toLocaleLowerCase() === this.auth.getLogin().toLocaleLowerCase();
     }
 
     isSelfTenantOwner(user: UserSummary): boolean {

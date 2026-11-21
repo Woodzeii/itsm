@@ -27,6 +27,7 @@ export interface UserSummary {
     roleIds: number[];
     roleCodes?: string[];
     isActive: boolean;
+    isTwoFactorEnabled?: boolean;
 }
 
 export interface CreateAdminUserRequest {

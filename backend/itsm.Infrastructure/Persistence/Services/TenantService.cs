@@ -74,7 +74,9 @@ public class TenantService : ITenantService
         return tenant is null ? null : new TenantSettingsDto
         {
             TenantId = tenant.Id,
-            AllowAdminsCreateAdmins = tenant.AllowAdminsCreateAdmins
+            AllowAdminsCreateAdmins = tenant.AllowAdminsCreateAdmins,
+            TwoFactorMode = tenant.TwoFactorMode,
+            TwoFactorGraceDays = tenant.TwoFactorGraceDays
         };
     }
 
@@ -234,12 +236,27 @@ public class TenantService : ITenantService
 
         if (request.AllowAdminsCreateAdmins.HasValue)
             tenant.AllowAdminsCreateAdmins = request.AllowAdminsCreateAdmins.Value;
+        if (!string.IsNullOrWhiteSpace(request.TwoFactorMode))
+        {
+            var mode = request.TwoFactorMode.Trim().ToLowerInvariant();
+            if (mode is not ("all" or "admins" or "optional"))
+                throw new InvalidOperationException("Недопустимый режим двухфакторной аутентификации");
+            tenant.TwoFactorMode = mode;
+        }
+        if (request.TwoFactorGraceDays.HasValue)
+        {
+            if (request.TwoFactorGraceDays.Value is not (0 or 3 or 7))
+                throw new InvalidOperationException("Льготный период может быть равен 0, 3 или 7 дням");
+            tenant.TwoFactorGraceDays = request.TwoFactorGraceDays.Value;
+        }
 
         await _db.SaveChangesAsync(ct);
         return new TenantSettingsDto
         {
             TenantId = tenant.Id,
-            AllowAdminsCreateAdmins = tenant.AllowAdminsCreateAdmins
+            AllowAdminsCreateAdmins = tenant.AllowAdminsCreateAdmins,
+            TwoFactorMode = tenant.TwoFactorMode,
+            TwoFactorGraceDays = tenant.TwoFactorGraceDays
         };
     }
 

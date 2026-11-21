@@ -122,6 +122,10 @@ public class UserAdminService : IUserAdminService
         };
         foreach (var roleId in roleIds)
             user.RoleMappings.Add(new UserRoleMapping { RoleId = roleId });
+        var tenantPolicy = await _db.Tenants.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(t => t.Id == tenantId, ct);
+        if (tenantPolicy is { TwoFactorGraceDays: > 0 })
+            user.TwoFactorGraceEndsAt = user.CreatedAt.AddDays(tenantPolicy.TwoFactorGraceDays);
 
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
@@ -318,6 +322,8 @@ public class UserAdminService : IUserAdminService
     public async Task<UserAdminDto> ResetMfaAsync(int id, int actorId, string? ip, CancellationToken ct = default)
     {
         var user = await LoadAsync(id, ct);
+        if (user.Id == actorId)
+            throw new UserAdminException(UserAdminErrorKind.Forbidden, "Нельзя сбросить собственную 2FA из меню управления пользователями");
         await EnsureCanManageTenantOwnerAsync(user, actorId, await IsTenantAdminAsync(actorId, ct), ct);
 
         var old = new { user.IsTwoFactorEnabled };
@@ -327,6 +333,41 @@ public class UserAdminService : IUserAdminService
         user.RecoveryCodesJson = null;
 
         AddAudit(actorId, id, "user_mfa_reset", old, new { IsTwoFactorEnabled = false }, ip);
+        await _db.SaveChangesAsync(ct);
+
+        return ToDto(user);
+    }
+
+    public async Task<UserAdminDto> ResetPasswordAsync(int id, string newPassword, int actorId, string? ip, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 8)
+            throw new UserAdminException(UserAdminErrorKind.Validation, "Новый пароль должен содержать не менее 8 символов");
+
+        var user = await LoadAsync(id, ct);
+        if (user.Id == actorId)
+            throw new UserAdminException(UserAdminErrorKind.Forbidden, "Нельзя сбросить собственный пароль из меню управления пользователями");
+        await EnsureCanManageTenantOwnerAsync(user, actorId, await IsTenantAdminAsync(actorId, ct), ct);
+        var targetIsTenantOwner = user.RoleMappings.Any(mapping => mapping.Role.Code == TenantOwnerRoleCode);
+        var targetIsAdmin = user.RoleMappings.Any(mapping => mapping.Role.Code == AdminRoleCode);
+        if (targetIsAdmin && !targetIsTenantOwner)
+        {
+            var actorIsOwnerOfTargetTenant = await _db.UserRoleMappings.AnyAsync(
+                mapping => mapping.UserId == actorId
+                           && mapping.Role.Code == TenantOwnerRoleCode
+                           && mapping.User.TenantId == user.TenantId,
+                ct);
+            if (!actorIsOwnerOfTargetTenant)
+                throw new UserAdminException(UserAdminErrorKind.Forbidden, "Сбрасывать пароль администратора может только владелец его тенанта");
+        }
+
+        var old = new { PasswordChanged = false };
+        user.PasswordHash = _hasher.Hash(newPassword);
+        user.PasswordChangedAt = DateTimeOffset.UtcNow;
+        user.FailedLoginAttempts = 0;
+        user.LockedUntil = null;
+
+        AddAudit(actorId, id, "user_password_reset", old,
+            new { PasswordChanged = true, PasswordChangedAt = user.PasswordChangedAt }, ip);
         await _db.SaveChangesAsync(ct);
 
         return ToDto(user);

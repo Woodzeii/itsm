@@ -19,6 +19,7 @@ describe('HttpAdminApiService user methods', () => {
         tenantId: 1,
         roleIds: [3],
         isActive: true,
+        isTwoFactorEnabled: false,
     };
 
     beforeEach(() => {
@@ -79,8 +80,8 @@ describe('HttpAdminApiService user methods', () => {
         });
 
         expect(result).toEqual([
-            { ...user, roleCodes: ['agent'] },
-            { ...user, id: 16, managerId: null, tenantId: null, roleCodes: ['agent'] },
+            { ...user, isTwoFactorEnabled: true, roleCodes: ['agent'] },
+            { ...user, id: 16, managerId: null, tenantId: null, isTwoFactorEnabled: true, roleCodes: ['agent'] },
         ]);
     });
 

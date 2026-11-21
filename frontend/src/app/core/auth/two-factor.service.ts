@@ -4,6 +4,7 @@ import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
 import {
     DisableTwoFactorRequest,
+    ChangePasswordRequest,
     TwoFactorSetupResponse,
     TwoFactorStatusResponse,
     VerifyTwoFactorSetupRequest,
@@ -29,5 +30,9 @@ export class TwoFactorService {
 
     disable(req: DisableTwoFactorRequest): Observable<{ message: string }> {
         return this.http.post<{ message: string }>(`${API}/2fa/disable`, req);
+    }
+
+    changePassword(req: ChangePasswordRequest): Observable<{ message: string }> {
+        return this.http.post<{ message: string }>(`${API}/change-password`, req);
     }
 }

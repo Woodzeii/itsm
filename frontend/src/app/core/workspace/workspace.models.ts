@@ -294,11 +294,15 @@ export interface AdminSettings {
     passwordPolicy?: { minLength: number; requireUppercase: boolean; requireSpecial: boolean; expiryDays: number; maxFailedAttempts: number; lockoutMinutes: number };
     reportAccessRoles?: string[];
     allowAdminsCreateAdmins?: boolean;
+    twoFactorMode?: 'all' | 'admins' | 'optional';
+    twoFactorGraceDays?: number;
 }
 
 export interface TenantAdminCreationPolicy {
     tenantId: number;
     allowAdminsCreateAdmins: boolean;
+    twoFactorMode?: 'all' | 'admins' | 'optional';
+    twoFactorGraceDays?: number;
 }
 
 export interface ReportSummary {

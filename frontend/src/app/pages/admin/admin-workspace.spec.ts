@@ -123,7 +123,7 @@ describe('AdminWorkspaceComponent user list', () => {
                 fixture.nativeElement.querySelectorAll('.users-table tbody tr td') as NodeListOf<Element>,
                 cell => cell.getAttribute('data-label'),
             ),
-        ).toEqual(['ФИО', 'Email', 'Username', 'Департамент', 'Руководитель', 'Статус', 'Роли', 'Действия']);
+        ).toEqual(['ФИО', 'Email', 'Username', 'Департамент', 'Руководитель', 'Статус', 'Роли', '2FA', 'Действия']);
     });
 
     it('shows the owner badge and disables editing for a local admin', async () => {
@@ -213,7 +213,7 @@ describe('AdminWorkspaceComponent user list', () => {
 
         const editCells = fixture.nativeElement.querySelectorAll('.edit-row td') as NodeListOf<Element>;
         expect(Array.from(editCells, cell => cell.getAttribute('data-label'))).toEqual([
-            'ФИО', 'Email', 'Username', 'Департамент', 'Руководитель', 'Статус', 'Роли', 'Действия',
+            'ФИО', 'Email', 'Username', 'Департамент', 'Руководитель', 'Статус', 'Роли', '2FA', 'Действия',
         ]);
         expect(fixture.nativeElement.querySelector('.edit-row input[name="fullName"]')).not.toBeNull();
         expect(fixture.nativeElement.querySelector('.edit-row select[name="managerId"]')).not.toBeNull();

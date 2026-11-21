@@ -77,12 +77,31 @@ import { AuthService } from '../../core/auth/auth.service';
           </button>
           <span class="top-divider"></span>
           <div class="user-profile">
-            <div class="avatar">{{ userInitial }}</div>
-            <div class="user-meta">
-              <strong>{{ userTitle }}</strong>
-              <small>{{ userRole }}</small>
-            </div>
-            <span class="chevron" aria-hidden="true">⌄</span>
+            <button class="profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="isProfileMenuOpen" aria-label="Открыть меню пользователя">
+              <span class="avatar">{{ userInitial }}</span>
+              <span class="user-meta">
+                <strong>{{ userTitle }}</strong>
+                <small>{{ userRole }}</small>
+              </span>
+              <span class="chevron" aria-hidden="true">⌄</span>
+            </button>
+            @if (isProfileMenuOpen) {
+              <div class="profile-menu">
+                <div class="profile-menu-header"><strong>{{ userTitle }}</strong><small>{{ userRole }}</small></div>
+                <a routerLink="/profile/security" (click)="isProfileMenuOpen=false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6l-7-3Z"/><path d="M9 12l2 2 4-4"/></svg>
+                  Многофакторная аутентификация
+                </a>
+                <a routerLink="/profile/security" (click)="isProfileMenuOpen=false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                  Сменить пароль
+                </a>
+                <button type="button" class="logout-menu-item" (click)="logout()">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v16h-6M3 12h11m-4-4 4 4-4 4"/></svg>
+                  Выйти
+                </button>
+              </div>
+            }
           </div>
           @if (isMultiRole) {
             <button
@@ -97,9 +116,6 @@ import { AuthService } from '../../core/auth/auth.service';
               <span class="role-switch-label">Сменить роль</span>
             </button>
           }
-          <button class="icon-button" type="button" (click)="logout()" aria-label="Выйти" title="Выйти">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v16h-6M3 12h11m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
           </div>
         </header>
 
@@ -267,6 +283,14 @@ import { AuthService } from '../../core/auth/auth.service';
       .notification-dot { position: absolute; width: 6px; height: 6px; top: 6px; right: 6px; background: #2563eb; }
       .top-divider { width: 1px; height: 24px; background: #e4e7ec; }
       .chevron { color: #97a0ae; font-size: 15px; }
+      .profile-trigger { display:flex; align-items:center; gap:9px; border:0; background:transparent; padding:4px; cursor:pointer; color:inherit; text-align:left; }
+      .profile-menu { position:absolute; right:0; top:48px; width:260px; z-index:30; padding:8px; border:1px solid #e1e6ed; border-radius:10px; background:#fff; box-shadow:0 12px 32px rgba(15,23,42,.16); }
+      .profile-menu-header { display:flex; flex-direction:column; gap:3px; padding:8px 10px 10px; border-bottom:1px solid #edf0f4; margin-bottom:6px; }
+      .profile-menu-header strong { font-size:12px; } .profile-menu-header small { color:#8a94a3; font-size:10px; }
+      .profile-menu a, .logout-menu-item { width:100%; min-height:38px; display:flex; align-items:center; gap:10px; border:0; border-radius:7px; padding:8px 10px; background:transparent; color:#4e5a69; font-size:12px; text-decoration:none; cursor:pointer; }
+      .profile-menu a:hover, .logout-menu-item:hover { background:#f3f6fa; }
+      .profile-menu svg { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+      .logout-menu-item { color:#b42318; }
       .breadcrumb { display: flex; align-items: center; gap: 9px; color: #98a1af; font-size: 12px; }
       .breadcrumb strong { color: #586273; font-weight: 550; }
       .crumb-divider { color: #c4c9d1; }
@@ -293,6 +317,7 @@ import { AuthService } from '../../core/auth/auth.service';
         display: flex;
         align-items: center;
         gap: 9px;
+        position: relative;
       }
 
       .content {
@@ -333,6 +358,7 @@ export class AppLayoutComponent implements OnInit, OnDestroy {
   isAdminOrAgent = false;
   isTenantAdmin = false;
   isMultiRole = false;
+  isProfileMenuOpen = false;
   userInitial = 'П';
   userTitle = 'Пользователь';
   userRole = 'Пользователь';
@@ -384,6 +410,10 @@ export class AppLayoutComponent implements OnInit, OnDestroy {
 
   switchRole(): void {
     this.router.navigateByUrl('/select-role?switch=1');
+  }
+
+  toggleProfileMenu(): void {
+    this.isProfileMenuOpen = !this.isProfileMenuOpen;
   }
 
   logout(): void {

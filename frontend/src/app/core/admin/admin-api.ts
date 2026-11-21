@@ -14,4 +14,6 @@ export abstract class AdminApi {
     abstract getRoles(): Observable<RoleSummary[]>;
     abstract createUser(request: CreateAdminUserRequest): Observable<UserSummary>;
     abstract updateUser(id: number, request: UpdateAdminUserRequest): Observable<UserSummary>;
+    abstract resetMfa(id: number): Observable<UserSummary>;
+    abstract resetPassword(id: number, newPassword: string): Observable<UserSummary>;
 }

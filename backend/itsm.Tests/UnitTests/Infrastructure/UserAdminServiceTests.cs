@@ -210,6 +210,38 @@ public class UserAdminServiceTests
     }
 
     [Fact]
+    public async Task ResetPassword_AdminTargetRequiresTenantOwner()
+    {
+        var (svc, db) = Create();
+        var admin = AddUser(db, "local.admin", admin: true);
+        var owner = AddTenantOwner(db, "owner");
+        var targetAdmin = AddUser(db, "target.admin", admin: true);
+
+        var denied = () => svc.ResetPasswordAsync(targetAdmin.Id, "NewPassw0rd", admin.Id, null);
+        (await denied.Should().ThrowAsync<UserAdminException>())
+            .Which.Kind.Should().Be(UserAdminErrorKind.Forbidden);
+
+        await svc.ResetPasswordAsync(targetAdmin.Id, "NewPassw0rd", owner.Id, null);
+        (await db.Users.AsNoTracking().SingleAsync(user => user.Id == targetAdmin.Id))
+            .PasswordHash.Should().Be("hash:NewPassw0rd");
+    }
+
+    [Fact]
+    public async Task ResetPasswordAndMfa_RejectSelfServiceFromUserManagement()
+    {
+        var (svc, db) = Create();
+        var actor = AddUser(db, "actor", admin: true);
+
+        var passwordReset = () => svc.ResetPasswordAsync(actor.Id, "NewPassw0rd", actor.Id, null);
+        (await passwordReset.Should().ThrowAsync<UserAdminException>())
+            .Which.Kind.Should().Be(UserAdminErrorKind.Forbidden);
+
+        var mfaReset = () => svc.ResetMfaAsync(actor.Id, actor.Id, null);
+        (await mfaReset.Should().ThrowAsync<UserAdminException>())
+            .Which.Kind.Should().Be(UserAdminErrorKind.Forbidden);
+    }
+
+    [Fact]
     public async Task Delete_IsSoft_AndSelfDeleteRejected()
     {
         var (svc, db) = Create();

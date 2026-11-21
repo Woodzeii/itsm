@@ -389,6 +389,12 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             allowAdminsCreateAdmins,
         }).pipe(map(normalizeTenantAdminCreationPolicy));
     }
+    saveTenantSecurityPolicy(twoFactorMode: 'all' | 'admins' | 'optional', twoFactorGraceDays: number) {
+        return this.http.put<TenantAdminCreationPolicy>(`${this.baseUrl}/tenants/settings`, {
+            twoFactorMode,
+            twoFactorGraceDays,
+        }).pipe(map(normalizeTenantAdminCreationPolicy));
+    }
     getReports(_from?: string, _to?: string) {
         // В контракте отчёты требуют reportType: /api/reports/{reportType}; текущий backend их не реализует.
         return this.unsupported<ReportSummary[]>('reports');
@@ -561,6 +567,8 @@ function toAdminSettings(settings?: Partial<BackendTenantSettings> | null): Admi
         },
         reportAccessRoles: ['admin', 'manager'],
         allowAdminsCreateAdmins: true,
+        twoFactorMode: 'all',
+        twoFactorGraceDays: 0,
     };
 
     return {
@@ -576,6 +584,9 @@ function toAdminSettings(settings?: Partial<BackendTenantSettings> | null): Admi
         engineers: settings?.engineers?.length ? [...settings.engineers] : defaults.engineers,
         reportAccessRoles: settings?.reportAccessRoles?.length ? [...settings.reportAccessRoles] : defaults.reportAccessRoles,
         passwordPolicy: settings?.passwordPolicy ? { ...settings.passwordPolicy } : defaults.passwordPolicy,
+        allowAdminsCreateAdmins: settings?.allowAdminsCreateAdmins ?? defaults.allowAdminsCreateAdmins,
+        twoFactorMode: settings?.twoFactorMode ?? 'all',
+        twoFactorGraceDays: settings?.twoFactorGraceDays ?? 0,
     };
 }
 
@@ -584,7 +595,11 @@ function normalizeTenantAdminCreationPolicy(policy: TenantAdminCreationPolicy): 
         throw new Error('Backend returned an invalid tenant admin-creation policy.');
     }
 
-    return policy;
+    return {
+        ...policy,
+        twoFactorMode: policy.twoFactorMode ?? 'all',
+        twoFactorGraceDays: policy.twoFactorGraceDays ?? 0,
+    };
 }
 
 function toOverview(tickets: Ticket[]): OverviewData {
@@ -657,6 +672,8 @@ function repairOutcome(result: RepairCloseRequest['result']): string {
 interface BackendTenantSettings {
     tenantId?: number;
     allowAdminsCreateAdmins?: boolean;
+    twoFactorMode?: 'all' | 'admins' | 'optional';
+    twoFactorGraceDays?: number;
     assignmentMode?: AdminSettings['assignmentMode'];
     manager?: string;
     slaEnabled?: boolean;

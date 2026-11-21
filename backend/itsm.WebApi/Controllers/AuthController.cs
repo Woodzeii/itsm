@@ -158,6 +158,15 @@ public class AuthController : ControllerBase
 
         var roles = await _userService.GetRolesAsync(user.Id, ct);
         var isPortalOnlyUser = roles.Count == 1 && roles[0] == "portal_user";
+        var tenant = user.TenantId.HasValue
+            ? await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == user.TenantId.Value, ct)
+            : null;
+        var twoFactorMode = tenant?.TwoFactorMode ?? "all";
+        var isPrivileged = roles.Any(role =>
+            role is "admin" or "tenant_owner" or "tenant_admin");
+        var isTwoFactorRequired = !isPortalOnlyUser
+            && (twoFactorMode == "all" || (twoFactorMode == "admins" && isPrivileged));
+        var isOptional = twoFactorMode == "optional";
 
         // Existing TOTP enrollment: require the authenticator code at every login.
         if (user.IsTwoFactorEnabled && !string.IsNullOrEmpty(user.TwoFaSecret))
@@ -172,6 +181,41 @@ public class AuthController : ControllerBase
                 Message = "Введите 6-значный код из приложения-аутентификатора"
             });
         }
+
+        if (isOptional || (!isTwoFactorRequired && !isPortalOnlyUser))
+        {
+            var token = CreateTokenResponse(user, roles);
+            return Ok(new LoginResponse
+            {
+                AccessToken = token.AccessToken,
+                TokenType = token.TokenType,
+                ExpiresIn = token.ExpiresIn,
+                Message = "Вход выполнен"
+            });
+        }
+
+        var graceDays = tenant?.TwoFactorGraceDays ?? 0;
+        var now = DateTimeOffset.UtcNow;
+        if (user.TwoFactorGraceEndsAt is null && graceDays > 0)
+        {
+            user.TwoFactorGraceEndsAt = user.CreatedAt.AddDays(graceDays);
+            await _db.SaveChangesAsync(ct);
+        }
+        if (graceDays > 0
+            && user.TwoFactorGraceEndsAt.HasValue
+            && user.TwoFactorGraceEndsAt.Value > now)
+        {
+            var token = CreateTokenResponse(user, roles);
+            return Ok(new LoginResponse
+            {
+                AccessToken = token.AccessToken,
+                TokenType = token.TokenType,
+                ExpiresIn = token.ExpiresIn,
+                TwoFactorGraceEndsAt = user.TwoFactorGraceEndsAt,
+                Message = $"Настройте 2FA до {user.TwoFactorGraceEndsAt:dd.MM.yyyy}"
+            });
+        }
+        user.TwoFactorGraceEndsAt = null;
 
         // Keep an unconfirmed secret stable so a repeated login does not invalidate the
         // QR code already shown to the user.
@@ -282,8 +326,24 @@ public class AuthController : ControllerBase
             return Unauthorized(new { message = "Сессия входа недействительна. Начните вход заново." });
 
         var roles = await _userService.GetRolesAsync(user.Id, ct);
-        if (roles.Count != 1 || roles[0] != "portal_user")
+        var isPortalOnlyUser = roles.Count == 1 && roles[0] == "portal_user";
+        var tenant = user.TenantId.HasValue
+            ? await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == user.TenantId.Value, ct)
+            : null;
+        var mode = tenant?.TwoFactorMode ?? "all";
+        var privileged = roles.Any(role => role is "admin" or "tenant_owner" or "tenant_admin");
+        var required = !isPortalOnlyUser && (mode == "all" || (mode == "admins" && privileged));
+        var graceActive = user.TwoFactorGraceEndsAt.HasValue && user.TwoFactorGraceEndsAt.Value > DateTimeOffset.UtcNow;
+        if (required && !isPortalOnlyUser && !graceActive)
             return Forbid();
+        if (mode == "optional" || isPortalOnlyUser)
+        {
+            // Optional and portal users may explicitly skip setup.
+        }
+        else if (!graceActive)
+        {
+            return Forbid();
+        }
 
         user.TwoFaSecret = null;
         await _db.SaveChangesAsync(ct);
@@ -441,12 +501,53 @@ public class AuthController : ControllerBase
         var user = await _db.Users.IgnoreQueryFilters()
             .FirstOrDefaultAsync(u => u.Id == userId.Value);
         if (user is null) return NotFound();
+        var roles = await _userService.GetRolesAsync(user.Id);
+        var tenant = user.TenantId.HasValue
+            ? await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == user.TenantId.Value)
+            : null;
+        var mode = tenant?.TwoFactorMode ?? "all";
+        var isPortalOnly = roles.Count == 1 && roles[0] == "portal_user";
+        var isPrivileged = roles.Any(role => role is "admin" or "tenant_owner" or "tenant_admin");
+        var isRequired = !isPortalOnly && (mode == "all" || (mode == "admins" && isPrivileged));
 
         return Ok(new TwoFactorStatusResponse
         {
             IsEnabled = user.IsTwoFactorEnabled,
-            EnabledAt = user.TwoFactorEnabledAt
+            EnabledAt = user.TwoFactorEnabledAt,
+            IsRequired = isRequired,
+            GraceEndsAt = user.TwoFactorGraceEndsAt
         });
+    }
+
+    [Authorize]
+    [HttpPost("change-password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.CurrentPassword))
+            return BadRequest(new { message = "Текущий пароль обязателен" });
+        if (string.IsNullOrWhiteSpace(request.NewPassword) || request.NewPassword.Length < 8)
+            return BadRequest(new { message = "Новый пароль должен содержать не менее 8 символов" });
+
+        var userId = GetCurrentUserId();
+        if (userId is null) return Unauthorized();
+
+        var user = await _db.Users.IgnoreQueryFilters()
+            .FirstOrDefaultAsync(u => u.Id == userId.Value);
+        if (user is null) return NotFound();
+
+        if (string.IsNullOrEmpty(user.PasswordHash)
+            || !_passwordHasher.Verify(request.CurrentPassword, user.PasswordHash))
+            return Unauthorized(new { message = "Неверный текущий пароль" });
+
+        if (_passwordHasher.Verify(request.NewPassword, user.PasswordHash))
+            return BadRequest(new { message = "Новый пароль должен отличаться от текущего" });
+
+        user.PasswordHash = _passwordHasher.Hash(request.NewPassword);
+        user.PasswordChangedAt = DateTimeOffset.UtcNow;
+        await _db.SaveChangesAsync();
+
+        _logger.LogInformation("Пароль изменён пользователем {Login}", user.Username);
+        return Ok(new { message = "Пароль успешно изменён" });
     }
 
     [Authorize]
@@ -464,10 +565,17 @@ public class AuthController : ControllerBase
         if (user is null) return NotFound();
 
         var roles = await _userService.GetRolesAsync(user.Id);
-        if (roles.Count != 1 || roles[0] != "portal_user")
+        var tenant = user.TenantId.HasValue
+            ? await _db.Tenants.IgnoreQueryFilters().FirstOrDefaultAsync(t => t.Id == user.TenantId.Value)
+            : null;
+        var mode = tenant?.TwoFactorMode ?? "all";
+        var isPortalOnly = roles.Count == 1 && roles[0] == "portal_user";
+        var isPrivileged = roles.Any(role => role is "admin" or "tenant_owner" or "tenant_admin");
+        var required = !isPortalOnly && (mode == "all" || (mode == "admins" && isPrivileged));
+        if (required)
             return StatusCode(StatusCodes.Status403Forbidden, new
             {
-                message = "2FA обязательно для этой учётной записи и не может быть отключена."
+                message = "2FA обязательна для этой учётной записи и не может быть отключена."
             });
 
         // Проверяем пароль через BCrypt

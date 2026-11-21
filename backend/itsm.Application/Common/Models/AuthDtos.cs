@@ -24,6 +24,8 @@ public class TwoFactorStatusResponse
 {
     public bool IsEnabled { get; set; }
     public DateTimeOffset? EnabledAt { get; set; }
+    public bool IsRequired { get; set; }
+    public DateTimeOffset? GraceEndsAt { get; set; }
 }
 
 
@@ -32,4 +34,10 @@ public class DisableTwoFactorRequest
 {
 
     public string Password { get; set; } = string.Empty;
+}
+
+public class ChangePasswordRequest
+{
+    public string CurrentPassword { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
 }
