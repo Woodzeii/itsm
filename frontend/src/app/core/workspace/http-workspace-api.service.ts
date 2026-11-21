@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
+import { forkJoin, map, of, switchMap, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { WorkspaceApi } from './workspace-api';
 import { AssetLifecycle } from './workspace.models';
@@ -32,7 +32,6 @@ import {
     RequesterOption,
     RepairCloseRequest,
     ReportSummary,
-    ReportDetail,
     TicketComment,
     TicketHistory,
     TicketAttachment,

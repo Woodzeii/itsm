@@ -309,25 +309,7 @@ export interface ReportSummary {
     id: string;
     title: string;
     description: string;
-    value: string | number;
-    count?: number;
-}
-
-export interface ReportDetailColumn {
-    key: string;
-    label: string;
-}
-
-export interface ReportDetailRow {
-    values: Record<string, string>;
-}
-
-export interface ReportDetail {
-    columns: ReportDetailColumn[];
-    items: ReportDetailRow[];
-    total: number;
-    skip: number;
-    take: number;
+    value: string;
 }
 
 export interface PortalTicketRequest extends CreateTicketRequest {
