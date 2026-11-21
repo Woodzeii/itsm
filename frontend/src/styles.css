@@ -1710,3 +1710,118 @@ html[data-theme='dark'] app-asset-classes .modal-close:hover:not(:disabled) {
     background: var(--app-hover) !important;
     color: var(--app-text) !important;
 }
+
+app-admin-workspace .report-open {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 58px;
+    padding: 8px 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+app-admin-workspace .report-open:hover .report-copy strong {
+    color: #2563eb;
+}
+
+app-admin-workspace .report-copy {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
+app-admin-workspace .report-copy small {
+    color: #84909d;
+    font-size: 10px;
+}
+
+app-admin-workspace .report-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 3000;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgba(7, 13, 24, .68);
+    backdrop-filter: blur(4px);
+}
+
+app-admin-workspace .report-modal {
+    width: min(960px, 100%);
+    max-height: 82vh;
+    overflow: hidden;
+    border: 1px solid #dce3ed;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, .32);
+}
+
+app-admin-workspace .report-modal header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 22px 14px;
+}
+
+app-admin-workspace .report-modal header h2 {
+    margin: 0;
+}
+
+app-admin-workspace .report-table-wrap {
+    max-height: 58vh;
+    overflow: auto;
+    border-top: 1px solid #e8edf4;
+    border-bottom: 1px solid #e8edf4;
+}
+
+app-admin-workspace .report-table-wrap table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+app-admin-workspace .report-table-wrap th,
+app-admin-workspace .report-table-wrap td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #edf1f6;
+    text-align: left;
+    white-space: nowrap;
+}
+
+app-admin-workspace .report-modal footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 22px;
+}
+
+app-admin-workspace .report-modal footer div {
+    display: flex;
+    gap: 8px;
+}
+
+html[data-theme='dark'] app-admin-workspace .report-modal {
+    border-color: var(--app-border);
+    background: var(--app-surface);
+    color: var(--app-text);
+}
+
+html[data-theme='dark'] app-admin-workspace .report-table-wrap {
+    border-color: var(--app-border);
+}
+
+html[data-theme='dark'] app-admin-workspace .report-table-wrap th,
+html[data-theme='dark'] app-admin-workspace .report-table-wrap td {
+    border-color: var(--app-border);
+}
+
+html[data-theme='dark'] app-admin-workspace .report-copy small {
+    color: var(--app-muted);
+}

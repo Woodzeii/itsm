@@ -33,6 +33,7 @@ import {
     PortalTicketRequest,
     RepairCloseRequest,
     ReportSummary,
+    ReportDetail,
     TicketAttachment,
     TicketComment,
     TicketHistory,
@@ -563,16 +564,31 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     getReports(_from?: string, _to?: string): Observable<ReportSummary[]> {
         const open = this.tickets.filter(ticket => ticket.status !== 'Закрыта').length;
         return of([
-            { id: 'status', title: 'Заявки по статусам', description: 'Текущий срез общей очереди', value: `${open} открытых` },
-            { id: 'type-priority', title: 'Заявки по типам и критичности', description: 'Распределение за выбранный период', value: `${this.tickets.length} заявок` },
-            { id: 'sla', title: 'Соблюдение SLA', description: 'Реакция и решение по типам', value: '94%' },
-            { id: 'load', title: 'Нагрузка исполнителей', description: 'Открытые заявки по инженерам', value: 'Иван Петров · 3' },
-            { id: 'performance', title: 'Результативность исполнителей', description: 'Закрытия и среднее время', value: 'Экспорт отчета' },
-            { id: 'returns', title: 'Возвраты с проверки', description: 'Заявки, возвращенные авторами', value: '2 возврата' },
-            { id: 'repairs', title: 'Ремонты', description: 'Итоги по активам и классам', value: '1 в работе' },
-            { id: 'lifecycle', title: 'Активы по этапам', description: 'Распределение по классам', value: `${this.assets.length} активов` },
-            { id: 'movements', title: 'Движения активов', description: 'Перемещения за период', value: `${this.assets.reduce((count, asset) => count + asset.movements.length, 0)} движений` },
+            { id: 'tickets-status', title: 'Заявки по статусам', description: 'Количество заявок в статусах за период', value: open, count: open },
+            { id: 'tickets-type', title: 'Заявки по типам', description: 'Распределение заявок по типам', value: this.tickets.length, count: this.tickets.length },
+            { id: 'engineer-load', title: 'Нагрузка исполнителей', description: 'Назначенные заявки исполнителям', value: this.tickets.filter(ticket => ticket.assignee).length, count: this.tickets.filter(ticket => ticket.assignee).length },
+            { id: 'returns', title: 'Возвраты активов', description: 'Возвраты активов на склад за период', value: 2, count: 2 },
+            { id: 'repairs', title: 'Ремонты', description: 'Заявки на ремонт за период', value: this.tickets.filter(ticket => ticket.type === 'Тикет на ремонт').length, count: this.tickets.filter(ticket => ticket.type === 'Тикет на ремонт').length },
+            { id: 'assets-stage', title: 'Активы по этапам', description: 'Активы по этапам жизненного цикла', value: this.assets.length, count: this.assets.length },
+            { id: 'asset-movements', title: 'Движения активов', description: 'Операции перемещения активов', value: this.assets.reduce((count, asset) => count + asset.movements.length, 0), count: this.assets.reduce((count, asset) => count + asset.movements.length, 0) },
         ]);
+    }
+
+    getReportDetails(_reportType: string, _from: string | undefined, _to: string | undefined, skip: number, take: number): Observable<ReportDetail> {
+        const items = this.tickets.slice(skip, skip + take).map(ticket => ({
+            values: { number: ticket.ticketNumber || ticket.id, title: ticket.title, status: ticket.status },
+        }));
+        return of({
+            columns: [{ key: 'number', label: 'Номер' }, { key: 'title', label: 'Тема' }, { key: 'status', label: 'Статус' }],
+            items,
+            total: this.tickets.length,
+            skip,
+            take,
+        });
+    }
+
+    downloadReportCsv(_reportType: string, _from: string | undefined, _to: string | undefined): Observable<Blob> {
+        return of(new Blob(['\uFEFFНомер;Тема;Статус\r\n'], { type: 'text/csv;charset=utf-8' }));
     }
 
     getPortalTickets(): Observable<Ticket[]> {

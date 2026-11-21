@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportSummary, TenantUserQuota, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
+import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportDetail, ReportSummary, TenantUserQuota, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
 import { AdminService } from '../../core/admin/admin.service';
 import { RoleSummary, UpdateAdminUserRequest, UserSummary } from '../../core/admin/admin.models';
 import { TenantUserQuotaService } from '../../core/workspace/tenant-user-quota.service';
@@ -123,8 +123,19 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 
       @if (section === 'reports') {
         <section class="panel"><header><h2>Отчёты Service Desk</h2><p>Все отчёты из технического задания</p></header><div class="period"><label>С даты<input type="date" name="from" [(ngModel)]="reportFrom" /></label><label>По дату<input type="date" name="to" [(ngModel)]="reportTo" /></label><button class="quiet" type="button" (click)="loadReports()">Обновить</button><button class="quiet" type="button" (click)="downloadCsv()">↓ CSV</button></div>
-          <div class="report-list">@for (report of reports; track report.id) { <article><span class="report-icon" aria-hidden="true">▤</span><div><strong>{{ report.title }}</strong><p>{{ report.description }}</p></div><b>{{ report.value }}</b></article> }</div>
+          <div class="report-list">@for (report of reports; track report.id) { <article><button type="button" class="report-open" (click)="openReport(report)"><span class="report-icon" aria-hidden="true">▤</span><span class="report-copy"><strong>{{ report.title }}</strong><small>{{ report.description }}</small></span><b>{{ report.count ?? report.value }}</b></button></article> }</div>
         </section>
+        @if (reportDetailOpen) {
+          <div class="report-modal-backdrop" (click)="closeReport()">
+            <section class="report-modal" role="dialog" aria-modal="true" aria-label="Детализация отчета" (click)="$event.stopPropagation()">
+              <header><div><p class="eyebrow">Детализация отчета</p><h2>{{ activeReport?.title }}</h2></div><button class="icon-button" type="button" aria-label="Закрыть" (click)="closeReport()">×</button></header>
+              @if (reportDetail) {
+                <div class="report-table-wrap"><table><thead><tr>@for (column of reportDetail.columns; track column.key) { <th>{{ column.label }}</th> }</tr></thead><tbody>@for (item of reportDetail.items; track $index) { <tr>@for (column of reportDetail!.columns; track column.key) { <td>{{ item.values[column.key] ?? '—' }}</td> }</tr> } @if (!reportDetail.items.length) { <tr><td [attr.colspan]="reportDetail.columns.length" class="empty">Нет данных за выбранный период</td></tr> }</tbody></table></div>
+                <footer><span>Всего: {{ reportDetail.total }}</span><div><button class="quiet" type="button" [disabled]="reportDetail.skip === 0" (click)="changeReportPage(-1)">Назад</button><button class="quiet" type="button" [disabled]="reportDetail.skip + reportDetail.take >= reportDetail.total" (click)="changeReportPage(1)">Далее</button></div></footer>
+              } @else { <p class="empty">Загрузка данных...</p> }
+            </section>
+          </div>
+        }
       }
 
       @if (section === 'users') {
@@ -338,6 +349,11 @@ export class AdminWorkspaceComponent implements OnInit {
     policies: EscalationPolicy[] = [];
     escalationHistory: EscalationHistoryEntry[] = [];
     reports: ReportSummary[] = [];
+    reportDetail: ReportDetail | null = null;
+    activeReport: ReportSummary | null = null;
+    reportDetailOpen = false;
+    reportDetailSkip = 0;
+    reportDetailTake = 30;
     usersList: UserSummary[] = [];
     usersLoading = false;
     userQuota: TenantUserQuota | null = null;
@@ -606,16 +622,54 @@ export class AdminWorkspaceComponent implements OnInit {
     removeField(form: TicketFormDefinition, field: FormFieldDefinition): void { form.fields = form.fields.filter(item => item.id !== field.id); }
     setOptions(field: FormFieldDefinition, value: string): void { field.options = value.split(',').map(item => item.trim()).filter(Boolean); }
     saveForm(form: TicketFormDefinition): void { this.workspace.saveForm(form).subscribe({ next: saved => { this.forms = this.forms.map(item => item.ticketTypeId === saved.ticketTypeId ? saved : item); this.notice = 'Форма сохранена и будет использоваться для новых и существующих заявок.'; }, error: err => this.error = err.message }); }
-    loadReports(): void { this.workspace.getReports(this.reportFrom || undefined, this.reportTo || undefined).subscribe({ next: reports => this.reports = reports, error: err => this.error = err.message }); }
+    loadReports(): void {
+        this.workspace.getReports(this.reportFrom || undefined, this.reportTo || undefined).subscribe({
+            next: reports => this.reports = reports,
+            error: err => this.error = err?.error?.detail ?? err.message,
+        });
+    }
+    openReport(report: ReportSummary): void {
+        this.activeReport = report;
+        this.reportDetailOpen = true;
+        this.reportDetailSkip = 0;
+        this.loadReportDetails();
+    }
+    closeReport(): void {
+        this.reportDetailOpen = false;
+        this.reportDetail = null;
+        this.activeReport = null;
+    }
+    changeReportPage(direction: -1 | 1): void {
+        this.reportDetailSkip = Math.max(0, this.reportDetailSkip + direction * this.reportDetailTake);
+        this.loadReportDetails();
+    }
+    loadReportDetails(): void {
+        if (!this.activeReport) return;
+        this.reportDetail = null;
+        this.workspace.getReportDetails(
+            this.activeReport.id,
+            this.reportFrom || undefined,
+            this.reportTo || undefined,
+            this.reportDetailSkip,
+            this.reportDetailTake,
+        ).subscribe({
+            next: detail => this.reportDetail = detail,
+            error: err => this.error = err?.error?.detail ?? err.message,
+        });
+    }
     downloadCsv(): void {
-        const rows = [['Отчёт', 'Описание', 'Результат'], ...this.reports.map(item => [item.title, item.description, item.value])];
-        const csv = rows.map(row => row.map(value => `"${value.replaceAll('"', '""')}"`).join(';')).join('\r\n');
-        const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
-        const anchor = document.createElement('a');
-        anchor.href = url;
-        anchor.download = 'itsm-reports.csv';
-        anchor.click();
-        URL.revokeObjectURL(url);
+        const reportType = this.activeReport?.id ?? 'tickets-status';
+        this.workspace.downloadReportCsv(reportType, this.reportFrom || undefined, this.reportTo || undefined).subscribe({
+            next: blob => {
+                const url = URL.createObjectURL(blob);
+                const anchor = document.createElement('a');
+                anchor.href = url;
+                anchor.download = `itsm-${reportType}.csv`;
+                anchor.click();
+                URL.revokeObjectURL(url);
+            },
+            error: err => this.error = err?.error?.detail ?? err.message,
+        });
     }
 
     private toggleString(values: string[], value: string, enabled: boolean): string[] { return enabled ? [...new Set([...values, value])] : values.filter(item => item !== value); }

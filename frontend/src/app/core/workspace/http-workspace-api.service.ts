@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { forkJoin, map, of, switchMap, throwError } from 'rxjs';
+import { forkJoin, map, Observable, of, switchMap, throwError } from 'rxjs';
 import { HttpClient } from '@angular/common/http';
 import { WorkspaceApi } from './workspace-api';
 import { AssetLifecycle } from './workspace.models';
@@ -32,6 +32,7 @@ import {
     RequesterOption,
     RepairCloseRequest,
     ReportSummary,
+    ReportDetail,
     TicketComment,
     TicketHistory,
     TicketAttachment,
@@ -389,9 +390,37 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             allowAdminsCreateAdmins,
         }).pipe(map(normalizeTenantAdminCreationPolicy));
     }
-    getReports(_from?: string, _to?: string) {
-        // В контракте отчёты требуют reportType: /api/reports/{reportType}; текущий backend их не реализует.
-        return this.unsupported<ReportSummary[]>('reports');
+    getReports(from?: string, to?: string): Observable<ReportSummary[]> {
+        const params = new URLSearchParams();
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+        const suffix = params.size ? `?${params.toString()}` : '';
+        return this.http.get<Array<{ id: string; title: string; description: string; count: number }>>(
+            `${this.baseUrl}/reports${suffix}`,
+        ).pipe(map(items => items.map(item => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            value: item.count,
+            count: item.count,
+        }))));
+    }
+    getReportDetails(reportType: string, from: string | undefined, to: string | undefined, skip: number, take: number): Observable<ReportDetail> {
+        const params = new URLSearchParams();
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+        params.set('skip', String(skip));
+        params.set('take', String(take));
+        return this.http.get<ReportDetail>(`${this.baseUrl}/reports/${reportType}?${params.toString()}`);
+    }
+    downloadReportCsv(reportType: string, from: string | undefined, to: string | undefined): Observable<Blob> {
+        const params = new URLSearchParams();
+        if (from) params.set('from', from);
+        if (to) params.set('to', to);
+        const suffix = params.size ? `?${params.toString()}` : '';
+        return this.http.get(`${this.baseUrl}/reports/${reportType}/export.csv${suffix}`, {
+            responseType: 'blob',
+        });
     }
     getPortalTickets() {
         return this.http.get<BackendTicket[]>(`${this.baseUrl}/tickets/mine`).pipe(

@@ -27,6 +27,7 @@ import {
     PortalTicketRequest,
     RepairCloseRequest,
     ReportSummary,
+    ReportDetail,
     TicketFormDefinition,
     Ticket,
     TicketAttachment,
@@ -82,6 +83,8 @@ export abstract class WorkspaceApi {
     abstract getAdminSettings(): Observable<AdminSettings>;
     abstract saveAdminSettings(settings: AdminSettings): Observable<AdminSettings>;
     abstract getReports(from?: string, to?: string): Observable<ReportSummary[]>;
+    abstract getReportDetails(reportType: string, from: string | undefined, to: string | undefined, skip: number, take: number): Observable<ReportDetail>;
+    abstract downloadReportCsv(reportType: string, from: string | undefined, to: string | undefined): Observable<Blob>;
     abstract getPortalTickets(): Observable<Ticket[]>;
     abstract getPortalTicketTypes(): Observable<PortalTicketType[]>;
     abstract getRequesters(): Observable<RequesterOption[]>;
