@@ -143,6 +143,11 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return this.http.post<BackendTicket>(`${this.baseUrl}/tickets`, body).pipe(map(toTicket));
     }
     getTicketTypes() { return this.unsupported<TicketType[]>('ticket types'); }
+    getTicketTypeOptions() {
+        return this.http.get<BackendTicketTypeOption[]>(`${this.baseUrl}/ticket-types`).pipe(
+            map(types => types.map(type => ({ id: String(type.id), name: type.name }))),
+        );
+    }
     saveTicketTypes(_ticketTypes: TicketType[]) { return this.unsupported<TicketType[]>('ticket types'); }
     changeTicketStatus(ticketId: string, statusId: number) {
         return this.http
@@ -361,7 +366,40 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             }),
         );
     }
-    getForms() { return this.unsupported<TicketFormDefinition[]>('ticket forms'); }
+    getForms() {
+        return this.getTicketTypeOptions().pipe(
+            switchMap(types => types.length
+                ? forkJoin(types.map(type => this.getForm(type.id)))
+                : of([] as TicketFormDefinition[])),
+        );
+    }
+    getForm(ticketTypeId: string) {
+        const id = Number(ticketTypeId);
+        if (!Number.isInteger(id) || id < 1) {
+            return throwError(() => new Error('Идентификатор типа заявки должен быть положительным целым числом.'));
+        }
+
+        return this.http.get<BackendTicketFormTemplate>(`${this.baseUrl}/form-templates/${id}`).pipe(
+            map(form => ({
+                ticketTypeId: String(form.ticketTypeId),
+                ticketTypeName: form.ticketTypeName,
+                fields: form.fields.map(field => ({
+                    id: field.id,
+                    name: field.name,
+                    type: field.type,
+                    required: field.required,
+                    defaultValue: field.defaultValue ?? undefined,
+                    validation: field.validation ?? undefined,
+                    hint: field.hint ?? undefined,
+                    visibleToRequester: field.visibleToRequester,
+                    options: field.options ?? undefined,
+                    conditionFieldId: field.conditionFieldId ?? undefined,
+                    conditionValue: field.conditionValue ?? undefined,
+                    immutable: field.immutable,
+                })),
+            } satisfies TicketFormDefinition)),
+        );
+    }
     saveForm(_form: TicketFormDefinition) { return this.unsupported<TicketFormDefinition>('ticket forms'); }
     getEscalationPolicies() { return this.unsupported<EscalationPolicy[]>('escalation policies'); }
     saveEscalationPolicies(_policies: EscalationPolicy[]) { return this.unsupported<EscalationPolicy[]>('escalation policies'); }
@@ -847,6 +885,37 @@ interface BackendTicketHistory {
     event: string;
     actor: string;
     createdAt: string;
+}
+
+interface BackendTicketTypeOption {
+    id: number;
+    code: string | null;
+    name: string;
+    isBuiltIn: boolean;
+    isPortalAvailable: boolean;
+}
+
+interface BackendTicketFormTemplate {
+    ticketTypeId: number;
+    ticketTypeName: string;
+    fields: BackendTicketFormField[];
+}
+
+interface BackendTicketFormField {
+    id: string;
+    code: string;
+    name: string;
+    type: FormFieldDefinition['type'];
+    required: boolean;
+    defaultValue: string | null;
+    validation: string | null;
+    hint: string | null;
+    visibleToRequester: boolean;
+    options: string[] | null;
+    immutable: boolean;
+    sortOrder: number;
+    conditionFieldId: string | null;
+    conditionValue: string | null;
 }
 
 interface BackendTicketEscalation {

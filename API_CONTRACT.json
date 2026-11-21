@@ -1565,7 +1565,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Форма с полями выбранного типа заявки.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketFormTemplateResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Тип заявки не найден."
           }
         }
       },
@@ -3573,6 +3583,97 @@
         "properties": {
           "fieldsSchema": {
             "$ref": "#/components/schemas/FormTemplateFieldsSchema"
+          }
+        }
+      },
+      "TicketFormTemplateResponse": {
+        "type": "object",
+        "required": [
+          "ticketTypeId",
+          "ticketTypeName",
+          "fields"
+        ],
+        "properties": {
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ticketTypeName": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TicketFormFieldResponse"
+            }
+          }
+        }
+      },
+      "TicketFormFieldResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "code",
+          "name",
+          "type",
+          "required",
+          "visibleToRequester",
+          "immutable",
+          "sortOrder"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "required": {
+            "type": "boolean"
+          },
+          "defaultValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "validation": {
+            "type": "string",
+            "nullable": true
+          },
+          "hint": {
+            "type": "string",
+            "nullable": true
+          },
+          "visibleToRequester": {
+            "type": "boolean"
+          },
+          "options": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "type": "string"
+            }
+          },
+          "immutable": {
+            "type": "boolean",
+            "description": "Встроенные поля нельзя удалить или изменить."
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "conditionFieldId": {
+            "type": "string",
+            "nullable": true
+          },
+          "conditionValue": {
+            "type": "string",
+            "nullable": true
           }
         }
       },

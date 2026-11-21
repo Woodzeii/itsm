@@ -351,6 +351,12 @@
       "FormFieldVisibilityRule": {
         "$ref": "./components/schemas.json#/components/schemas/FormFieldVisibilityRule"
       },
+      "TicketFormTemplateResponse": {
+        "$ref": "./components/schemas.json#/components/schemas/TicketFormTemplateResponse"
+      },
+      "TicketFormFieldResponse": {
+        "$ref": "./components/schemas.json#/components/schemas/TicketFormFieldResponse"
+      },
       "FieldDependency": {
         "$ref": "./components/schemas.json#/components/schemas/FieldDependency"
       },

@@ -28,6 +28,70 @@ describe('HttpWorkspaceApiService backend contract', () => {
         request.flush({});
     });
 
+    it('loads ticket types from the backend', () => {
+        let types: unknown;
+        service.getTicketTypeOptions().subscribe(result => types = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/ticket-types`);
+        expect(request.request.method).toBe('GET');
+        request.flush([{
+            id: 8,
+            code: 'incident',
+            name: 'Инцидент',
+            isBuiltIn: false,
+            isPortalAvailable: true,
+        }]);
+
+        expect(types).toEqual([{ id: '8', name: 'Инцидент' }]);
+    });
+
+    it('loads the selected ticket type form schema', () => {
+        let form: unknown;
+        service.getForm('8').subscribe(result => form = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/form-templates/8`);
+        expect(request.request.method).toBe('GET');
+        request.flush({
+            ticketTypeId: 8,
+            ticketTypeName: 'Инцидент',
+            fields: [{
+                id: 'title',
+                code: 'title',
+                name: 'Тема',
+                type: 'string',
+                required: true,
+                defaultValue: null,
+                validation: null,
+                hint: null,
+                visibleToRequester: true,
+                options: null,
+                immutable: true,
+                sortOrder: 0,
+                conditionFieldId: null,
+                conditionValue: null,
+            }],
+        });
+
+        expect(form).toEqual({
+            ticketTypeId: '8',
+            ticketTypeName: 'Инцидент',
+            fields: [{
+                id: 'title',
+                name: 'Тема',
+                type: 'string',
+                required: true,
+                defaultValue: undefined,
+                validation: undefined,
+                hint: undefined,
+                visibleToRequester: true,
+                options: undefined,
+                conditionFieldId: undefined,
+                conditionValue: undefined,
+                immutable: true,
+            }],
+        });
+    });
+
     it('assigns a ticket with POST and assigneeId', () => {
         service.assignTicket('42', 7).subscribe();
 

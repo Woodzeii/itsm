@@ -70,7 +70,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Форма с полями выбранного типа заявки.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TicketFormTemplateResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Тип заявки не найден."
           }
         }
       },
@@ -190,6 +200,12 @@
       },
       "FormTemplateFieldsSchema": {
         "$ref": "../components/schemas.json#/components/schemas/FormTemplateFieldsSchema"
+      },
+      "TicketFormTemplateResponse": {
+        "$ref": "../components/schemas.json#/components/schemas/TicketFormTemplateResponse"
+      },
+      "TicketFormFieldResponse": {
+        "$ref": "../components/schemas.json#/components/schemas/TicketFormFieldResponse"
       },
       "Notification": {
         "$ref": "../components/schemas.json#/components/schemas/Notification"

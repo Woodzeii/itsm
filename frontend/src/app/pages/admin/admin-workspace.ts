@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { finalize } from 'rxjs';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportSummary, TenantUserQuota, TicketFormDefinition, TicketType } from '../../core/workspace/workspace.models';
+import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportSummary, TenantUserQuota, TicketFormDefinition, TicketType, TicketTypeOption } from '../../core/workspace/workspace.models';
 import { AdminService } from '../../core/admin/admin.service';
 import { RoleSummary, UpdateAdminUserRequest, UserSummary } from '../../core/admin/admin.models';
 import { TenantUserQuotaService } from '../../core/workspace/tenant-user-quota.service';
@@ -97,7 +97,8 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
       }
 
       @if (section === 'forms') {
-        <section class="panel"><header><h2>Формы по типам заявок</h2><p>Одна форма на тип; встроенные поля нельзя удалить</p></header><label class="form-select">Тип заявки<select name="formId" [(ngModel)]="formId" (ngModelChange)="error = ''; notice = ''">@for (form of forms; track form.ticketTypeId) { <option [value]="form.ticketTypeId">{{ form.ticketTypeName }}</option> }</select></label>
+        <section class="panel"><header><h2>Формы по типам заявок</h2><p>Одна форма на тип; встроенные поля нельзя удалить</p></header><label class="form-select">Тип заявки<select name="formId" [(ngModel)]="formId" (ngModelChange)="onFormTypeChange($event)">@for (type of formTicketTypes; track type.id) { <option [value]="type.id">{{ type.name }}</option> }</select></label>
+          @if (formLoading && !activeForm) { <p class="empty" role="status">Загружаем схему формы…</p> }
           @if (activeForm; as form) { <div class="fields">
             @for (field of form.fields; track field.id; let index = $index) { <article class="field-row">
               <div class="field-main"><label>Название<input [name]="'field-name-' + field.id" [(ngModel)]="field.name" [disabled]="field.immutable ?? false" /></label><label>Тип поля<select [name]="'field-type-' + field.id" [(ngModel)]="field.type" [disabled]="field.immutable ?? false"><option value="string">Строка</option><option value="textarea">Многострочный текст</option><option value="number">Число</option><option value="date">Дата</option><option value="dictionary">Справочник</option><option value="asset">Выбор актива</option><option value="file">Вложение</option><option value="boolean">Да/нет</option></select></label><label class="check"><input type="checkbox" [name]="'required-' + field.id" [(ngModel)]="field.required" [disabled]="field.immutable ?? false" /> Обязательное</label><label class="check"><input type="checkbox" [name]="'visible-' + field.id" [(ngModel)]="field.visibleToRequester" /> Видно автору</label></div>
@@ -333,8 +334,11 @@ export class AdminWorkspaceComponent implements OnInit {
     manualAssignerUserId: number | null = null;
     assignerOptions: { id: number; fullName: string }[] = [];
     ticketTypes: TicketType[] = [];
+    formTicketTypes: TicketTypeOption[] = [];
     forms: TicketFormDefinition[] = [];
     formId = '';
+    formLoading = false;
+    private formRequestSequence = 0;
     policies: EscalationPolicy[] = [];
     escalationHistory: EscalationHistoryEntry[] = [];
     reports: ReportSummary[] = [];
@@ -464,7 +468,7 @@ export class AdminWorkspaceComponent implements OnInit {
             });
         }
         if (this.section === 'settings' && this.workspace.supportsTicketTypeConfiguration) this.workspace.getTicketTypes().subscribe({ next: types => this.ticketTypes = types, error: err => this.error = err.message });
-        if (this.section === 'forms') this.workspace.getForms().subscribe({ next: forms => { this.forms = forms; this.formId = forms[0]?.ticketTypeId ?? ''; }, error: err => this.error = err.message });
+        if (this.section === 'forms') this.loadFormTypes();
         if (this.section === 'escalations') {
             this.workspace.getEscalationPolicies().subscribe({ next: policies => this.policies = policies, error: err => this.error = err.message });
             this.workspace.getEscalationHistory().subscribe({ next: history => this.escalationHistory = history, error: err => this.error = err.message });
@@ -603,9 +607,21 @@ export class AdminWorkspaceComponent implements OnInit {
         form.fields.push({ id: `field-${Date.now()}`, name, type: this.newFieldType, required: false, visibleToRequester: true });
         this.newFieldName = '';
     }
-    removeField(form: TicketFormDefinition, field: FormFieldDefinition): void { form.fields = form.fields.filter(item => item.id !== field.id); }
+    removeField(form: TicketFormDefinition, field: FormFieldDefinition): void {
+        if (field.immutable) {
+            this.error = `Встроенное поле «${field.name}» нельзя удалить.`;
+            return;
+        }
+        form.fields = form.fields.filter(item => item.id !== field.id);
+    }
     setOptions(field: FormFieldDefinition, value: string): void { field.options = value.split(',').map(item => item.trim()).filter(Boolean); }
     saveForm(form: TicketFormDefinition): void { this.workspace.saveForm(form).subscribe({ next: saved => { this.forms = this.forms.map(item => item.ticketTypeId === saved.ticketTypeId ? saved : item); this.notice = 'Форма сохранена и будет использоваться для новых и существующих заявок.'; }, error: err => this.error = err.message }); }
+    onFormTypeChange(ticketTypeId: string): void {
+        this.formId = ticketTypeId;
+        this.error = '';
+        this.notice = '';
+        this.loadForm(ticketTypeId);
+    }
     loadReports(): void { this.workspace.getReports(this.reportFrom || undefined, this.reportTo || undefined).subscribe({ next: reports => this.reports = reports, error: err => this.error = err.message }); }
     downloadCsv(): void {
         const rows = [['Отчёт', 'Описание', 'Результат'], ...this.reports.map(item => [item.title, item.description, item.value])];
@@ -619,6 +635,37 @@ export class AdminWorkspaceComponent implements OnInit {
     }
 
     private toggleString(values: string[], value: string, enabled: boolean): string[] { return enabled ? [...new Set([...values, value])] : values.filter(item => item !== value); }
+    private loadFormTypes(): void {
+        this.workspace.getTicketTypeOptions().subscribe({
+            next: types => {
+                this.formTicketTypes = types;
+                this.formId = types[0]?.id ?? '';
+                if (this.formId) this.loadForm(this.formId);
+            },
+            error: err => this.error = err.message,
+        });
+    }
+    private loadForm(ticketTypeId: string): void {
+        const requestSequence = ++this.formRequestSequence;
+        this.forms = this.forms.filter(form => form.ticketTypeId !== ticketTypeId);
+        if (!ticketTypeId) {
+            this.formLoading = false;
+            return;
+        }
+        this.formLoading = true;
+        this.workspace.getForm(ticketTypeId).subscribe({
+            next: form => {
+                if (requestSequence !== this.formRequestSequence) return;
+                this.forms = [...this.forms.filter(item => item.ticketTypeId !== form.ticketTypeId), form];
+                this.formLoading = false;
+            },
+            error: err => {
+                if (requestSequence !== this.formRequestSequence) return;
+                this.error = err.message;
+                this.formLoading = false;
+            },
+        });
+    }
     private defaultFields(id: string): FormFieldDefinition[] { return [
         { id: `${id}-title`, name: 'Тема', type: 'string', required: true, visibleToRequester: true, immutable: true },
         { id: `${id}-description`, name: 'Описание', type: 'textarea', required: true, visibleToRequester: true, immutable: true },

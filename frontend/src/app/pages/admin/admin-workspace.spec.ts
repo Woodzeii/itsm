@@ -393,4 +393,65 @@ describe('AdminWorkspaceComponent user list', () => {
         expect(pageText).toContain('Пользователей не найдено');
         expect(pageText).not.toContain('Загрузка пользователей');
     });
+
+    it('loads the selected form by type and keeps built-in fields immutable', async () => {
+        const formApi = {
+            getAdminSettings: () => of({
+                assignmentMode: 'automatic' as const,
+                manager: '',
+                slaEnabled: true,
+                slaMode: '24/7' as const,
+                workingHours: '',
+                workingDays: [],
+                holidays: [],
+                criticalities: ['Критический'],
+                statuses: [],
+                statusTransitions: {},
+                portalSlaFields: [],
+                reportAccessRoles: [],
+            }),
+            getTicketTypeOptions: () => of([
+                { id: '1', name: 'Инцидент' },
+                { id: '2', name: 'Запрос на обслуживание' },
+            ]),
+            getForm: vi.fn((ticketTypeId: string) => of({
+                ticketTypeId,
+                ticketTypeName: ticketTypeId === '1' ? 'Инцидент' : 'Запрос на обслуживание',
+                fields: [
+                    { id: `${ticketTypeId}-title`, name: 'Тема', type: 'string' as const, required: true, visibleToRequester: true, immutable: true },
+                    { id: `${ticketTypeId}-custom`, name: `Поле типа ${ticketTypeId}`, type: 'textarea' as const, required: false, visibleToRequester: true },
+                ],
+            })),
+        };
+        TestBed.overrideProvider(ActivatedRoute, {
+            useValue: { snapshot: { data: { section: 'forms' } } },
+        });
+        TestBed.overrideProvider(WorkspaceService, { useValue: formApi });
+
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        const selector = fixture.nativeElement.querySelector('select[name="formId"]') as HTMLSelectElement;
+        expect(Array.from(selector.options, option => option.textContent?.trim())).toEqual([
+            'Инцидент',
+            'Запрос на обслуживание',
+        ]);
+        expect(formApi.getForm).toHaveBeenCalledWith('1');
+
+        selector.value = '2';
+        selector.dispatchEvent(new Event('change'));
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(formApi.getForm).toHaveBeenCalledWith('2');
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('Поле типа 2');
+
+        const activeForm = fixture.componentInstance.activeForm!;
+        const builtInField = activeForm.fields.find(field => field.name === 'Тема')!;
+        fixture.componentInstance.removeField(activeForm, builtInField);
+        expect(activeForm.fields.some(field => field.name === 'Тема')).toBe(true);
+    });
 });

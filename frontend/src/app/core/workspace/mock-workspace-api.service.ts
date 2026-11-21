@@ -39,6 +39,7 @@ import {
     TicketFormDefinition,
     Ticket,
     TicketType,
+    TicketTypeOption,
     TenantRecord,
     SystemRoleOption,
     UserRecord,
@@ -523,6 +524,16 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     }
 
     getForms(): Observable<TicketFormDefinition[]> { return of(this.forms.map(form => ({ ...form, fields: form.fields.map(field => ({ ...field, options: field.options ? [...field.options] : undefined })) }))); }
+
+    getTicketTypeOptions(): Observable<TicketTypeOption[]> {
+        return of(this.ticketTypes.map(type => ({ id: type.id, name: type.name })));
+    }
+
+    getForm(ticketTypeId: string): Observable<TicketFormDefinition> {
+        const form = this.forms.find(item => item.ticketTypeId === ticketTypeId);
+        if (!form) return this.fail('Форма для выбранного типа заявки не найдена.');
+        return of({ ...form, fields: form.fields.map(field => ({ ...field, options: field.options ? [...field.options] : undefined })) });
+    }
 
     saveForm(form: TicketFormDefinition): Observable<TicketFormDefinition> {
         const index = this.forms.findIndex(item => item.ticketTypeId === form.ticketTypeId);

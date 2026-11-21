@@ -33,6 +33,7 @@ import {
     TicketComment,
     TicketHistory,
     TicketType,
+    TicketTypeOption,
     TenantRecord,
     CreateUserRequest,
     SystemRoleOption,
@@ -75,6 +76,8 @@ export abstract class WorkspaceApi {
     abstract createRepairTicket(assetId: string, title: string): Observable<Ticket>;
     abstract closeRepairTicket(ticketId: string, request: RepairCloseRequest): Observable<Ticket>;
     abstract getForms(): Observable<TicketFormDefinition[]>;
+    abstract getTicketTypeOptions(): Observable<TicketTypeOption[]>;
+    abstract getForm(ticketTypeId: string): Observable<TicketFormDefinition>;
     abstract saveForm(form: TicketFormDefinition): Observable<TicketFormDefinition>;
     abstract getEscalationPolicies(): Observable<EscalationPolicy[]>;
     abstract saveEscalationPolicies(policies: EscalationPolicy[]): Observable<EscalationPolicy[]>;
