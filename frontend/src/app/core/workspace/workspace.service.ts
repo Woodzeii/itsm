@@ -67,6 +67,12 @@ export class WorkspaceService {
     getAdminSettings() { return this.api.getAdminSettings(); }
     saveAdminSettings(settings: AdminSettings) { return this.api.saveAdminSettings(settings); }
     getReports(from?: string, to?: string) { return this.api.getReports(from, to); }
+    getReportDetails(reportType: string, from: string | undefined, to: string | undefined, skip: number, take: number) {
+        return this.api.getReportDetails(reportType, from, to, skip, take);
+    }
+    downloadReportCsv(reportType: string, from: string | undefined, to: string | undefined) {
+        return this.api.downloadReportCsv(reportType, from, to);
+    }
     getPortalTickets() { return this.api.getPortalTickets(); }
     getPortalTicketTypes() { return this.api.getPortalTicketTypes(); }
     getRequesters() { return this.api.getRequesters(); }
