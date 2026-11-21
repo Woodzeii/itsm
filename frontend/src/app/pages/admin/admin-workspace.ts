@@ -148,8 +148,9 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
       }
 
       @if (section === 'reports') {
-        <section class="panel"><header><h2>Отчёты Service Desk</h2><p>Все отчёты из технического задания</p></header><div class="period"><label>С даты<input type="date" name="from" [(ngModel)]="reportFrom" /></label><label>По дату<input type="date" name="to" [(ngModel)]="reportTo" /></label><button class="quiet" type="button" (click)="loadReports()">Обновить</button><button class="quiet" type="button" (click)="downloadCsv()">↓ CSV</button></div>
-          <div class="report-list">@for (report of reports; track report.id) { <article><button type="button" class="report-open" (click)="openReport(report)"><span class="report-icon" aria-hidden="true">▤</span><span class="report-copy"><strong>{{ report.title }}</strong><small>{{ report.description }}</small></span><b>{{ report.count ?? report.value }}</b></button></article> }</div>
+        <section class="panel"><header><h2>Отчёты Service Desk</h2><p>Все отчёты из технического задания</p></header><div class="period"><label>С даты<input type="date" name="from" [(ngModel)]="reportFrom" /></label><label>По дату<input type="date" name="to" [(ngModel)]="reportTo" /></label><button class="quiet" type="button" [disabled]="reportLoading" (click)="loadReports()">Обновить</button></div>
+          @if (reportError) { <p class="feedback error" role="alert">{{ reportError }}</p> }
+          <div class="report-list">@for (report of reports; track report.id) { <article><button type="button" class="report-open" (click)="openReport(report)"><span class="report-icon" aria-hidden="true">▤</span><span class="report-copy"><strong>{{ report.title }}</strong><small>{{ report.description }}</small></span><b>{{ report.count ?? report.value }}</b></button><button type="button" class="quiet" [disabled]="downloadingReportId !== null" [attr.aria-label]="'Скачать CSV: ' + report.title" (click)="downloadCsv(report.id)">↓ CSV</button></article> }</div>
         </section>
         @if (reportDetailOpen) {
           <div class="report-modal-backdrop" (click)="closeReport()">
@@ -158,7 +159,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
               @if (reportDetail) {
                 <div class="report-table-wrap"><table><thead><tr>@for (column of reportDetail.columns; track column.key) { <th>{{ column.label }}</th> }</tr></thead><tbody>@for (item of reportDetail.items; track $index) { <tr>@for (column of reportDetail!.columns; track column.key) { <td>{{ item.values[column.key] ?? '—' }}</td> }</tr> } @if (!reportDetail.items.length) { <tr><td [attr.colspan]="reportDetail.columns.length" class="empty">Нет данных за выбранный период</td></tr> }</tbody></table></div>
                 <footer><span>Всего: {{ reportDetail.total }}</span><div><button class="quiet" type="button" [disabled]="reportDetail.skip === 0" (click)="changeReportPage(-1)">Назад</button><button class="quiet" type="button" [disabled]="reportDetail.skip + reportDetail.take >= reportDetail.total" (click)="changeReportPage(1)">Далее</button></div></footer>
-              } @else { <p class="empty">Загрузка данных...</p> }
+              } @else if (reportError) { <p class="feedback error" role="alert">{{ reportError }}</p> } @else { <p class="empty">Загрузка данных...</p> }
             </section>
           </div>
         }
@@ -334,8 +335,9 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
       .history-panel > article { display:grid; gap:5px; padding:10px 16px; border-bottom:1px solid #eef1f4; } .history-panel article strong { font-size:10px; } .history-panel article small { color:#8792a0; font-size:9px; }
       .period { display:flex; align-items:end; gap:9px; padding:13px 16px; } .period label { min-width:140px; }
       .report-list article { display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid #eef1f4; }
+      .report-open { display:flex; align-items:center; gap:12px; flex:1; min-width:0; padding:0; border:0; background:transparent; color:inherit; text-align:left; cursor:pointer; }
       .report-icon { width:30px; height:30px; display:grid; place-items:center; border-radius:5px; background:#edf4ff; color:#3270cb; }
-      .report-list article div { min-width:0; flex:1; } .report-list article strong { font-size:10px; } .report-list article p { margin:4px 0 0; color:#84909d; font-size:9px; } .report-list article b { color:#4a5665; font-size:10px; white-space:nowrap; }
+      .report-copy { display:grid; gap:4px; min-width:0; flex:1; } .report-copy strong { font-size:10px; } .report-copy small { color:#84909d; font-size:9px; } .report-open b { color:#4a5665; font-size:10px; white-space:nowrap; }
       .empty { padding:10px 16px; color:#8993a1; font-size:10px; }
       .users-toolbar { padding:12px 16px; border-bottom:1px solid #edf0f4; } .users-toolbar button { min-height:32px; }
       .mobile-filters-toggle { display:none; }
@@ -389,6 +391,9 @@ export class AdminWorkspaceComponent implements OnInit {
     reportDetail: ReportDetail | null = null;
     activeReport: ReportSummary | null = null;
     reportDetailOpen = false;
+    reportLoading = false;
+    reportError = '';
+    downloadingReportId: string | null = null;
     reportDetailSkip = 0;
     reportDetailTake = 30;
     usersList: UserSummary[] = [];
@@ -687,9 +692,17 @@ export class AdminWorkspaceComponent implements OnInit {
     setOptions(field: FormFieldDefinition, value: string): void { field.options = value.split(',').map(item => item.trim()).filter(Boolean); }
     saveForm(form: TicketFormDefinition): void { this.workspace.saveForm(form).subscribe({ next: saved => { this.forms = this.forms.map(item => item.ticketTypeId === saved.ticketTypeId ? saved : item); this.notice = 'Форма сохранена и будет использоваться для новых и существующих заявок.'; }, error: err => this.error = err.message }); }
     loadReports(): void {
-        this.workspace.getReports(this.reportFrom || undefined, this.reportTo || undefined).subscribe({
-            next: reports => this.reports = reports,
-            error: err => this.error = err?.error?.detail ?? err.message,
+        this.reportLoading = true;
+        this.reportError = '';
+        this.tenantSettingsApi.getReports(this.reportFrom || undefined, this.reportTo || undefined).subscribe({
+            next: reports => {
+                this.reports = reports;
+                this.reportLoading = false;
+            },
+            error: err => {
+                this.reportError = err?.error?.detail ?? err.message ?? 'Не удалось загрузить отчёты.';
+                this.reportLoading = false;
+            },
         });
     }
     openReport(report: ReportSummary): void {
@@ -710,7 +723,8 @@ export class AdminWorkspaceComponent implements OnInit {
     loadReportDetails(): void {
         if (!this.activeReport) return;
         this.reportDetail = null;
-        this.workspace.getReportDetails(
+        this.reportError = '';
+        this.tenantSettingsApi.getReportDetails(
             this.activeReport.id,
             this.reportFrom || undefined,
             this.reportTo || undefined,
@@ -718,12 +732,13 @@ export class AdminWorkspaceComponent implements OnInit {
             this.reportDetailTake,
         ).subscribe({
             next: detail => this.reportDetail = detail,
-            error: err => this.error = err?.error?.detail ?? err.message,
+            error: err => this.reportError = err?.error?.detail ?? err.message ?? 'Не удалось загрузить детализацию отчёта.',
         });
     }
-    downloadCsv(): void {
-        const reportType = this.activeReport?.id ?? 'tickets-status';
-        this.workspace.downloadReportCsv(reportType, this.reportFrom || undefined, this.reportTo || undefined).subscribe({
+    downloadCsv(reportType: string): void {
+        this.downloadingReportId = reportType;
+        this.reportError = '';
+        this.tenantSettingsApi.downloadReportCsv(reportType, this.reportFrom || undefined, this.reportTo || undefined).subscribe({
             next: blob => {
                 const url = URL.createObjectURL(blob);
                 const anchor = document.createElement('a');
@@ -731,8 +746,12 @@ export class AdminWorkspaceComponent implements OnInit {
                 anchor.download = `itsm-${reportType}.csv`;
                 anchor.click();
                 URL.revokeObjectURL(url);
+                this.downloadingReportId = null;
             },
-            error: err => this.error = err?.error?.detail ?? err.message,
+            error: err => {
+                this.reportError = err?.error?.detail ?? err.message ?? 'Не удалось скачать CSV.';
+                this.downloadingReportId = null;
+            },
         });
     }
 

@@ -27,7 +27,9 @@ public sealed class ReportService(ItsmDbContext db) : IReportService
         var assets = FilterAssets(db.Assets.AsNoTracking(), from, to);
         var movements = FilterMovements(db.AssetMovements.AsNoTracking(), from, to);
         var ticketCount = await tickets.CountAsync(ct);
-        var assignedCount = await tickets.CountAsync(ticket => ticket.AssigneeId != null, ct);
+        var assignedCount = await tickets.CountAsync(
+            ticket => ticket.AssigneeId != null && ticket.Status.Code != "closed",
+            ct);
         var repairCount = await tickets.CountAsync(ticket => ticket.Type.Code == "repair", ct);
         var returnCount = await movements.CountAsync(item => item.MovementType == AssetMovementTypes.Return, ct);
         var assetCount = await assets.CountAsync(ct);
@@ -37,7 +39,7 @@ public sealed class ReportService(ItsmDbContext db) : IReportService
         [
             new("tickets-status", "Заявки по статусам", "Количество заявок в статусах за период", ticketCount),
             new("tickets-type", "Заявки по типам", "Распределение заявок по типам", ticketCount),
-            new("engineer-load", "Нагрузка исполнителей", "Назначенные заявки исполнителям", assignedCount),
+            new("engineer-load", "Нагрузка исполнителей", "Активные заявки, назначенные исполнителям", assignedCount),
             new("returns", "Возвраты активов", "Возвраты активов на склад за период", returnCount),
             new("repairs", "Ремонты", "Заявки на ремонт за период", repairCount),
             new("assets-stage", "Активы по этапам", "Активы по этапам жизненного цикла", assetCount),
@@ -130,7 +132,7 @@ public sealed class ReportService(ItsmDbContext db) : IReportService
     private async Task<ReportDetailResponse> EngineerLoad(DateOnly? from, DateOnly? to, int skip, int take, CancellationToken ct)
     {
         var query = FilterTickets(db.Tickets.AsNoTracking(), from, to)
-            .Where(ticket => ticket.AssigneeId != null)
+            .Where(ticket => ticket.AssigneeId != null && ticket.Status.Code != "closed")
             .GroupBy(ticket => ticket.Assignee!.FullName)
             .Select(group => new { Name = group.Key, Count = group.Count() })
             .OrderBy(item => item.Name);

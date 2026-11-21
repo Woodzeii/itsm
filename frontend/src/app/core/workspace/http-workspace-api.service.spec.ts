@@ -665,4 +665,47 @@ describe('HttpWorkspaceApiService backend contract', () => {
             twoFactorGraceDays: 0,
         });
     });
+
+    it('loads report summaries from the reports endpoint with date filters', () => {
+        let summaries: unknown;
+        service.getReports('2026-01-01', '2026-01-31').subscribe(result => summaries = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/reports?from=2026-01-01&to=2026-01-31`);
+        expect(request.request.method).toBe('GET');
+        request.flush([{
+            id: 'tickets-status',
+            title: 'Заявки по статусам',
+            description: 'Количество заявок в статусах за период',
+            count: 12,
+        }]);
+
+        expect(summaries).toEqual([{
+            id: 'tickets-status',
+            title: 'Заявки по статусам',
+            description: 'Количество заявок в статусах за период',
+            value: 12,
+            count: 12,
+        }]);
+    });
+
+    it('loads paged report details from the reports endpoint', () => {
+        service.getReportDetails('tickets-status', '2026-01-01', '2026-01-31', 30, 30).subscribe();
+
+        const request = http.expectOne(
+            `${environment.apiBaseUrl}/reports/tickets-status?skip=30&take=30&from=2026-01-01&to=2026-01-31`,
+        );
+        expect(request.request.method).toBe('GET');
+        request.flush({ columns: [], items: [], total: 0, skip: 30, take: 30 });
+    });
+
+    it('downloads report CSV as a Blob', () => {
+        service.downloadReportCsv('asset-movements', '2026-01-01', '2026-01-31').subscribe();
+
+        const request = http.expectOne(
+            `${environment.apiBaseUrl}/reports/asset-movements/export.csv?from=2026-01-01&to=2026-01-31`,
+        );
+        expect(request.request.method).toBe('GET');
+        expect(request.request.responseType).toBe('blob');
+        request.flush(new Blob(['\uFEFFcsv'], { type: 'text/csv' }));
+    });
 });
