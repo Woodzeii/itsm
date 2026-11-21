@@ -58,14 +58,22 @@ public sealed class ReportsController(IReportService reportService) : Controller
     [Produces("text/csv")]
     [ProducesResponseType(typeof(byte[]), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> ExportCsv(
         string reportType,
         [FromQuery] DateOnly? from,
         [FromQuery] DateOnly? to,
         CancellationToken ct)
     {
-        var csv = await reportService.ExportCsvAsync(reportType, from, to, ct);
-        if (csv is null) return NotFound();
-        return File(csv, "text/csv; charset=utf-8", $"it-sm-{reportType}.csv");
+        try
+        {
+            var csv = await reportService.ExportCsvAsync(reportType, from, to, ct);
+            if (csv is null) return NotFound();
+            return File(csv, "text/csv; charset=utf-8", $"itsm-{reportType}.csv");
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new ProblemDetails { Title = "Некорректный период", Detail = ex.Message, Status = 400 });
+        }
     }
 }

@@ -13,6 +13,9 @@ describe('AdminWorkspaceComponent user list', () => {
         getTenantAdminCreationPolicy: ReturnType<typeof vi.fn>;
         saveAdminSettings: ReturnType<typeof vi.fn>;
         saveTenantAdminCreationPolicy: ReturnType<typeof vi.fn>;
+        getReports: ReturnType<typeof vi.fn>;
+        getReportDetails: ReturnType<typeof vi.fn>;
+        downloadReportCsv: ReturnType<typeof vi.fn>;
     };
 
     const user: UserSummary = {
@@ -38,6 +41,21 @@ describe('AdminWorkspaceComponent user list', () => {
                 tenantId: 1,
                 allowAdminsCreateAdmins: false,
             })),
+            getReports: vi.fn().mockReturnValue(of([{
+                id: 'tickets-status',
+                title: 'Заявки по статусам',
+                description: 'Количество заявок в статусах за период',
+                value: 4,
+                count: 4,
+            }])),
+            getReportDetails: vi.fn().mockReturnValue(of({
+                columns: [],
+                items: [],
+                total: 0,
+                skip: 0,
+                take: 30,
+            })),
+            downloadReportCsv: vi.fn().mockReturnValue(of(new Blob(['csv']))),
         };
         await TestBed.configureTestingModule({
             imports: [AdminWorkspaceComponent],
@@ -392,5 +410,32 @@ describe('AdminWorkspaceComponent user list', () => {
         const pageText = (fixture.nativeElement as HTMLElement).textContent ?? '';
         expect(pageText).toContain('Пользователей не найдено');
         expect(pageText).not.toContain('Загрузка пользователей');
+    });
+
+    it('loads reports and details through the HTTP API rather than WorkspaceService', () => {
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        const component = fixture.componentInstance;
+        component.reportFrom = '2026-01-01';
+        component.reportTo = '2026-01-31';
+
+        component.loadReports();
+        component.openReport({
+            id: 'tickets-status',
+            title: 'Заявки по статусам',
+            description: 'Количество заявок в статусах за период',
+            value: 4,
+            count: 4,
+        });
+
+        expect(tenantSettingsApi.getReports).toHaveBeenCalledWith('2026-01-01', '2026-01-31');
+        expect(tenantSettingsApi.getReportDetails).toHaveBeenCalledWith(
+            'tickets-status',
+            '2026-01-01',
+            '2026-01-31',
+            0,
+            30,
+        );
+        expect(component.reports).toHaveLength(1);
+        expect(component.reportDetailOpen).toBe(true);
     });
 });
