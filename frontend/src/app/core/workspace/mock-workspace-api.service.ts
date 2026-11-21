@@ -526,7 +526,13 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     getForms(): Observable<TicketFormDefinition[]> { return of(this.forms.map(form => ({ ...form, fields: form.fields.map(field => ({ ...field, options: field.options ? [...field.options] : undefined })) }))); }
 
     getTicketTypeOptions(): Observable<TicketTypeOption[]> {
-        return of(this.ticketTypes.map(type => ({ id: type.id, name: type.name })));
+        return of(this.ticketTypes.map(type => ({
+            id: type.id,
+            name: type.name,
+            portalAvailable: type.portalAvailable,
+            repair: type.repair,
+            archived: type.archived,
+        })));
     }
 
     getForm(ticketTypeId: string): Observable<TicketFormDefinition> {

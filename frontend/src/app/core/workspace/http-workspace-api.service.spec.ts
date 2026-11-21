@@ -42,7 +42,12 @@ describe('HttpWorkspaceApiService backend contract', () => {
             isPortalAvailable: true,
         }]);
 
-        expect(types).toEqual([{ id: '8', name: 'Инцидент' }]);
+        expect(types).toEqual([{
+            id: '8',
+            name: 'Инцидент',
+            portalAvailable: true,
+            repair: false,
+        }]);
     });
 
     it('loads the selected ticket type form schema', () => {

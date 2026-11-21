@@ -6,6 +6,7 @@ import { UserSummary } from '../../core/admin/admin.models';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
+import { TicketFormDefinition } from '../../core/workspace/workspace.models';
 import { AdminWorkspaceComponent } from './admin-workspace';
 
 describe('AdminWorkspaceComponent user list', () => {
@@ -83,6 +84,7 @@ describe('AdminWorkspaceComponent user list', () => {
                             activeAgentsCount: 2,
                         }),
                         getUsers: () => of([]),
+                        getTicketTypeOptions: () => of([]),
                     },
                 },
                 {
@@ -394,7 +396,7 @@ describe('AdminWorkspaceComponent user list', () => {
         expect(pageText).not.toContain('Загрузка пользователей');
     });
 
-    it('loads the selected form by type and keeps built-in fields immutable', async () => {
+    it('edits selected forms locally and manages ticket types in a draft', async () => {
         const formApi = {
             getAdminSettings: () => of({
                 assignmentMode: 'automatic' as const,
@@ -422,6 +424,7 @@ describe('AdminWorkspaceComponent user list', () => {
                     { id: `${ticketTypeId}-custom`, name: `Поле типа ${ticketTypeId}`, type: 'textarea' as const, required: false, visibleToRequester: true },
                 ],
             })),
+            saveForm: vi.fn((form: TicketFormDefinition) => of(form)),
         };
         TestBed.overrideProvider(ActivatedRoute, {
             useValue: { snapshot: { data: { section: 'forms' } } },
@@ -453,5 +456,45 @@ describe('AdminWorkspaceComponent user list', () => {
         const builtInField = activeForm.fields.find(field => field.name === 'Тема')!;
         fixture.componentInstance.removeField(activeForm, builtInField);
         expect(activeForm.fields.some(field => field.name === 'Тема')).toBe(true);
+
+        for (let index = 1; index <= 5; index++) {
+            fixture.componentInstance.newFieldName = `Новое поле ${index}`;
+            fixture.componentInstance.addField(activeForm);
+        }
+        expect(activeForm.fields.filter(field => field.name.startsWith('Новое поле'))).toHaveLength(5);
+        expect(formApi.saveForm).not.toHaveBeenCalled();
+
+        const firstNewField = activeForm.fields.find(field => field.name === 'Новое поле 1')!;
+        const secondNewField = activeForm.fields.find(field => field.name === 'Новое поле 2')!;
+        fixture.componentInstance.removeField(activeForm, firstNewField);
+        fixture.componentInstance.removeField(activeForm, secondNewField);
+        fixture.componentInstance.reorderField(activeForm, 1, activeForm.fields.length - 1);
+        expect(activeForm.fields.at(-1)?.name).toBe('Поле типа 2');
+
+        fixture.componentInstance.saveForm(activeForm);
+        expect(formApi.saveForm).toHaveBeenCalledWith(activeForm);
+
+        fixture.componentInstance.section = 'settings';
+        fixture.componentInstance.ticketTypeOptions = [
+            { id: 'repair', name: 'Ремонт', portalAvailable: false, repair: true },
+            { id: 'custom', name: 'Запрос', portalAvailable: true, repair: false },
+        ];
+        fixture.componentInstance.openTicketTypeManager();
+        fixture.detectChanges();
+        expect(fixture.nativeElement.querySelector('[role="dialog"]')).not.toBeNull();
+        const managedBuiltIn = fixture.componentInstance.ticketTypeDraft[0];
+        fixture.componentInstance.deleteManagedType(managedBuiltIn);
+        expect(fixture.componentInstance.ticketTypeDraft.some(type => type.id === 'repair')).toBe(true);
+        fixture.componentInstance.newType = 'Новый тип';
+        fixture.componentInstance.addManagedType();
+        const managedCustomType = fixture.componentInstance.ticketTypeDraft.find(type => type.id === 'custom')!;
+        managedCustomType.archived = true;
+        expect(managedCustomType.archived).toBe(true);
+        fixture.componentInstance.deleteManagedType(managedCustomType);
+        fixture.componentInstance.ticketTypeDraft.find(type => type.name === 'Новый тип')!.archived = true;
+        fixture.componentInstance.saveTicketTypeManager();
+        expect(fixture.componentInstance.ticketTypeOptions.map(type => type.name)).toEqual(['Ремонт', 'Новый тип']);
+        expect(fixture.componentInstance.ticketTypeOptions[0].repair).toBe(true);
+        expect(fixture.componentInstance.ticketTypeOptions[1].archived).toBe(true);
     });
 });

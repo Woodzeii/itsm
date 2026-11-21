@@ -145,7 +145,12 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     getTicketTypes() { return this.unsupported<TicketType[]>('ticket types'); }
     getTicketTypeOptions() {
         return this.http.get<BackendTicketTypeOption[]>(`${this.baseUrl}/ticket-types`).pipe(
-            map(types => types.map(type => ({ id: String(type.id), name: type.name }))),
+            map(types => types.map(type => ({
+                id: String(type.id),
+                name: type.name,
+                portalAvailable: type.isPortalAvailable,
+                repair: type.code?.toLowerCase() === 'repair',
+            }))),
         );
     }
     saveTicketTypes(_ticketTypes: TicketType[]) { return this.unsupported<TicketType[]>('ticket types'); }
