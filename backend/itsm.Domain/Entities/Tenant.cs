@@ -23,6 +23,8 @@ public class Tenant
 
     // Настройки управления тенантом
     public bool AllowAdminsCreateAdmins { get; set; } = true;
+    public string TwoFactorMode { get; set; } = "all";
+    public int TwoFactorGraceDays { get; set; } = 0;
 
     // Статистика
     public int CurrentUserCount { get; set; } = 0;

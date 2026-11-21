@@ -134,7 +134,7 @@ import {
               При следующем входе потребуется 6-значный код из приложения-аутентификатора.
             </p>
 
-            @if (!auth.isPortalUser()) {
+            @if (status.isRequired) {
               <p class="muted">
                 2FA обязательна для этой учётной записи и не может быть отключена.
               </p>
@@ -164,6 +164,19 @@ import {
           </div>
         }
       </div>
+      <div class="card password-card">
+        <h2>Пароль</h2>
+        <p class="card-subtitle">Сменить пароль для входа в систему.</p>
+        <div class="password-form">
+          <input type="password" autocomplete="current-password" placeholder="Текущий пароль" [(ngModel)]="currentPassword" />
+          <input type="password" autocomplete="new-password" placeholder="Новый пароль" [(ngModel)]="newPassword" />
+          <input type="password" autocomplete="new-password" placeholder="Повторите новый пароль" [(ngModel)]="confirmPassword" />
+          <button class="primary" (click)="changePassword()" [disabled]="busy || !currentPassword || newPassword.length < 8 || newPassword !== confirmPassword">
+            {{ busy ? 'Сохранение...' : 'Сменить пароль' }}
+          </button>
+        </div>
+      </div>
+      <button class="logout-button" type="button" (click)="logout()">Выйти из системы</button>
     </section>
   `,
     styles: [
@@ -264,6 +277,10 @@ import {
       }
       .recovery-grid code { text-align: center; letter-spacing: 1px; }
       .saved-codes { display: flex; align-items: center; gap: 8px; margin: 10px 0; font-size: 0.88rem; }
+      .password-card { margin-top: 16px; }
+      .password-form { display: grid; gap: 10px; max-width: 420px; margin-top: 14px; }
+      .password-form input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #dfe4ea; border-radius: 8px; }
+      .logout-button { margin-top: 16px; background: #fff0ef; color: #b42318; }
     `,
     ],
 })
@@ -281,6 +298,9 @@ export class SecurityComponent implements OnInit {
     showDisableForm = false;
     recoveryCodes: string[] = [];
     recoveryCodesSaved = false;
+    currentPassword = '';
+    newPassword = '';
+    confirmPassword = '';
 
     busy = false;
     errorMessage = '';
@@ -417,6 +437,35 @@ export class SecurityComponent implements OnInit {
         this.showDisableForm = false;
         this.disablePassword = '';
         this.clearMessages();
+    }
+
+    changePassword(): void {
+        if (!this.currentPassword || this.newPassword.length < 8 || this.newPassword !== this.confirmPassword) return;
+        this.clearMessages();
+        this.busy = true;
+        this.api.changePassword({
+            currentPassword: this.currentPassword,
+            newPassword: this.newPassword,
+        }).subscribe({
+            next: res => {
+                this.successMessage = res.message;
+                this.currentPassword = '';
+                this.newPassword = '';
+                this.confirmPassword = '';
+                this.busy = false;
+                this.cdr.detectChanges();
+            },
+            error: err => {
+                this.errorMessage = err.error?.message || 'Не удалось изменить пароль.';
+                this.busy = false;
+                this.cdr.detectChanges();
+            },
+        });
+    }
+
+    logout(): void {
+        this.auth.logout();
+        this.router.navigateByUrl('/login');
     }
 
     qrImageSrc(setup: TwoFactorSetupResponse): string {

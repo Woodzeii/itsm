@@ -390,37 +390,15 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             allowAdminsCreateAdmins,
         }).pipe(map(normalizeTenantAdminCreationPolicy));
     }
-    getReports(from?: string, to?: string): Observable<ReportSummary[]> {
-        const params = new URLSearchParams();
-        if (from) params.set('from', from);
-        if (to) params.set('to', to);
-        const suffix = params.size ? `?${params.toString()}` : '';
-        return this.http.get<Array<{ id: string; title: string; description: string; count: number }>>(
-            `${this.baseUrl}/reports${suffix}`,
-        ).pipe(map(items => items.map(item => ({
-            id: item.id,
-            title: item.title,
-            description: item.description,
-            value: item.count,
-            count: item.count,
-        }))));
+    saveTenantSecurityPolicy(twoFactorMode: 'all' | 'admins' | 'optional', twoFactorGraceDays: number) {
+        return this.http.put<TenantAdminCreationPolicy>(`${this.baseUrl}/tenants/settings`, {
+            twoFactorMode,
+            twoFactorGraceDays,
+        }).pipe(map(normalizeTenantAdminCreationPolicy));
     }
-    getReportDetails(reportType: string, from: string | undefined, to: string | undefined, skip: number, take: number): Observable<ReportDetail> {
-        const params = new URLSearchParams();
-        if (from) params.set('from', from);
-        if (to) params.set('to', to);
-        params.set('skip', String(skip));
-        params.set('take', String(take));
-        return this.http.get<ReportDetail>(`${this.baseUrl}/reports/${reportType}?${params.toString()}`);
-    }
-    downloadReportCsv(reportType: string, from: string | undefined, to: string | undefined): Observable<Blob> {
-        const params = new URLSearchParams();
-        if (from) params.set('from', from);
-        if (to) params.set('to', to);
-        const suffix = params.size ? `?${params.toString()}` : '';
-        return this.http.get(`${this.baseUrl}/reports/${reportType}/export.csv${suffix}`, {
-            responseType: 'blob',
-        });
+    getReports(_from?: string, _to?: string) {
+        // В контракте отчёты требуют reportType: /api/reports/{reportType}; текущий backend их не реализует.
+        return this.unsupported<ReportSummary[]>('reports');
     }
     getPortalTickets() {
         return this.http.get<BackendTicket[]>(`${this.baseUrl}/tickets/mine`).pipe(
@@ -590,6 +568,8 @@ function toAdminSettings(settings?: Partial<BackendTenantSettings> | null): Admi
         },
         reportAccessRoles: ['admin', 'manager'],
         allowAdminsCreateAdmins: true,
+        twoFactorMode: 'all',
+        twoFactorGraceDays: 0,
     };
 
     return {
@@ -605,6 +585,9 @@ function toAdminSettings(settings?: Partial<BackendTenantSettings> | null): Admi
         engineers: settings?.engineers?.length ? [...settings.engineers] : defaults.engineers,
         reportAccessRoles: settings?.reportAccessRoles?.length ? [...settings.reportAccessRoles] : defaults.reportAccessRoles,
         passwordPolicy: settings?.passwordPolicy ? { ...settings.passwordPolicy } : defaults.passwordPolicy,
+        allowAdminsCreateAdmins: settings?.allowAdminsCreateAdmins ?? defaults.allowAdminsCreateAdmins,
+        twoFactorMode: settings?.twoFactorMode ?? 'all',
+        twoFactorGraceDays: settings?.twoFactorGraceDays ?? 0,
     };
 }
 
@@ -613,7 +596,11 @@ function normalizeTenantAdminCreationPolicy(policy: TenantAdminCreationPolicy): 
         throw new Error('Backend returned an invalid tenant admin-creation policy.');
     }
 
-    return policy;
+    return {
+        ...policy,
+        twoFactorMode: policy.twoFactorMode ?? 'all',
+        twoFactorGraceDays: policy.twoFactorGraceDays ?? 0,
+    };
 }
 
 function toOverview(tickets: Ticket[]): OverviewData {
@@ -686,6 +673,8 @@ function repairOutcome(result: RepairCloseRequest['result']): string {
 interface BackendTenantSettings {
     tenantId?: number;
     allowAdminsCreateAdmins?: boolean;
+    twoFactorMode?: 'all' | 'admins' | 'optional';
+    twoFactorGraceDays?: number;
     assignmentMode?: AdminSettings['assignmentMode'];
     manager?: string;
     slaEnabled?: boolean;

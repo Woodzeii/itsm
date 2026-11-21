@@ -33,5 +33,6 @@ public interface IUserAdminService
     Task<UserAdminDto> SetActiveAsync(int id, bool isActive, int actorId, string? ip, CancellationToken ct = default);
     Task<UserAdminDto> SetRolesAsync(int id, SetUserRolesRequest request, int actorId, string? ip, CancellationToken ct = default);
     Task<UserAdminDto> ResetMfaAsync(int id, int actorId, string? ip, CancellationToken ct = default);
+    Task<UserAdminDto> ResetPasswordAsync(int id, string newPassword, int actorId, string? ip, CancellationToken ct = default);
     Task<UserAdminDto> UnlockAsync(int id, int actorId, string? ip, CancellationToken ct = default);
 }

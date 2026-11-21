@@ -76,3 +76,8 @@ public class SetUserRolesRequest
     public List<string> RoleCodes { get; set; } = new();
     public bool IsManager { get; set; }
 }
+
+public class ResetUserPasswordRequest
+{
+    public string NewPassword { get; set; } = string.Empty;
+}

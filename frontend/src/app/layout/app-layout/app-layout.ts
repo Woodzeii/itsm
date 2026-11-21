@@ -1,6 +1,19 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
+import { environment } from '../../../environments/environment';
+
+interface NotificationItem {
+  id: number;
+  type: string;
+  title: string;
+  body?: string | null;
+  ticketId?: number | null;
+  isRead: boolean;
+  createdAt: string;
+  unreadCount: number;
+}
 
 @Component({
   selector: 'app-layout',
@@ -71,18 +84,55 @@ import { AuthService } from '../../core/auth/auth.service';
         <header class="topbar">
           <div class="breadcrumb"><span>Рабочее пространство</span><span class="crumb-divider">/</span><strong>Service Desk</strong></div>
           <div class="top-actions">
-          <button class="icon-button notification-button" type="button" aria-label="Уведомления">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Zm-8 13h4"/><path d="M9 18h6"/></svg>
-            <span class="notification-dot"></span>
-          </button>
+          <div class="notification-wrapper">
+            <button class="icon-button notification-button" type="button" [attr.aria-expanded]="notificationOpen"
+              aria-label="Уведомления" (click)="toggleNotifications()">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Zm-8 13h4"/><path d="M9 18h6"/></svg>
+              @if (unreadCount > 0) { <span class="notification-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span> }
+            </button>
+            @if (notificationOpen) {
+              <section class="notification-dropdown" role="dialog" aria-label="Уведомления">
+                <header><strong>Уведомления</strong><button type="button" (click)="markAllNotificationsRead()" [disabled]="unreadCount === 0">Прочитать все</button></header>
+                <div class="notification-list">
+                  @for (notification of notifications; track notification.id) {
+                    <button type="button" class="notification-item" [class.unread]="!notification.isRead"
+                      (click)="openNotification(notification)">
+                      <span class="notification-item-dot" aria-hidden="true"></span>
+                      <span><strong>{{ notification.title }}</strong><small>{{ formatNotificationTime(notification.createdAt) }}</small></span>
+                    </button>
+                  }
+                  @if (!notifications.length) { <p class="notification-empty">Новых уведомлений нет</p> }
+                </div>
+              </section>
+            }
+          </div>
           <span class="top-divider"></span>
           <div class="user-profile">
-            <div class="avatar">{{ userInitial }}</div>
-            <div class="user-meta">
-              <strong>{{ userTitle }}</strong>
-              <small>{{ userRole }}</small>
-            </div>
-            <span class="chevron" aria-hidden="true">⌄</span>
+            <button class="profile-trigger" type="button" (click)="toggleProfileMenu()" [attr.aria-expanded]="isProfileMenuOpen" aria-label="Открыть меню пользователя">
+              <span class="avatar">{{ userInitial }}</span>
+              <span class="user-meta">
+                <strong>{{ userTitle }}</strong>
+                <small>{{ userRole }}</small>
+              </span>
+              <span class="chevron" aria-hidden="true">⌄</span>
+            </button>
+            @if (isProfileMenuOpen) {
+              <div class="profile-menu">
+                <div class="profile-menu-header"><strong>{{ userTitle }}</strong><small>{{ userRole }}</small></div>
+                <a routerLink="/profile/security" (click)="isProfileMenuOpen=false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 5 3 8 7 10 4-2 7-5 7-10V6l-7-3Z"/><path d="M9 12l2 2 4-4"/></svg>
+                  Многофакторная аутентификация
+                </a>
+                <a routerLink="/profile/security" (click)="isProfileMenuOpen=false">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+                  Сменить пароль
+                </a>
+                <button type="button" class="logout-menu-item" (click)="logout()">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v16h-6M3 12h11m-4-4 4 4-4 4"/></svg>
+                  Выйти
+                </button>
+              </div>
+            }
           </div>
           @if (isMultiRole) {
             <button
@@ -97,9 +147,6 @@ import { AuthService } from '../../core/auth/auth.service';
               <span class="role-switch-label">Сменить роль</span>
             </button>
           }
-          <button class="icon-button" type="button" (click)="logout()" aria-label="Выйти" title="Выйти">
-            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 4h6v16h-6M3 12h11m-4-4 4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
           </div>
         </header>
 
@@ -264,9 +311,90 @@ import { AuthService } from '../../core/auth/auth.service';
         color: #697586;
         cursor: pointer;
       }
-      .notification-dot { position: absolute; width: 6px; height: 6px; top: 6px; right: 6px; background: #2563eb; }
+      .notification-wrapper { position: relative; }
+      .notification-badge {
+        position: absolute;
+        top: -4px;
+        right: -5px;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        border: 2px solid #fff;
+        border-radius: 10px;
+        background: #dc2626;
+        color: #fff;
+        font-size: 9px;
+        font-weight: 800;
+        line-height: 14px;
+        text-align: center;
+        box-sizing: border-box;
+      }
+      .notification-dropdown {
+        position: absolute;
+        top: 44px;
+        right: 0;
+        z-index: 4000;
+        width: 360px;
+        max-height: 480px;
+        overflow: hidden;
+        border: 1px solid #dce3ed;
+        border-radius: 10px;
+        background: #fff;
+        color: #202734;
+        box-shadow: 0 16px 44px rgba(15, 23, 42, .18);
+      }
+      .notification-dropdown header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        min-height: 48px;
+        padding: 10px 14px;
+        border-bottom: 1px solid #edf0f4;
+      }
+      .notification-dropdown header strong { font-size: 13px; }
+      .notification-dropdown header button {
+        border: 0;
+        background: transparent;
+        color: #2563eb;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .notification-dropdown header button:disabled { color: #98a1af; cursor: default; }
+      .notification-list { max-height: 420px; overflow-y: auto; }
+      .notification-item {
+        display: grid;
+        grid-template-columns: 8px minmax(0, 1fr);
+        align-items: start;
+        gap: 10px;
+        width: 100%;
+        padding: 12px 14px;
+        border: 0;
+        border-bottom: 1px solid #edf0f4;
+        background: #fff;
+        color: #344256;
+        text-align: left;
+        cursor: pointer;
+      }
+      .notification-item:hover { background: #f4f7fb; }
+      .notification-item.unread { background: #eef5ff; }
+      .notification-item-dot { width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; background: #b7c0cd; }
+      .notification-item.unread .notification-item-dot { background: #2563eb; }
+      .notification-item span:last-child { display: grid; gap: 5px; min-width: 0; }
+      .notification-item strong { font-size: 12px; line-height: 1.35; }
+      .notification-item small { color: #7b8798; font-size: 10px; }
+      .notification-empty { margin: 0; padding: 28px 14px; color: #7b8798; font-size: 12px; text-align: center; }
       .top-divider { width: 1px; height: 24px; background: #e4e7ec; }
       .chevron { color: #97a0ae; font-size: 15px; }
+      .profile-trigger { display:flex; align-items:center; gap:9px; border:0; background:transparent; padding:4px; cursor:pointer; color:inherit; text-align:left; }
+      .profile-menu { position:absolute; right:0; top:48px; width:260px; z-index:30; padding:8px; border:1px solid #e1e6ed; border-radius:10px; background:#fff; box-shadow:0 12px 32px rgba(15,23,42,.16); }
+      .profile-menu-header { display:flex; flex-direction:column; gap:3px; padding:8px 10px 10px; border-bottom:1px solid #edf0f4; margin-bottom:6px; }
+      .profile-menu-header strong { font-size:12px; } .profile-menu-header small { color:#8a94a3; font-size:10px; }
+      .profile-menu a, .logout-menu-item { width:100%; min-height:38px; display:flex; align-items:center; gap:10px; border:0; border-radius:7px; padding:8px 10px; background:transparent; color:#4e5a69; font-size:12px; text-decoration:none; cursor:pointer; }
+      .profile-menu a:hover, .logout-menu-item:hover { background:#f3f6fa; }
+      .profile-menu svg { width:17px; height:17px; fill:none; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+      .logout-menu-item { color:#b42318; }
       .breadcrumb { display: flex; align-items: center; gap: 9px; color: #98a1af; font-size: 12px; }
       .breadcrumb strong { color: #586273; font-weight: 550; }
       .crumb-divider { color: #c4c9d1; }
@@ -293,6 +421,7 @@ import { AuthService } from '../../core/auth/auth.service';
         display: flex;
         align-items: center;
         gap: 9px;
+        position: relative;
       }
 
       .content {
@@ -328,18 +457,25 @@ import { AuthService } from '../../core/auth/auth.service';
 })
 export class AppLayoutComponent implements OnInit, OnDestroy {
   private expiryTimer: ReturnType<typeof setTimeout> | null = null;
+  private notificationTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly baseUrl = environment.apiBaseUrl;
 
   isAdmin = false;
   isAdminOrAgent = false;
   isTenantAdmin = false;
   isMultiRole = false;
+  isProfileMenuOpen = false;
   userInitial = 'П';
   userTitle = 'Пользователь';
   userRole = 'Пользователь';
+  notifications: NotificationItem[] = [];
+  unreadCount = 0;
+  notificationOpen = false;
 
   constructor(
     private readonly authService: AuthService,
     private readonly router: Router,
+    private readonly http: HttpClient,
   ) { }
 
   ngOnInit(): void {
@@ -360,6 +496,8 @@ export class AppLayoutComponent implements OnInit, OnDestroy {
     this.userTitle = login || this.userRole;
     this.userInitial = (login || this.userRole).charAt(0).toLocaleUpperCase();
     this.scheduleExpiry();
+    this.loadNotifications();
+    this.notificationTimer = setInterval(() => this.loadNotifications(), 45_000);
   }
 
   ngOnDestroy(): void {
@@ -367,6 +505,70 @@ export class AppLayoutComponent implements OnInit, OnDestroy {
       clearTimeout(this.expiryTimer);
       this.expiryTimer = null;
     }
+    if (this.notificationTimer !== null) {
+      clearInterval(this.notificationTimer);
+      this.notificationTimer = null;
+    }
+  }
+
+  toggleNotifications(): void {
+    this.notificationOpen = !this.notificationOpen;
+  }
+
+  loadNotifications(): void {
+    this.http.get<NotificationItem[]>(`${this.baseUrl}/notifications?skip=0&take=30`)
+      .subscribe({
+        next: items => {
+          this.notifications = items;
+          this.unreadCount = items[0]?.unreadCount
+            ?? items.filter(item => !item.isRead).length;
+        },
+        error: () => undefined,
+      });
+  }
+
+  markAllNotificationsRead(): void {
+    this.http.post<{ markedRead: number }>(`${this.baseUrl}/notifications/read-all`, {})
+      .subscribe({
+        next: () => {
+          this.notifications = this.notifications.map(item => ({ ...item, isRead: true, unreadCount: 0 }));
+          this.unreadCount = 0;
+        },
+        error: () => undefined,
+      });
+  }
+
+  openNotification(notification: NotificationItem): void {
+    if (!notification.isRead) {
+      this.http.patch<NotificationItem>(
+        `${this.baseUrl}/notifications/${notification.id}/read`,
+        {},
+      ).subscribe({
+        next: updated => {
+          this.notifications = this.notifications.map(item =>
+            item.id === notification.id ? updated : item);
+          this.unreadCount = updated.unreadCount;
+        },
+        error: () => undefined,
+      });
+    }
+
+    this.notificationOpen = false;
+    if (notification.ticketId) {
+      this.router.navigate(['/tickets'], { queryParams: { ticketId: notification.ticketId } });
+    }
+  }
+
+  formatNotificationTime(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
   }
 
   /** Автоматически завершает сессию, когда истекает срок действия токена. */
@@ -384,6 +586,10 @@ export class AppLayoutComponent implements OnInit, OnDestroy {
 
   switchRole(): void {
     this.router.navigateByUrl('/select-role?switch=1');
+  }
+
+  toggleProfileMenu(): void {
+    this.isProfileMenuOpen = !this.isProfileMenuOpen;
   }
 
   logout(): void {

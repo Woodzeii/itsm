@@ -641,7 +641,12 @@ describe('HttpWorkspaceApiService backend contract', () => {
         expect(request.request.method).toBe('GET');
         request.flush({ tenantId: 1, allowAdminsCreateAdmins: true });
 
-        expect(policy).toEqual({ tenantId: 1, allowAdminsCreateAdmins: true });
+        expect(policy).toEqual({
+            tenantId: 1,
+            allowAdminsCreateAdmins: true,
+            twoFactorMode: 'all',
+            twoFactorGraceDays: 0,
+        });
     });
 
     it('saves the persisted tenant admin-creation policy without mock-only fields', () => {
@@ -653,6 +658,11 @@ describe('HttpWorkspaceApiService backend contract', () => {
         expect(request.request.body).toEqual({ allowAdminsCreateAdmins: false });
         request.flush({ tenantId: 1, allowAdminsCreateAdmins: false });
 
-        expect(policy).toEqual({ tenantId: 1, allowAdminsCreateAdmins: false });
+        expect(policy).toEqual({
+            tenantId: 1,
+            allowAdminsCreateAdmins: false,
+            twoFactorMode: 'all',
+            twoFactorGraceDays: 0,
+        });
     });
 });

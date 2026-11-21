@@ -8,41 +8,88 @@ namespace itsm.Infrastructure.Notifications;
 
 public sealed class NotificationService(ItsmDbContext db) : INotificationService
 {
-    public async Task<IReadOnlyList<NotificationResponse>> GetAsync(int userId, int skip = 0, int take = 30, CancellationToken ct = default)
+    public async Task<IReadOnlyList<NotificationResponse>> GetAsync(
+        int userId,
+        int skip = 0,
+        int take = 30,
+        CancellationToken ct = default)
     {
+        if (skip < 0) throw new ArgumentOutOfRangeException(nameof(skip));
+        if (take is < 1 or > 100) throw new ArgumentOutOfRangeException(nameof(take));
+
         var unreadCount = await GetUnreadCountAsync(userId, ct);
-        var items = await db.Notifications.AsNoTracking()
-            .Where(item => item.UserId == userId)
-            .OrderByDescending(item => item.CreatedAt).ThenByDescending(item => item.Id)
-            .Skip(skip).Take(take)
-            .Select(item => new NotificationResponse(item.Id, item.Type, item.Title, item.Body, item.TicketId, item.IsRead, item.CreatedAt, unreadCount))
+        var notifications = await db.Notifications
+            .AsNoTracking()
+            .Where(notification => notification.UserId == userId)
+            .OrderByDescending(notification => notification.CreatedAt)
+            .ThenByDescending(notification => notification.Id)
+            .Skip(skip)
+            .Take(take)
+            .Select(notification => new NotificationResponse(
+                notification.Id,
+                notification.Type,
+                notification.Title,
+                notification.Body,
+                notification.TicketId,
+                notification.IsRead,
+                notification.CreatedAt,
+                unreadCount))
             .ToArrayAsync(ct);
-        return items;
+
+        return notifications;
     }
 
     public async Task<NotificationResponse?> MarkReadAsync(int id, int userId, CancellationToken ct = default)
     {
-        var item = await db.Notifications.FirstOrDefaultAsync(notification => notification.Id == id && notification.UserId == userId, ct);
-        if (item is null) return null;
-        item.IsRead = true;
-        await db.SaveChangesAsync(ct);
+        var notification = await db.Notifications
+            .FirstOrDefaultAsync(item => item.Id == id && item.UserId == userId, ct);
+        if (notification is null) return null;
+
+        if (!notification.IsRead)
+        {
+            notification.IsRead = true;
+            await db.SaveChangesAsync(ct);
+        }
+
         var unreadCount = await GetUnreadCountAsync(userId, ct);
-        return new NotificationResponse(item.Id, item.Type, item.Title, item.Body, item.TicketId, true, item.CreatedAt, unreadCount);
+        return new NotificationResponse(
+            notification.Id,
+            notification.Type,
+            notification.Title,
+            notification.Body,
+            notification.TicketId,
+            notification.IsRead,
+            notification.CreatedAt,
+            unreadCount);
     }
 
     public async Task<int> MarkAllReadAsync(int userId, CancellationToken ct = default)
     {
-        var items = await db.Notifications.Where(item => item.UserId == userId && !item.IsRead).ToListAsync(ct);
-        foreach (var item in items) item.IsRead = true;
-        if (items.Count > 0) await db.SaveChangesAsync(ct);
-        return items.Count;
+        var unread = await db.Notifications
+            .Where(notification => notification.UserId == userId && !notification.IsRead)
+            .ToListAsync(ct);
+        foreach (var notification in unread)
+            notification.IsRead = true;
+
+        if (unread.Count > 0)
+            await db.SaveChangesAsync(ct);
+
+        return unread.Count;
     }
 
     public Task<int> GetUnreadCountAsync(int userId, CancellationToken ct = default) =>
-        db.Notifications.CountAsync(item => item.UserId == userId && !item.IsRead, ct);
+        db.Notifications.CountAsync(notification => notification.UserId == userId && !notification.IsRead, ct);
 
-    public async Task CreateNotification(int userId, string type, string message, int? ticketId, CancellationToken ct = default)
+    public async Task CreateNotification(
+        int userId,
+        string type,
+        string message,
+        int? ticketId,
+        CancellationToken ct = default)
     {
+        if (userId <= 0 || string.IsNullOrWhiteSpace(type) || string.IsNullOrWhiteSpace(message))
+            throw new ArgumentException("Некорректные параметры уведомления.");
+
         db.Notifications.Add(new Notification
         {
             UserId = userId,

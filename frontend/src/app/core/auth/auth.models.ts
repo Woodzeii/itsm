@@ -13,6 +13,10 @@ export interface LoginResponse {
     otpAuthUri: string;
     qrCodeImageBase64: string;
     message: string;
+    accessToken?: string;
+    tokenType?: string;
+    expiresIn?: number;
+    twoFactorGraceEndsAt?: string;
 }
 
 export interface VerifyTwoFactorRequest {

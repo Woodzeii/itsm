@@ -49,7 +49,6 @@ public static class DependencyInjection
         services.AddScoped<IAssetClassService, AssetClassService>();
         services.AddScoped<IAssetService, AssetService>();
         services.AddScoped<INotificationService, NotificationService>();
-        services.AddScoped<IReportService, ReportService>();
         services.AddScoped<ITicketService, TicketService>();
         services.AddScoped<ITicketAttachmentStorage, PhysicalTicketAttachmentStorage>();
         services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
