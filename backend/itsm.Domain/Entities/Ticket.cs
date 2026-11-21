@@ -34,7 +34,9 @@ public class Ticket : IMultiTenant
     public DateTimeOffset? ActualReactionTime { get; set; }
     public DateTimeOffset? ActualResolutionTime { get; set; }
     public bool SlaTimerPaused { get; set; } = false;
+    public DateTimeOffset? SlaPauseStartedAt { get; set; }
     public int SlaAccumulatedPauseMinutes { get; set; } = 0;
+    public string? SlaCalendarSnapshot { get; set; }
     public int EscalationLevel { get; set; } = 0;
     public string? TargetSystem { get; set; }
     public DateTimeOffset? PlannedStart { get; set; }
