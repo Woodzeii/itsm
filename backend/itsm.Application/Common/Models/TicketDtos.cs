@@ -155,6 +155,16 @@ public sealed record TicketAttachmentFile(
     Stream Content,
     string FileName);
 
+public sealed record NotificationResponse(
+    int Id,
+    string Type,
+    string Title,
+    string? Body,
+    int? TicketId,
+    bool IsRead,
+    DateTimeOffset CreatedAt,
+    int UnreadCount);
+
 /// <summary>Details needed to associate an uploaded file with a ticket message.</summary>
 public sealed record TicketAttachmentUploadResponse(
     string Id,
