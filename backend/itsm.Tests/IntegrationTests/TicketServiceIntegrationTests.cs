@@ -36,8 +36,69 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
             log.TicketId == ticket.Id && log.FieldName == "created"));
     }
 
+    [Fact]
+    public async Task CreateAndStatusChangesApplySlaDeadlinesPausesAndTimestamps()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var service = CreateService(scope);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "manual" });
+        var creator = await CreateUserAsync(scope.Db);
+        var policy = new SlaPolicy
+        {
+            Name = "Integration SLA",
+            TicketTypeId = 1,
+            CriticalityLevelId = 1,
+            ScheduleType = "24x7",
+            ReactionTimeMinutes = 60,
+            ResolutionTimeMinutes = 120
+        };
+        scope.Db.SlaPolicies.Add(policy);
+        scope.Db.TicketStatusTransitions.Add(new TicketStatusTransition
+        {
+            FromStatusId = 1,
+            ToStatusId = 4
+        });
+        await scope.Db.SaveChangesAsync();
 
+        var ticket = await service.CreateAsync(
+            NewTicketRequest() with { Priority = "Низкий" },
+            creator.Id,
+            isStaff: false,
+            isEngineer: false);
 
+        Assert.Equal(policy.Id, await scope.Db.Tickets
+            .Where(item => item.Id == ticket.Id)
+            .Select(item => item.SlaPolicyId)
+            .SingleAsync());
+        Assert.Equal(ticket.CreatedAt.AddMinutes(60), ticket.SlaReactionDeadline!.Value);
+        Assert.Equal(ticket.CreatedAt.AddMinutes(120), ticket.SlaResolutionDeadline!.Value);
+
+        await service.ChangeStatusAsync(
+            ticket.Id,
+            new ChangeTicketStatusRequest { StatusId = 4 },
+            creator.Id,
+            []);
+        var pausedAt = DateTimeOffset.UtcNow.AddMinutes(-60);
+        var trackedTicket = await scope.Db.Tickets.SingleAsync(item => item.Id == ticket.Id);
+        trackedTicket.SlaPauseStartedAt = pausedAt;
+        await scope.Db.SaveChangesAsync();
+
+        var resumed = await service.ChangeStatusAsync(
+            ticket.Id,
+            new ChangeTicketStatusRequest { StatusId = 2 },
+            creator.Id,
+            []);
+        var persisted = await scope.Db.Tickets.SingleAsync(item => item.Id == ticket.Id);
+
+        Assert.NotNull(persisted.ActualResolutionTime);
+        Assert.NotNull(persisted.ActualReactionTime);
+        Assert.False(persisted.SlaTimerPaused);
+        Assert.InRange(persisted.SlaAccumulatedPauseMinutes, 60, 61);
+        Assert.Equal(
+            ticket.SlaReactionDeadline!.Value.AddMinutes(persisted.SlaAccumulatedPauseMinutes),
+            resumed!.SlaReactionDeadline!.Value);
+        Assert.Equal(ticket.SlaResolutionDeadline, resumed.SlaResolutionDeadline);
+    }
 
     [Fact]
     public async Task CreateTicketByStaffRecordsSeparateRequester()

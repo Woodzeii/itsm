@@ -238,6 +238,7 @@ export interface CreateTicketRequest {
     category?: string;
     type?: string;
     typeId?: number;
+    criticalityLevelId?: number;
     priority?: string;
     description?: string;
     assetId?: string;

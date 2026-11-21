@@ -625,6 +625,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<TimeOnly?>("EndTime")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("end_time");
+
                     b.Property<DateOnly>("ExceptionDate")
                         .HasColumnType("date")
                         .HasColumnName("exception_date");
@@ -633,12 +637,26 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_work_day");
 
+                    b.Property<TimeOnly?>("StartTime")
+                        .HasColumnType("time without time zone")
+                        .HasColumnName("start_time");
+
+                    b.Property<int?>("WorkingScheduleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("working_schedule_id");
+
                     b.HasKey("Id")
                         .HasName("pk_calendar_exceptions");
 
                     b.HasIndex("ExceptionDate")
                         .IsUnique()
+                        .HasFilter("working_schedule_id IS NULL")
                         .HasDatabaseName("ix_calendar_exceptions_exception_date");
+
+                    b.HasIndex("WorkingScheduleId", "ExceptionDate")
+                        .IsUnique()
+                        .HasFilter("working_schedule_id IS NOT NULL")
+                        .HasDatabaseName("ix_calendar_exceptions_working_schedule_id_exception_date");
 
                     b.ToTable("calendar_exceptions", "public");
                 });
@@ -1514,6 +1532,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int?>("CriticalityLevelId")
+                        .HasColumnType("integer")
+                        .HasColumnName("criticality_level_id");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text")
@@ -1531,10 +1553,58 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("schedule_type");
 
+                    b.Property<int?>("TicketTypeId")
+                        .HasColumnType("integer")
+                        .HasColumnName("ticket_type_id");
+
+                    b.Property<int?>("WorkingScheduleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("working_schedule_id");
+
                     b.HasKey("Id")
                         .HasName("pk_sla_policies");
 
+                    b.HasIndex("TicketTypeId", "CriticalityLevelId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_sla_policies_ticket_type_id_criticality_level_id");
+
+                    b.HasIndex("CriticalityLevelId")
+                        .HasDatabaseName("ix_sla_policies_criticality_level_id");
+
+                    b.HasIndex("WorkingScheduleId")
+                        .HasDatabaseName("ix_sla_policies_working_schedule_id");
+
                     b.ToTable("sla_policies", "public");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.CalendarException", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.WorkingSchedule", null)
+                        .WithMany()
+                        .HasForeignKey("WorkingScheduleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .HasConstraintName("fk_calendar_exceptions_working_schedules_working_schedule_id");
+                });
+
+            modelBuilder.Entity("itsm.Domain.Entities.SlaPolicy", b =>
+                {
+                    b.HasOne("itsm.Domain.Entities.CriticalityLevel", null)
+                        .WithMany()
+                        .HasForeignKey("CriticalityLevelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sla_policies_criticality_levels_criticality_level_id");
+
+                    b.HasOne("itsm.Domain.Entities.TicketType", null)
+                        .WithMany()
+                        .HasForeignKey("TicketTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sla_policies_ticket_types_ticket_type_id");
+
+                    b.HasOne("itsm.Domain.Entities.WorkingSchedule", null)
+                        .WithMany()
+                        .HasForeignKey("WorkingScheduleId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sla_policies_working_schedules_working_schedule_id");
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.SlaValue", b =>
@@ -1877,6 +1947,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDefaultValue(0)
                         .HasColumnName("sla_accumulated_pause_minutes");
 
+                    b.Property<DateTimeOffset?>("SlaPauseStartedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sla_pause_started_at");
+
                     b.Property<int?>("SlaPolicyId")
                         .HasColumnType("integer")
                         .HasColumnName("sla_policy_id");
@@ -1896,6 +1970,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("SlaResolutionStartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("sla_resolution_started_at");
+
+                    b.Property<string>("SlaCalendarSnapshot")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("sla_calendar_snapshot");
 
                     b.Property<bool>("SlaTimerPaused")
                         .ValueGeneratedOnAdd()
@@ -2783,11 +2861,53 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.HasKey("Id")
                         .HasName("pk_working_hours");
 
-                    b.HasIndex("WorkingScheduleId", "DayOfWeek")
+                    b.HasIndex("WorkingScheduleId", "DayOfWeek", "StartTime")
                         .IsUnique()
-                        .HasDatabaseName("ix_working_hours_working_schedule_id_day_of_week");
+                        .HasDatabaseName("ix_working_hours_working_schedule_id_day_of_week_start_time");
 
                     b.ToTable("working_hours", "public");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            DayOfWeek = 1,
+                            EndTime = new TimeOnly(18, 0),
+                            StartTime = new TimeOnly(9, 0),
+                            WorkingScheduleId = 2
+                        },
+                        new
+                        {
+                            Id = 2,
+                            DayOfWeek = 2,
+                            EndTime = new TimeOnly(18, 0),
+                            StartTime = new TimeOnly(9, 0),
+                            WorkingScheduleId = 2
+                        },
+                        new
+                        {
+                            Id = 3,
+                            DayOfWeek = 3,
+                            EndTime = new TimeOnly(18, 0),
+                            StartTime = new TimeOnly(9, 0),
+                            WorkingScheduleId = 2
+                        },
+                        new
+                        {
+                            Id = 4,
+                            DayOfWeek = 4,
+                            EndTime = new TimeOnly(18, 0),
+                            StartTime = new TimeOnly(9, 0),
+                            WorkingScheduleId = 2
+                        },
+                        new
+                        {
+                            Id = 5,
+                            DayOfWeek = 5,
+                            EndTime = new TimeOnly(18, 0),
+                            StartTime = new TimeOnly(9, 0),
+                            WorkingScheduleId = 2
+                        });
                 });
 
             modelBuilder.Entity("itsm.Domain.Entities.WorkingSchedule", b =>
@@ -2823,6 +2943,19 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDefaultValue("24x7")
                         .HasColumnName("schedule_type");
 
+                    b.Property<string>("TimeZoneId")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("text")
+                        .HasDefaultValue("Europe/Moscow")
+                        .HasColumnName("time_zone_id");
+
+                    b.Property<int>("Version")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("version");
+
                     b.HasKey("Id")
                         .HasName("pk_working_schedules");
 
@@ -2835,7 +2968,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsActive = true,
                             Name = "24x7",
-                            ScheduleType = "24x7"
+                            ScheduleType = "24x7",
+                            TimeZoneId = "Europe/Moscow",
+                            Version = 1
                         },
                         new
                         {
@@ -2843,7 +2978,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             CreatedAt = new DateTimeOffset(new DateTime(2026, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)),
                             IsActive = true,
                             Name = "8x5 Стандартный",
-                            ScheduleType = "work_hours"
+                            ScheduleType = "work_hours",
+                            TimeZoneId = "Europe/Moscow",
+                            Version = 1
                         });
                 });
 

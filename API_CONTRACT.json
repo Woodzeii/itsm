@@ -3475,6 +3475,12 @@
           "typeId": {
             "type": "integer"
           },
+          "criticalityLevelId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true,
+            "description": "Уровень критичности для выбора SLA-политики. Если не задан, определяется по совпадению имени уровня с priority."
+          },
           "priority": {
             "type": "string"
           },
