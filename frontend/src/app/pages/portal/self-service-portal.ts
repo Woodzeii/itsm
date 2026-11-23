@@ -1,16 +1,17 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit, ViewChild, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { AdminSettings, AssetRecord, FormFieldDefinition, PortalTicketRequest, Ticket, TicketAttachment, TicketFormDefinition, PortalTicketType, TicketType } from '../../core/workspace/workspace.models';
+import { AdminSettings, PortalTicketRequest, Ticket, TicketAttachment, TicketFormDefinition, PortalTicketType } from '../../core/workspace/workspace.models';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 import { downloadTicketAttachment as saveTicketAttachment } from '../../core/workspace/download-ticket-attachment';
+import { DynamicTicketFormComponent } from '../../shared/dynamic-ticket-form/dynamic-ticket-form';
 
 @Component({
     selector: 'app-self-service-portal',
     standalone: true,
-    imports: [CommonModule, FormsModule],
+    imports: [CommonModule, FormsModule, DynamicTicketFormComponent],
     template: `
     <section class="portal">
       <header class="portal-head"><div><p>ITSM NC · Портал самообслуживания</p><h1>{{ active ? active.id : view === 'create' ? 'Новая заявка' : 'Мои заявки' }}</h1></div><div class="account"><span>{{ loginInitial }}</span>{{ login }}</div></header>
@@ -34,11 +35,10 @@ import { downloadTicketAttachment as saveTicketAttachment } from '../../core/wor
             <div class="form-title"><p>Новая заявка</p><h2>Опишите, что случилось</h2></div>
             @if (isLoadingTypes) { <p class="empty wide">Загружаем доступные типы заявок...</p> }
             @else if (!portalTypes.length) { <p class="feedback error wide">Нет доступных типов заявок.</p> }
-            <label>Тип заявки<select name="ticketType" required [(ngModel)]="typeId"><option value="">Выберите тип заявки</option>@for (type of portalTypes; track type.id) { <option [value]="type.id">{{ type.name }}</option> }</select></label>
-            <label>Тема <span class="required">*</span><input name="title" required [(ngModel)]="title" placeholder="Кратко сформулируйте вопрос" /></label>
-            <label>Критичность <span class="required">*</span><select name="priority" required [(ngModel)]="priority">@for (level of criticalities; track level) { <option [value]="level">{{ level }}</option> }</select></label>
-            <label class="wide">Описание <span class="required">*</span><textarea name="description" required [(ngModel)]="description" placeholder="Подробно опишите ситуацию и ожидаемый результат"></textarea></label>
-            <footer class="form-footer"><button class="primary" type="submit" [disabled]="isSubmitting || !typeId || !title.trim() || !description.trim()">Отправить заявку</button><button class="quiet" type="button" (click)="view = 'list'">Отмена</button></footer>
+            <label>Тип заявки<select name="ticketType" required [(ngModel)]="typeId" (ngModelChange)="loadForm($event)"><option value="">Выберите тип заявки</option>@for (type of portalTypes; track type.id) { <option [value]="type.id">{{ type.name }}</option> }</select></label>
+            @if (formLoading) { <p class="empty wide">Загружаем схему формы...</p> }
+            @else if (selectedForm) { <app-dynamic-ticket-form class="wide" [definition]="selectedForm" [criticalities]="settings?.criticalities ?? criticalities" [defaultPriority]="priority" (validityChange)="dynamicFormValid = $event" /> }
+            <footer class="form-footer"><button class="primary" type="submit" [disabled]="isSubmitting || formLoading || !selectedForm || !dynamicFormValid">Отправить заявку</button><button class="quiet" type="button" (click)="view = 'list'">Отмена</button></footer>
           </form>
         </section>
       }
@@ -103,6 +103,7 @@ import { downloadTicketAttachment as saveTicketAttachment } from '../../core/wor
     `],
 })
 export class SelfServicePortalComponent implements OnInit {
+    @ViewChild(DynamicTicketFormComponent) dynamicForm?: DynamicTicketFormComponent;
     private readonly workspace = inject(WorkspaceService);
     private readonly portalApi = inject(HttpWorkspaceApiService);
     private readonly chatApi = inject(HttpWorkspaceApiService);
@@ -118,9 +119,10 @@ export class SelfServicePortalComponent implements OnInit {
     policies = this.workspace.getEscalationPolicies();
     policyList = [] as import('../../core/workspace/workspace.models').EscalationPolicy[];
     typeId = '';
-    title = '';
-    description = '';
     priority = '';
+    selectedForm: TicketFormDefinition | null = null;
+    formLoading = false;
+    dynamicFormValid = false;
     commentFiles: File[] = [];
     reply = '';
     error = '';
@@ -130,6 +132,7 @@ export class SelfServicePortalComponent implements OnInit {
     loadingComments = false;
     isSendingComment = false;
     private commentFileInput?: HTMLInputElement;
+    private formRequestVersion = 0;
 
     get login(): string { return this.auth.getLogin() || 'Пользователь портала'; }
     get loginInitial(): string { return this.login.charAt(0).toLocaleUpperCase(); }
@@ -147,6 +150,7 @@ export class SelfServicePortalComponent implements OnInit {
                 this.ticketTypes = types;
                 this.typeId = String(types[0]?.id ?? '');
                 this.isLoadingTypes = false;
+                if (this.view === 'create' && this.typeId) this.loadForm(this.typeId);
                 this.changeDetector.markForCheck();
             },
             error: err => {
@@ -166,12 +170,40 @@ export class SelfServicePortalComponent implements OnInit {
         });
     }
 
-    openCreate(): void { this.resetForm(); this.view = 'create'; }
+    openCreate(): void {
+        this.resetForm();
+        this.view = 'create';
+        this.loadForm(this.typeId);
+    }
     resetForm(): void {
-      this.title = '';
-      this.description = '';
-      this.priority = 'Средний';
-      this.error = '';
+        this.priority = 'Средний';
+        this.error = '';
+        this.dynamicFormValid = false;
+    }
+    loadForm(ticketTypeId: string): void {
+        this.selectedForm = null;
+        this.dynamicFormValid = false;
+        const requestVersion = ++this.formRequestVersion;
+        if (!ticketTypeId) {
+            this.formLoading = false;
+            return;
+        }
+
+        this.formLoading = true;
+        this.workspace.getFormTemplate(ticketTypeId).subscribe({
+            next: form => {
+                if (requestVersion !== this.formRequestVersion) return;
+                this.selectedForm = form;
+                this.formLoading = false;
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                if (requestVersion !== this.formRequestVersion) return;
+                this.formLoading = false;
+                this.error = err?.error?.detail ?? err.message ?? 'Не удалось загрузить схему формы.';
+                this.changeDetector.markForCheck();
+            },
+        });
     }
     openTicket(ticket: Ticket): void {
         this.active = { ...ticket, comments: [] };
@@ -210,26 +242,53 @@ export class SelfServicePortalComponent implements OnInit {
             this.error = 'Выберите тип заявки.';
             return;
         }
+        const formData = this.dynamicForm?.getSubmission();
+        if (!formData || !this.selectedForm) {
+            this.error = 'Заполните обязательные поля формы.';
+            this.dynamicForm?.validate();
+            return;
+        }
         const request: PortalTicketRequest = {
-            title: this.title.trim(), description: this.description.trim(), requester: this.login,
-            type: this.portalTypes.find(type => type.id === typeId)?.name ?? '', typeId, priority: this.priority,
+            title: formData.title.trim(),
+            description: formData.description.trim(),
+            requester: this.login,
+            type: this.portalTypes.find(type => type.id === typeId)?.name ?? '',
+            typeId,
+            priority: formData.priority,
+            fields: formData.fields,
+            ...(formData.assetId ? { assetId: formData.assetId } : {}),
         };
         this.isSubmitting = true;
         this.portalApi.createPortalTicket(request).subscribe({
             next: ticket => {
-                this.tickets = [ticket, ...this.tickets];
-               
-                this.view = 'detail';
-                this.notice = `Заявка ${ticket.ticketNumber || ticket.id} зарегистрирована.`; this.openTicket(ticket);
-                this.isSubmitting = false;
-                this.changeDetector.markForCheck();
+                if (!formData.files.length) {
+                    this.finishCreatedTicket(ticket);
+                    return;
+                }
+                this.portalApi.addPortalComment(ticket.id, 'Вложения из формы заявки', formData.files).subscribe({
+                    next: () => this.finishCreatedTicket(ticket),
+                    error: err => this.finishCreatedTicket(ticket, err),
+                });
             },
             error: err => {
-                this.error = err.message;
+                this.error = err?.error?.detail ?? err.message;
                 this.isSubmitting = false;
                 this.changeDetector.markForCheck();
             },
         });
+    }
+
+    private finishCreatedTicket(ticket: Ticket, attachmentError?: { error?: { detail?: string }; message?: string }): void {
+        this.tickets = [ticket, ...this.tickets];
+        this.view = 'detail';
+        this.notice = `Заявка ${ticket.ticketNumber || ticket.id} зарегистрирована.`;
+        this.openTicket(ticket);
+        this.isSubmitting = false;
+        if (attachmentError) {
+            const detail = attachmentError.error?.detail ?? attachmentError.message ?? 'неизвестная ошибка';
+            this.error = `Заявка создана, но вложения из формы не прикреплены: ${detail}`;
+        }
+        this.changeDetector.markForCheck();
     }
 
     sendComment(): void {

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using itsm.Domain.Entities;
 using itsm.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authorization;
@@ -11,10 +12,11 @@ namespace itsm.WebApi.Controllers;
 
 [ApiController]
 [Route("api/form-templates")]
-[Authorize(Roles = "admin,tenant_owner")]
+[Authorize]
 public sealed class FormTemplatesController(ItsmDbContext db) : ControllerBase
 {
     [HttpGet("{ticketTypeId:int}")]
+    [Authorize(Roles = "admin,tenant_owner,manager,agent,portal_user")]
     [EndpointSummary("Получить схему формы типа заявки")]
     [ProducesResponseType(typeof(FormTemplateResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -31,11 +33,14 @@ public sealed class FormTemplatesController(ItsmDbContext db) : ControllerBase
 
         if (template?.TicketType is null)
             return NotFound();
+        if (User.IsInRole("portal_user") && !IsStaff() && !template.TicketType.IsPortalAvailable)
+            return NotFound();
 
         return Ok(ToResponse(template));
     }
 
     [HttpPut("{ticketTypeId:int}")]
+    [Authorize(Roles = "admin,tenant_owner")]
     [EndpointSummary("Сохранить схему формы типа заявки")]
     [ProducesResponseType(typeof(FormTemplateResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -135,6 +140,17 @@ public sealed class FormTemplatesController(ItsmDbContext db) : ControllerBase
                 return $"Для поля «{field.Name}» не заданы обязательные настройки.";
             if (field.DefaultValue?.Length > 1000 || field.Validation?.Length > 1000 || field.Hint?.Length > 500)
                 return $"Настройки поля «{field.Name}» превышают допустимую длину.";
+            if (!string.IsNullOrEmpty(field.Validation))
+            {
+                try
+                {
+                    _ = new Regex(field.Validation, RegexOptions.None, TimeSpan.FromMilliseconds(100));
+                }
+                catch (ArgumentException)
+                {
+                    return $"Для поля «{field.Name}» задан некорректный шаблон проверки.";
+                }
+            }
             if (field.Options is { Count: > 100 }
                 || field.Options?.Any(option => option is null || option.Length > 200) == true)
                 return $"Список значений поля «{field.Name}» некорректен.";
@@ -230,6 +246,10 @@ public sealed class FormTemplatesController(ItsmDbContext db) : ControllerBase
 
     private BadRequestObjectResult Invalid(string message) =>
         BadRequest(new ProblemDetails { Title = "Некорректная схема формы", Detail = message });
+
+    private bool IsStaff() =>
+        User.IsInRole("admin") || User.IsInRole("tenant_owner")
+        || User.IsInRole("manager") || User.IsInRole("agent");
 
     private static readonly HashSet<string> AllowedFieldTypes = new(StringComparer.Ordinal)
     {

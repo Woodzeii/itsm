@@ -1,10 +1,10 @@
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { BehaviorSubject, of } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { Ticket, TicketComment } from '../../core/workspace/workspace.models';
+import { Ticket, TicketComment, TicketFormDefinition } from '../../core/workspace/workspace.models';
 import { TicketQueueComponent } from './ticket-queue';
 
 describe('TicketQueueComponent real queue', () => {
@@ -43,6 +43,7 @@ describe('TicketQueueComponent real queue', () => {
         getTicketHistoryPage: ReturnType<typeof vi.fn>;
         addTicketComment: ReturnType<typeof vi.fn>;
         getPortalTicketTypes: ReturnType<typeof vi.fn>;
+        getFormTemplate: ReturnType<typeof vi.fn>;
         getRequesters: ReturnType<typeof vi.fn>;
         createPortalTicket: ReturnType<typeof vi.fn>;
     };
@@ -70,6 +71,16 @@ describe('TicketQueueComponent real queue', () => {
                 attachments: [],
             } satisfies TicketComment)),
             getPortalTicketTypes: vi.fn().mockReturnValue(of([{ id: 1, name: 'Инцидент' }])),
+            getFormTemplate: vi.fn().mockReturnValue(of({
+                ticketTypeId: '1',
+                ticketTypeName: 'Инцидент',
+                fields: [
+                    { id: 'subject', name: 'Тема', type: 'string', required: true, visibleToRequester: true, immutable: true },
+                    { id: 'description', name: 'Описание', type: 'textarea', required: true, visibleToRequester: true, immutable: true },
+                    { id: 'criticality', name: 'Критичность', type: 'dictionary', required: true, visibleToRequester: true, immutable: true, options: ['Высокий', 'Средний'] },
+                    { id: 'location', name: 'Кабинет', type: 'string', required: false, visibleToRequester: true },
+                ],
+            } satisfies TicketFormDefinition)),
             getRequesters: vi.fn().mockReturnValue(of([
                 { id: 7, username: 'anna.belova', fullName: 'Анна Белова', department: 'Бухгалтерия', email: 'anna@itsm.local' },
             ])),
@@ -114,10 +125,14 @@ describe('TicketQueueComponent real queue', () => {
         }).compileComponents();
     });
 
-    function createComponent(): TicketQueueComponent {
+    function createFixture(): ComponentFixture<TicketQueueComponent> {
         const fixture = TestBed.createComponent(TicketQueueComponent);
         fixture.detectChanges();
-        return fixture.componentInstance;
+        return fixture;
+    }
+
+    function createComponent(): TicketQueueComponent {
+        return createFixture().componentInstance;
     }
 
     it('loads the engineer queue from GET /api/tickets through the HTTP service', () => {
@@ -230,10 +245,13 @@ describe('TicketQueueComponent real queue', () => {
     });
 
     it('passes the selected requester when a staff member creates a ticket on behalf of a user', () => {
-        const component = createComponent();
+        const fixture = createFixture();
+        const component = fixture.componentInstance;
         component.openCreate();
-        component.newTicketTitle = 'Не работает 1С';
-        component.newTicketDescription = 'Бухгалтер не может открыть базу';
+        fixture.detectChanges();
+        component.createTicketForm!.controlFor(component.createTicketForm!.displayedFields[0]!).setValue('Не работает 1С');
+        component.createTicketForm!.controlFor(component.createTicketForm!.displayedFields[1]!).setValue('Бухгалтер не может открыть базу');
+        component.createTicketForm!.controlFor(component.createTicketForm!.displayedFields[2]!).setValue('Средний');
         component.newTicketRequesterId = '7';
 
         component.createTicket();
@@ -245,10 +263,14 @@ describe('TicketQueueComponent real queue', () => {
     });
 
     it('creates a ticket from the queue form and adds it to the queue', () => {
-        const component = createComponent();
+        const fixture = createFixture();
+        const component = fixture.componentInstance;
         component.openCreate();
-        component.newTicketTitle = 'Новая заявка';
-        component.newTicketDescription = 'Подробное описание';
+        fixture.detectChanges();
+        component.createTicketForm!.controlFor(component.createTicketForm!.displayedFields[0]!).setValue('Новая заявка');
+        component.createTicketForm!.controlFor(component.createTicketForm!.displayedFields[1]!).setValue('Подробное описание');
+        component.createTicketForm!.controlFor(component.createTicketForm!.displayedFields[2]!).setValue('Средний');
+        component.createTicketForm!.controlFor(component.createTicketForm!.displayedFields[3]!).setValue('Кабинет 12');
 
         component.createTicket();
 
@@ -259,6 +281,7 @@ describe('TicketQueueComponent real queue', () => {
             type: 'Инцидент',
             typeId: 1,
             priority: 'Средний',
+            fields: { location: 'Кабинет 12' },
         });
         expect(component.tickets[0].id).toBe('44');
         expect(component.showCreateForm).toBe(false);
