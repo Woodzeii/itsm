@@ -546,6 +546,32 @@ describe('AdminWorkspaceComponent user list', () => {
         expect(component.reportDetailOpen).toBe(true);
     });
 
+    it('loads reports for the last seven calendar days on initial entry', async () => {
+        TestBed.inject(ActivatedRoute).snapshot.data['section'] = 'reports';
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        const today = new Date();
+        const weekAgo = new Date(today);
+        weekAgo.setDate(today.getDate() - 6);
+        const toInputValue = (date: Date) => {
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${date.getFullYear()}-${month}-${day}`;
+        };
+        const from = toInputValue(weekAgo);
+        const to = toInputValue(today);
+        const component = fixture.componentInstance;
+
+        expect(component.reportFrom).toBe(from);
+        expect(component.reportTo).toBe(to);
+        expect(tenantSettingsApi.getReports).toHaveBeenCalledWith(from, to);
+        expect((fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('[name="from"]')?.value).toBe(from);
+        expect((fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('[name="to"]')?.value).toBe(to);
+    });
+
     it('shows repair outcome totals in the pie chart alongside report details', () => {
         TestBed.inject(ActivatedRoute).snapshot.data['section'] = 'reports';
         const fixture = TestBed.createComponent(AdminWorkspaceComponent);
