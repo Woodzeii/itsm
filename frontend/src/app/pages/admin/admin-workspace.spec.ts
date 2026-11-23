@@ -545,4 +545,65 @@ describe('AdminWorkspaceComponent user list', () => {
         expect(component.reports).toHaveLength(1);
         expect(component.reportDetailOpen).toBe(true);
     });
+
+    it('loads reports for the last seven calendar days on initial entry', async () => {
+        TestBed.inject(ActivatedRoute).snapshot.data['section'] = 'reports';
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        const today = new Date();
+        const weekAgo = new Date(today);
+        weekAgo.setDate(today.getDate() - 6);
+        const toInputValue = (date: Date) => {
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${date.getFullYear()}-${month}-${day}`;
+        };
+        const from = toInputValue(weekAgo);
+        const to = toInputValue(today);
+        const component = fixture.componentInstance;
+
+        expect(component.reportFrom).toBe(from);
+        expect(component.reportTo).toBe(to);
+        expect(tenantSettingsApi.getReports).toHaveBeenCalledWith(from, to);
+        expect((fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('[name="from"]')?.value).toBe(from);
+        expect((fixture.nativeElement as HTMLElement).querySelector<HTMLInputElement>('[name="to"]')?.value).toBe(to);
+    });
+
+    it('shows repair outcome totals in the pie chart alongside report details', () => {
+        TestBed.inject(ActivatedRoute).snapshot.data['section'] = 'reports';
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        const component = fixture.componentInstance;
+        (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.report-open')!.click();
+        component.activeReport = {
+            id: 'repairs',
+            title: 'Ремонты',
+            description: 'Закрытые заявки на ремонт за период',
+            value: 3,
+            count: 3,
+        };
+        component.reportDetail = {
+            columns: [],
+            items: [],
+            total: 3,
+            skip: 0,
+            take: 30,
+            aggregates: { 'В эксплуатацию': 2, 'На склад': 1 },
+        };
+        fixture.detectChanges();
+
+        expect(component.section).toBe('reports');
+        expect(component.reportDetailOpen).toBe(true);
+        expect(component.repairOutcomeSlices.map(slice => [slice.label, slice.value])).toEqual([
+            ['В эксплуатацию', 2],
+            ['На склад', 1],
+        ]);
+        expect(component.repairOutcomeGradient).toContain('conic-gradient');
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('Детализация отчета');
+        expect(fixture.nativeElement.querySelector('.repair-pie')).not.toBeNull();
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('В эксплуатацию');
+    });
 });
