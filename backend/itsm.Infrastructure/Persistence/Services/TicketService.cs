@@ -22,6 +22,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
     private const string RepairTypeCode = "repair";
     private const string ClosedStatusCode = "closed";
+    private const string PendingStatusCode = "pending";
+    private const string ReviewStatusCode = "review";
     private const string EscalatedStatusCode = "escalated";
     private const string InProgressStatusCode = "in_progress";
     private const long MaxAttachmentSizeBytes = 10 * 1024 * 1024;
@@ -176,6 +178,12 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         var now = DateTimeOffset.UtcNow;
         var tenantId = db.GetCurrentTenantId();
         var ticketNumber = await GenerateTicketNumberAsync(tenantId, ct);
+        var priority = request.Priority.Trim();
+        var normalizedPriority = priority.ToLowerInvariant();
+        var criticality = await db.CriticalityLevels.FirstOrDefaultAsync(
+            level => level.Code.ToLower() == normalizedPriority
+                || level.Name.ToLower() == normalizedPriority,
+            ct);
 
         var ticket = new Ticket
         {
@@ -183,7 +191,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             Description = request.Description.Trim(),
             TypeId = type.Id,
             StatusId = initialStatusId,
-            Priority = request.Priority.Trim(),
+            Priority = priority,
+            CriticalityLevelId = criticality?.Id,
             CreatorId = creatorId,
             RequesterId = requesterId,
             TenantId = tenantId,
@@ -193,6 +202,8 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             CreatedAt = now,
             UpdatedAt = now
         };
+        if (criticality is not null)
+            await ConfigureSlaAsync(ticket, criticality.Id, now, ct);
 
         db.Tickets.Add(ticket);
         var assetHistory = new List<AssetHistoryLog>();
@@ -513,12 +524,26 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
 
         var oldStatusId = ticket.StatusId;
         var now = DateTimeOffset.UtcNow;
+        RecordSlaBreaches(ticket, now);
+        var wasSlaPaused = ticket.IsSlaPaused;
+        if (!wasSlaPaused && targetStatus.IsSlaPausing)
+        {
+            ticket.SlaPausedAt = now;
+        }
+        else if (wasSlaPaused && !targetStatus.IsSlaPausing)
+        {
+            ResumeSlaTimers(ticket, now);
+        }
+
         ticket.StatusId = targetStatus.Id;
         ticket.Status = targetStatus;
         ticket.IsSlaPaused = targetStatus.IsSlaPausing;
         ticket.SlaTimerPaused = targetStatus.IsSlaPausing;
-        if (targetStatus.Code == ClosedStatusCode)
-            ticket.ActualResolutionTime = now;
+        if (ticket.SlaPolicyId is not null && targetStatus.Code == PendingStatusCode)
+            ticket.ActualReactionTime ??= now;
+        if (targetStatus.Code is ReviewStatusCode or ClosedStatusCode)
+            ticket.ActualResolutionTime ??= now;
+        RecordSlaBreaches(ticket, now);
         ticket.UpdatedAt = now;
         AddAudit(ticket, actorId, "statusId", oldStatusId.ToString(), targetStatus.Id.ToString());
 
@@ -1240,6 +1265,12 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             SourceType = "web",
             CreatedAt = DateTimeOffset.UtcNow
         };
+        if (isStaff && ticket.SlaPolicyId is not null)
+        {
+            var now = message.CreatedAt;
+            RecordSlaBreaches(ticket, now);
+            ticket.ActualReactionTime ??= now;
+        }
         db.TicketMessages.Add(message);
         foreach (var upload in uploads)
         {
@@ -1453,6 +1484,140 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         return int.TryParse(value, out var numericId)
             ? await db.Tickets.AsNoTracking().Where(ticket => ticket.Id == numericId).Select(ticket => (int?)ticket.Id).FirstOrDefaultAsync(ct)
             : null;
+    }
+
+    private async Task ConfigureSlaAsync(
+        Ticket ticket,
+        int criticalityLevelId,
+        DateTimeOffset createdAt,
+        CancellationToken ct)
+    {
+        var slaValue = await db.SlaValues.AsNoTracking().FirstOrDefaultAsync(
+            value => value.TicketTypeId == ticket.TypeId
+                && value.CriticalityLevelId == criticalityLevelId,
+            ct);
+        if (slaValue is null || slaValue.IsDisabled
+            || (slaValue.SlaPolicyId is null
+                && slaValue.ReactionTimeMinutes is null
+                && slaValue.ResolutionTimeMinutes is null))
+            return;
+
+        if (slaValue.ReactionTimeMinutes is <= 0 || slaValue.ResolutionTimeMinutes is <= 0)
+            throw new InvalidOperationException("В SLA должны быть заданы только положительные длительности.");
+
+        var policies = db.SlaPolicies.AsNoTracking();
+        if (slaValue.SlaPolicyId is int configuredPolicyId)
+        {
+            policies = policies.Where(policy => policy.Id == configuredPolicyId);
+        }
+        else
+        {
+            if (slaValue.ReactionTimeMinutes is int reactionMinutes)
+                policies = policies.Where(policy => policy.ReactionTimeMinutes == reactionMinutes);
+            if (slaValue.ResolutionTimeMinutes is int resolutionMinutes)
+                policies = policies.Where(policy => policy.ResolutionTimeMinutes == resolutionMinutes);
+        }
+
+        var policy = await policies.OrderBy(item => item.Id).FirstOrDefaultAsync(ct)
+            ?? throw new InvalidOperationException(
+                $"Для типа заявки {ticket.TypeId} и критичности {criticalityLevelId} не найдена SLA-политика с заданными сроками.");
+
+        var reactionDuration = slaValue.ReactionTimeMinutes ?? policy.ReactionTimeMinutes;
+        var resolutionDuration = slaValue.ResolutionTimeMinutes ?? policy.ResolutionTimeMinutes;
+        if (reactionDuration <= 0 || resolutionDuration <= 0)
+            throw new InvalidOperationException("Длительности реакции и решения в SLA должны быть больше нуля.");
+
+        var scheduleType = string.IsNullOrWhiteSpace(policy.ScheduleType)
+            ? "24x7"
+            : policy.ScheduleType;
+        var tenantId = db.GetCurrentTenantId();
+        var schedule = await db.WorkingSchedules.AsNoTracking()
+            .Where(item => item.IsActive
+                && item.ScheduleType == scheduleType
+                && (item.TenantId == tenantId || item.TenantId == null))
+            .OrderByDescending(item => item.TenantId == tenantId)
+            .ThenBy(item => item.Id)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new InvalidOperationException($"Не найдено активное расписание SLA типа «{scheduleType}».");
+        var hours = await db.WorkingHours.AsNoTracking()
+            .Where(item => item.WorkingScheduleId == schedule.Id)
+            .ToArrayAsync(ct);
+        var exceptions = (await db.CalendarExceptions.AsNoTracking()
+            .Where(item => item.TenantId == tenantId || item.TenantId == null)
+            .OrderBy(item => item.ExceptionDate)
+            .ToArrayAsync(ct))
+            .GroupBy(item => item.ExceptionDate)
+            .Select(group => group.OrderByDescending(item => item.TenantId == tenantId).First())
+            .ToArray();
+        var calendar = SlaCalendarCalculator.CreateSnapshot(schedule, hours, exceptions);
+
+        ticket.SlaPolicyId = policy.Id;
+        ticket.SlaCalendarSnapshot = SlaCalendarCalculator.Serialize(calendar);
+        ticket.SlaReactionStartedAt = createdAt;
+        ticket.SlaResolutionStartedAt = createdAt;
+        ticket.SlaReactionDeadline = SlaCalendarCalculator.AddWorkingMinutes(
+            createdAt,
+            reactionDuration,
+            calendar);
+        ticket.SlaResolutionDeadline = SlaCalendarCalculator.AddWorkingMinutes(
+            createdAt,
+            resolutionDuration,
+            calendar);
+    }
+
+    private static void ResumeSlaTimers(Ticket ticket, DateTimeOffset resumedAt)
+    {
+        var pauseStartedAt = ticket.SlaPausedAt;
+        if (pauseStartedAt is not null && ticket.SlaCalendarSnapshot is not null)
+        {
+            var calendar = SlaCalendarCalculator.Deserialize(ticket.SlaCalendarSnapshot);
+            var pausedWorkingTime = SlaCalendarCalculator.WorkingTimeBetween(
+                pauseStartedAt.Value,
+                resumedAt,
+                calendar);
+            ticket.SlaAccumulatedPauseMinutes = checked(
+                ticket.SlaAccumulatedPauseMinutes + (int)Math.Floor(pausedWorkingTime.TotalMinutes));
+
+            if (ticket.ActualReactionTime is null && ticket.SlaReactionDeadline is { } reactionDeadline)
+            {
+                if (ticket.SlaReactionBreachedAt is null && pauseStartedAt < reactionDeadline)
+                    ticket.SlaReactionDeadline = SlaCalendarCalculator.AddWorkingTime(
+                        reactionDeadline,
+                        pausedWorkingTime,
+                        calendar);
+                else if (reactionDeadline <= pauseStartedAt)
+                    ticket.SlaReactionBreachedAt ??= reactionDeadline;
+            }
+
+            if (ticket.ActualResolutionTime is null && ticket.SlaResolutionDeadline is { } resolutionDeadline)
+            {
+                if (ticket.SlaResolutionBreachedAt is null && pauseStartedAt < resolutionDeadline)
+                    ticket.SlaResolutionDeadline = SlaCalendarCalculator.AddWorkingTime(
+                        resolutionDeadline,
+                        pausedWorkingTime,
+                        calendar);
+                else if (resolutionDeadline <= pauseStartedAt)
+                    ticket.SlaResolutionBreachedAt ??= resolutionDeadline;
+            }
+        }
+
+        ticket.SlaPausedAt = null;
+    }
+
+    private static void RecordSlaBreaches(Ticket ticket, DateTimeOffset at)
+    {
+        if (ticket.IsSlaPaused)
+            return;
+
+        if (ticket.ActualReactionTime is null
+            && ticket.SlaReactionDeadline is { } reactionDeadline
+            && reactionDeadline <= at)
+            ticket.SlaReactionBreachedAt ??= reactionDeadline;
+
+        if (ticket.ActualResolutionTime is null
+            && ticket.SlaResolutionDeadline is { } resolutionDeadline
+            && resolutionDeadline <= at)
+            ticket.SlaResolutionBreachedAt ??= resolutionDeadline;
     }
 
     private async Task<string> GenerateTicketNumberAsync(int tenantId, CancellationToken ct)

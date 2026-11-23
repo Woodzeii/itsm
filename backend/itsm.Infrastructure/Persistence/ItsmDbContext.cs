@@ -227,13 +227,18 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
 
             entity.HasOne(x => x.TicketType).WithMany().HasForeignKey(x => x.TicketTypeId).OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(x => x.CriticalityLevel).WithMany().HasForeignKey(x => x.CriticalityLevelId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.SlaPolicy).WithMany().HasForeignKey(x => x.SlaPolicyId).OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<WorkingSchedule>(entity =>
         {
             entity.ToTable("working_schedules");
             entity.HasKey(x => x.Id);
+            entity.HasIndex(x => new { x.TenantId, x.ScheduleType, x.IsActive })
+                .HasDatabaseName("ix_working_schedules_tenant_schedule_active");
             entity.Property(x => x.ScheduleType).HasDefaultValue("24x7");
+            entity.Property(x => x.TimeZoneId).HasDefaultValue("Europe/Moscow");
+            entity.Property(x => x.Version).HasDefaultValue(1);
             entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
         });
@@ -242,7 +247,9 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
         {
             entity.ToTable("working_hours");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => new { x.WorkingScheduleId, x.DayOfWeek }).IsUnique();
+            entity.HasIndex(x => new { x.WorkingScheduleId, x.DayOfWeek, x.StartTime, x.EndTime })
+                .IsUnique()
+                .HasDatabaseName("ix_working_hours_schedule_day_interval");
 
             entity.HasOne(x => x.WorkingSchedule).WithMany(s => s.Hours).HasForeignKey(x => x.WorkingScheduleId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -303,7 +310,15 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
         {
             entity.ToTable("calendar_exceptions");
             entity.HasKey(x => x.Id);
-            entity.HasIndex(x => x.ExceptionDate).IsUnique();
+            entity.HasIndex(x => x.ExceptionDate)
+                .IsUnique()
+                .HasFilter("tenant_id IS NULL")
+                .HasDatabaseName("ix_calendar_exceptions_global_exception_date");
+            entity.HasIndex(x => new { x.TenantId, x.ExceptionDate })
+                .IsUnique()
+                .HasFilter("tenant_id IS NOT NULL")
+                .HasDatabaseName("ix_calendar_exceptions_tenant_exception_date");
+            entity.Property(x => x.WorkingHoursJson).HasColumnType("jsonb");
         });
 
         // --- 3. АКТИВЫ ---
@@ -392,6 +407,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.Property(x => x.IsSlaPaused).HasDefaultValue(false);
             entity.Property(x => x.SlaTimerPaused).HasDefaultValue(false);
             entity.Property(x => x.SlaAccumulatedPauseMinutes).HasDefaultValue(0);
+            entity.Property(x => x.SlaCalendarSnapshot).HasColumnType("jsonb");
             entity.Property(x => x.EscalationLevel).HasDefaultValue(0);
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
             entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");

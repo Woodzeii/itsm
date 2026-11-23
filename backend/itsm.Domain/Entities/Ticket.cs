@@ -28,12 +28,16 @@ public class Ticket : IMultiTenant
     public DateTimeOffset? SlaResolutionStartedAt { get; set; }
     public DateTimeOffset? SlaReactionDeadline { get; set; }
     public DateTimeOffset? SlaResolutionDeadline { get; set; }
+    public DateTimeOffset? SlaReactionBreachedAt { get; set; }
+    public DateTimeOffset? SlaResolutionBreachedAt { get; set; }
     public bool IsReactionEscalated { get; set; } = false;
     public bool IsResolutionEscalated { get; set; } = false;
     public bool IsSlaPaused { get; set; } = false;
     public DateTimeOffset? ActualReactionTime { get; set; }
     public DateTimeOffset? ActualResolutionTime { get; set; }
     public bool SlaTimerPaused { get; set; } = false;
+    public DateTimeOffset? SlaPausedAt { get; set; }
+    public string? SlaCalendarSnapshot { get; set; }
     public int SlaAccumulatedPauseMinutes { get; set; } = 0;
     public int EscalationLevel { get; set; } = 0;
     public string? TargetSystem { get; set; }

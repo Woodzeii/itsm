@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using itsm.Application.Common.Models;
@@ -5,6 +6,9 @@ using itsm.Domain.Constants;
 using itsm.Domain.Entities;
 using itsm.Infrastructure.Persistence;
 using itsm.Infrastructure.Persistence.Services;
+using itsm.WebApi.Controllers;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 
@@ -13,6 +17,34 @@ namespace itsm.Tests.IntegrationTests;
 [Collection(TicketServiceTestCollection.Name)]
 public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
 {
+    [Fact]
+    public async Task GetFormTemplateWithoutSavedTemplateReturnsBuiltInFields()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var controller = new FormTemplatesController(scope.Db)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(
+                        [new Claim(ClaimTypes.Role, "portal_user")],
+                        "test"))
+                }
+            }
+        };
+
+        var action = await controller.GetByTicketType(2, CancellationToken.None);
+        var ok = Assert.IsType<OkObjectResult>(action.Result);
+        var response = Assert.IsType<FormTemplatesController.FormTemplateResponse>(ok.Value);
+        var fields = response.FieldsSchema.GetProperty("fields").EnumerateArray().ToArray();
+
+        Assert.Equal(2, response.TicketTypeId);
+        Assert.Equal(["subject", "description", "criticality"],
+            fields.Select(field => field.GetProperty("id").GetString() ?? string.Empty).ToArray());
+        Assert.All(fields, field => Assert.True(field.GetProperty("immutable").GetBoolean()));
+    }
+
     [Fact]
     public async Task CreateTicketPersistsInitialStatusAndAudit()
     {
@@ -34,6 +66,58 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         Assert.Null(ticket.AssigneeId);
         Assert.True(await scope.Db.TicketAuditLogs.AnyAsync(log =>
             log.TicketId == ticket.Id && log.FieldName == "created"));
+    }
+
+    [Fact]
+    public async Task CreateTicketAssignsMatchingSlaAndCalculatesDeadlines()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var db = scope.Db;
+        var service = CreateService(scope);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "manual" });
+        var creator = await CreateUserAsync(db);
+        var policy = new SlaPolicy
+        {
+            Name = "High criticality SLA",
+            ScheduleType = "24x7",
+            ReactionTimeMinutes = 120,
+            ResolutionTimeMinutes = 600
+        };
+        db.SlaPolicies.Add(policy);
+        db.SlaValues.Add(new SlaValue
+        {
+            TicketTypeId = 1,
+            CriticalityLevelId = 3,
+            SlaPolicy = policy,
+            ReactionTimeMinutes = 120,
+            ResolutionTimeMinutes = 600
+        });
+        await db.SaveChangesAsync();
+
+        var response = await service.CreateAsync(
+            NewTicketRequest(),
+            creator.Id,
+            isStaff: false,
+            isEngineer: false);
+        var ticket = await db.Tickets.SingleAsync(item => item.Id == response.Id);
+
+        Assert.Equal(3, response.CriticalityLevelId);
+        Assert.Equal(policy.Id, ticket.SlaPolicyId);
+        Assert.Equal(ticket.CreatedAt.AddMinutes(120), ticket.SlaReactionDeadline);
+        Assert.Equal(ticket.CreatedAt.AddMinutes(600), ticket.SlaResolutionDeadline);
+        Assert.Equal(ticket.CreatedAt, ticket.SlaReactionStartedAt);
+        Assert.Equal(ticket.CreatedAt, ticket.SlaResolutionStartedAt);
+        Assert.NotNull(ticket.SlaCalendarSnapshot);
+
+        await service.ChangeStatusAsync(
+            response.Id,
+            new ChangeTicketStatusRequest { StatusId = 2 },
+            creator.Id,
+            []);
+        ticket = await db.Tickets.SingleAsync(item => item.Id == response.Id);
+
+        Assert.NotNull(ticket.ActualReactionTime);
+        Assert.Null(ticket.ActualResolutionTime);
     }
 
 
