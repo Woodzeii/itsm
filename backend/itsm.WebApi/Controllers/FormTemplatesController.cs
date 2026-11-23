@@ -22,6 +22,16 @@ public sealed class FormTemplatesController(ItsmDbContext db) : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<FormTemplateResponse>> GetByTicketType(int ticketTypeId, CancellationToken ct)
     {
+        var ticketType = await db.TicketTypes
+            .AsNoTracking()
+            .FirstOrDefaultAsync(
+                item => item.TenantId == db.CurrentTenantId && item.Id == ticketTypeId,
+                ct);
+        if (ticketType is null)
+            return NotFound();
+        if (User.IsInRole("portal_user") && !IsStaff() && !ticketType.IsPortalAvailable)
+            return NotFound();
+
         var template = await db.FormTemplates
             .AsNoTracking()
             .Where(item => item.TenantId == db.CurrentTenantId && item.TicketTypeId == ticketTypeId)
@@ -31,12 +41,9 @@ public sealed class FormTemplatesController(ItsmDbContext db) : ControllerBase
             .ThenByDescending(item => item.Id)
             .FirstOrDefaultAsync(ct);
 
-        if (template?.TicketType is null)
-            return NotFound();
-        if (User.IsInRole("portal_user") && !IsStaff() && !template.TicketType.IsPortalAvailable)
-            return NotFound();
-
-        return Ok(ToResponse(template));
+        return Ok(template?.TicketType is null
+            ? CreateDefaultResponse(ticketType)
+            : ToResponse(template));
     }
 
     [HttpPut("{ticketTypeId:int}")]
@@ -107,6 +114,32 @@ public sealed class FormTemplatesController(ItsmDbContext db) : ControllerBase
             template.TicketType!.Name,
             template.FieldsSchema,
             fields);
+    }
+
+    private static FormTemplateResponse CreateDefaultResponse(TicketType ticketType)
+    {
+        var schemaFields = new[]
+        {
+            new { id = "subject", name = "Тема", type = "string", required = true, visibleToRequester = true, immutable = true },
+            new { id = "description", name = "Описание", type = "textarea", required = true, visibleToRequester = true, immutable = true },
+            new { id = "criticality", name = "Критичность", type = "dictionary", required = true, visibleToRequester = true, immutable = true }
+        };
+        var schema = JsonSerializer.SerializeToElement(new
+        {
+            ticketTypeId = ticketType.Id,
+            ticketTypeName = ticketType.Name,
+            fields = schemaFields
+        }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        return new FormTemplateResponse(
+            ticketType.Id,
+            ticketType.Name,
+            schema,
+            [
+                new FormFieldResponse("subject", "Тема", "string", true, true, false, null, null, null, null, 0),
+                new FormFieldResponse("description", "Описание", "textarea", true, true, false, null, null, null, null, 1),
+                new FormFieldResponse("criticality", "Критичность", "dictionary", true, true, false, null, null, null, null, 2)
+            ]);
     }
 
     private static string? ValidateFields(
