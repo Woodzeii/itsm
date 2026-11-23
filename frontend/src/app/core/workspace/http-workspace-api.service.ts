@@ -37,6 +37,7 @@ import {
     TicketHistory,
     TicketAttachment,
     TicketFormDefinition,
+    TicketFormType,
     Ticket,
     TicketType,
     TenantRecord,
@@ -362,6 +363,20 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
             }),
         );
     }
+    getFormTicketTypes(): Observable<TicketFormType[]> {
+        return this.http.get<unknown>(`${this.baseUrl}/ticket-types`).pipe(map(parseTicketFormTypes));
+    }
+
+    getFormTemplate(ticketTypeId: string): Observable<TicketFormDefinition> {
+        const id = Number(ticketTypeId);
+        if (!Number.isSafeInteger(id) || id < 1) {
+            return throwError(() => new Error('Выбран некорректный тип заявки.'));
+        }
+
+        return this.http.get<unknown>(`${this.baseUrl}/form-templates/${id}`)
+            .pipe(map(response => parseTicketFormDefinition(response, ticketTypeId)));
+    }
+
     getForms() { return this.unsupported<TicketFormDefinition[]>('ticket forms'); }
     saveForm(_form: TicketFormDefinition) { return this.unsupported<TicketFormDefinition>('ticket forms'); }
     getEscalationPolicies() { return this.unsupported<EscalationPolicy[]>('escalation policies'); }
@@ -1081,6 +1096,129 @@ function toTicket(ticket: BackendTicket): Ticket {
         creatorName: ticket.creatorName,
         fields,
     };
+}
+
+function parseTicketFormTypes(value: unknown): TicketFormType[] {
+    if (!Array.isArray(value)) {
+        throw new Error('Сервер вернул типы заявок в неожиданном формате.');
+    }
+
+    return value.map(item => {
+        if (!isRecord(item)) {
+            throw new Error('Сервер вернул тип заявки в неожиданном формате.');
+        }
+
+        const id = item['id'] ?? item['Id'];
+        const name = item['name'] ?? item['Name'];
+        if (typeof id !== 'number' || !Number.isSafeInteger(id) || typeof name !== 'string') {
+            throw new Error('Сервер вернул тип заявки в неожиданном формате.');
+        }
+
+        return { id: String(id), name };
+    });
+}
+
+function parseTicketFormDefinition(value: unknown, requestedTypeId: string): TicketFormDefinition {
+    if (!isRecord(value)) {
+        throw new Error('Сервер вернул схему формы в неожиданном формате.');
+    }
+
+    const typeName = value['ticketTypeName'] ?? value['TicketTypeName'];
+    const directFields = value['fields'] ?? value['Fields'];
+    const schema = value['fieldsSchema'] ?? value['FieldsSchema'];
+    const schemaFields = isRecord(schema) ? schema['fields'] ?? schema['Fields'] : undefined;
+    const rawFields = Array.isArray(schemaFields) && schemaFields.length > 0 ? schemaFields : directFields;
+
+    if (typeof typeName !== 'string' || !Array.isArray(rawFields)) {
+        throw new Error('Сервер вернул схему формы в неожиданном формате.');
+    }
+
+    return {
+        ticketTypeId: requestedTypeId,
+        ticketTypeName: typeName,
+        fields: rawFields.map((field, index) => {
+            if (!isRecord(field)) {
+                return parseTicketFormField(field, index);
+            }
+            const fieldId = field['code'] ?? field['Code'] ?? field['id'] ?? field['Id'];
+            const metadata = Array.isArray(directFields)
+                ? directFields.find(item => isRecord(item)
+                    && (item['code'] ?? item['Code'] ?? item['id'] ?? item['Id']) === fieldId)
+                : undefined;
+            const mergedField = isRecord(metadata)
+                ? {
+                    ...metadata,
+                    ...field,
+                    isBuiltIn: metadata['isBuiltIn'] === true || metadata['IsBuiltIn'] === true
+                        || field['isBuiltIn'] === true || field['IsBuiltIn'] === true,
+                }
+                : field;
+            return parseTicketFormField(mergedField, index);
+        }),
+    };
+}
+
+function parseTicketFormField(value: unknown, index: number): FormFieldDefinition {
+    if (!isRecord(value)) {
+        throw new Error('Сервер вернул поле формы в неожиданном формате.');
+    }
+
+    const id = value['code'] ?? value['Code'] ?? value['id'] ?? value['Id'];
+    const name = value['name'] ?? value['Name'];
+    const rawType = value['fieldType'] ?? value['FieldType'] ?? value['type'] ?? value['Type'];
+    const required = value['isRequired'] ?? value['IsRequired'] ?? value['required'] ?? value['Required'];
+    const markedImmutable = value['isBuiltIn'] ?? value['IsBuiltIn'] ?? value['immutable'] ?? value['Immutable'] ?? false;
+    const engineerOnly = value['isEngineerOnly'] ?? value['IsEngineerOnly'] ?? false;
+    const fieldType = toFormFieldType(rawType);
+
+    if (typeof id !== 'string' || typeof name !== 'string' || typeof required !== 'boolean'
+        || typeof markedImmutable !== 'boolean' || typeof engineerOnly !== 'boolean') {
+        throw new Error(`Сервер вернул поле формы №${index + 1} в неожиданном формате.`);
+    }
+
+    const defaultValue = value['defaultValue'] ?? value['DefaultValue'];
+    const validation = value['validationRules'] ?? value['ValidationRules'] ?? value['validation'] ?? value['Validation'];
+    const hint = value['hint'] ?? value['Hint'];
+    const visibleToRequester = value['visibleToRequester'] ?? value['VisibleToRequester'];
+    const options = value['options'] ?? value['Options'];
+
+    return {
+        id,
+        name,
+        type: fieldType,
+        required,
+        immutable: markedImmutable || ['Тема', 'Описание', 'Критичность'].includes(name.trim()),
+        visibleToRequester: typeof visibleToRequester === 'boolean' ? visibleToRequester : !engineerOnly,
+        ...(typeof defaultValue === 'string' ? { defaultValue } : {}),
+        ...(typeof validation === 'string' ? { validation } : {}),
+        ...(typeof hint === 'string' ? { hint } : {}),
+        ...(Array.isArray(options) && options.every(option => typeof option === 'string') ? { options } : {}),
+    };
+}
+
+function toFormFieldType(value: unknown): FormFieldDefinition['type'] {
+    switch (value) {
+        case 'string':
+            return 'string';
+        case 'text':
+        case 'textarea':
+            return 'textarea';
+        case 'number':
+        case 'date':
+        case 'dictionary':
+        case 'asset':
+        case 'boolean':
+            return value;
+        case 'attachment':
+        case 'file':
+            return 'file';
+        default:
+            throw new Error('Сервер вернул неизвестный тип поля формы.');
+    }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function toTicketComment(message: BackendTicketMessage): TicketComment {

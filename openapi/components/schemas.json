@@ -829,6 +829,86 @@
           }
         }
       },
+      "FormTemplateResponse": {
+        "type": "object",
+        "required": [
+          "ticketTypeId",
+          "ticketTypeName",
+          "fieldsSchema",
+          "fields"
+        ],
+        "properties": {
+          "ticketTypeId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ticketTypeName": {
+            "type": "string"
+          },
+          "fieldsSchema": {
+            "$ref": "#/components/schemas/FormTemplateFieldsSchema"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoredFormField"
+            }
+          }
+        }
+      },
+      "StoredFormField": {
+        "type": "object",
+        "required": [
+          "code",
+          "name",
+          "fieldType",
+          "isRequired",
+          "isBuiltIn",
+          "isEngineerOnly",
+          "sortOrder"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "fieldType": {
+            "type": "string"
+          },
+          "isRequired": {
+            "type": "boolean"
+          },
+          "isBuiltIn": {
+            "type": "boolean"
+          },
+          "isEngineerOnly": {
+            "type": "boolean"
+          },
+          "defaultValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "validationRules": {
+            "type": "string",
+            "nullable": true
+          },
+          "hint": {
+            "type": "string",
+            "nullable": true
+          },
+          "dictionaryId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "sortOrder": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
       "FormFieldDefinition": {
         "type": "object",
         "required": [

@@ -70,6 +70,11 @@ export interface PortalTicketType {
     name: string;
 }
 
+export interface TicketFormType {
+    id: string;
+    name: string;
+}
+
 export interface RequesterOption {
     id: number;
     username: string;

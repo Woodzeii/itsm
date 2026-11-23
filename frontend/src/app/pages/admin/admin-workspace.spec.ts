@@ -100,6 +100,16 @@ describe('AdminWorkspaceComponent user list', () => {
                             manualAssignerName: null,
                             activeAgentsCount: 2,
                         }),
+                        getFormTicketTypes: () => of([{ id: '12', name: 'Инцидент' }]),
+                        getFormTemplate: () => of({
+                            ticketTypeId: '12',
+                            ticketTypeName: 'Инцидент',
+                            fields: [
+                                { id: 'subject', name: 'Тема', type: 'string', required: true, visibleToRequester: true, immutable: true },
+                                { id: 'description', name: 'Описание', type: 'textarea', required: true, visibleToRequester: true, immutable: true },
+                                { id: 'criticality', name: 'Критичность', type: 'dictionary', required: true, visibleToRequester: true, immutable: true },
+                            ],
+                        }),
                         getUsers: () => of([]),
                     },
                 },
@@ -142,6 +152,25 @@ describe('AdminWorkspaceComponent user list', () => {
                 cell => cell.getAttribute('data-label'),
             ),
         ).toEqual(['ФИО', 'Email', 'Username', 'Департамент', 'Руководитель', 'Статус', 'Роли', '2FA', 'Действия']);
+    });
+
+    it('does not allow built-in form fields to be deleted', async () => {
+        TestBed.overrideProvider(ActivatedRoute, {
+            useValue: { snapshot: { data: { section: 'forms' } } },
+        });
+
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(fixture.nativeElement.querySelectorAll('.field-row').length).toBe(3);
+        expect(fixture.nativeElement.querySelector('.field-row .icon-action')).toBeNull();
+
+        const form = fixture.componentInstance.activeForm!;
+        fixture.componentInstance.removeField(form, form.fields[0]!);
+        expect(form.fields).toHaveLength(3);
+        expect(fixture.componentInstance.error).toContain('нельзя удалить');
     });
 
     it('shows the owner badge and disables editing for a local admin', async () => {

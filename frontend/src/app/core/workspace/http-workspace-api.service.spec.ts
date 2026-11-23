@@ -46,6 +46,51 @@ describe('HttpWorkspaceApiService backend contract', () => {
         request.flush({});
     });
 
+    it('loads ticket form types from the API', () => {
+        let types: unknown;
+        service.getFormTicketTypes().subscribe(result => types = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/ticket-types`);
+        expect(request.request.method).toBe('GET');
+        request.flush([{ id: 12, name: 'Инцидент' }]);
+
+        expect(types).toEqual([{ id: '12', name: 'Инцидент' }]);
+    });
+
+    it('loads and maps the selected ticket type form schema', () => {
+        let form: unknown;
+        service.getFormTemplate('12').subscribe(result => form = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/form-templates/12`);
+        expect(request.request.method).toBe('GET');
+        request.flush({
+            ticketTypeId: 12,
+            ticketTypeName: 'Инцидент',
+            fieldsSchema: {
+                fields: [
+                    { code: 'subject', name: 'Тема', fieldType: 'string', isRequired: true, isEngineerOnly: false },
+                    { code: 'description', name: 'Описание', fieldType: 'text', isRequired: true, isEngineerOnly: false },
+                    { code: 'criticality', name: 'Критичность', fieldType: 'dictionary', isRequired: true, isEngineerOnly: false },
+                ],
+            },
+            fields: [
+                { code: 'subject', name: 'Тема', fieldType: 'string', isRequired: true, isBuiltIn: true, isEngineerOnly: false },
+                { code: 'description', name: 'Описание', fieldType: 'text', isRequired: true, isBuiltIn: true, isEngineerOnly: false },
+                { code: 'criticality', name: 'Критичность', fieldType: 'dictionary', isRequired: true, isBuiltIn: true, isEngineerOnly: false },
+            ],
+        });
+
+        expect(form).toEqual({
+            ticketTypeId: '12',
+            ticketTypeName: 'Инцидент',
+            fields: [
+                { id: 'subject', name: 'Тема', type: 'string', required: true, immutable: true, visibleToRequester: true },
+                { id: 'description', name: 'Описание', type: 'textarea', required: true, immutable: true, visibleToRequester: true },
+                { id: 'criticality', name: 'Критичность', type: 'dictionary', required: true, immutable: true, visibleToRequester: true },
+            ],
+        });
+    });
+
     it('loads ticket messages and preserves internal flags and downloadable attachment ids', () => {
         let comments: unknown;
         service.getTicketComments('42').subscribe(result => comments = result);
