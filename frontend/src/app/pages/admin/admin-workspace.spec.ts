@@ -545,4 +545,39 @@ describe('AdminWorkspaceComponent user list', () => {
         expect(component.reports).toHaveLength(1);
         expect(component.reportDetailOpen).toBe(true);
     });
+
+    it('shows repair outcome totals in the pie chart alongside report details', () => {
+        TestBed.inject(ActivatedRoute).snapshot.data['section'] = 'reports';
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        const component = fixture.componentInstance;
+        (fixture.nativeElement as HTMLElement).querySelector<HTMLButtonElement>('.report-open')!.click();
+        component.activeReport = {
+            id: 'repairs',
+            title: 'Ремонты',
+            description: 'Закрытые заявки на ремонт за период',
+            value: 3,
+            count: 3,
+        };
+        component.reportDetail = {
+            columns: [],
+            items: [],
+            total: 3,
+            skip: 0,
+            take: 30,
+            aggregates: { 'В эксплуатацию': 2, 'На склад': 1 },
+        };
+        fixture.detectChanges();
+
+        expect(component.section).toBe('reports');
+        expect(component.reportDetailOpen).toBe(true);
+        expect(component.repairOutcomeSlices.map(slice => [slice.label, slice.value])).toEqual([
+            ['В эксплуатацию', 2],
+            ['На склад', 1],
+        ]);
+        expect(component.repairOutcomeGradient).toContain('conic-gradient');
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('Детализация отчета');
+        expect(fixture.nativeElement.querySelector('.repair-pie')).not.toBeNull();
+        expect((fixture.nativeElement as HTMLElement).textContent).toContain('В эксплуатацию');
+    });
 });
