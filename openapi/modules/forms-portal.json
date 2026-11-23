@@ -18,7 +18,17 @@
         ],
         "responses": {
           "200": {
-            "description": "OK"
+            "description": "Схема формы выбранного типа заявки",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FormTemplateResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Шаблон формы для типа заявки не найден"
           }
         }
       },
@@ -190,6 +200,9 @@
       },
       "FormTemplateFieldsSchema": {
         "$ref": "../components/schemas.json#/components/schemas/FormTemplateFieldsSchema"
+      },
+      "FormTemplateResponse": {
+        "$ref": "../components/schemas.json#/components/schemas/FormTemplateResponse"
       },
       "Notification": {
         "$ref": "../components/schemas.json#/components/schemas/Notification"

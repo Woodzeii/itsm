@@ -38,6 +38,7 @@ import {
     TicketComment,
     TicketHistory,
     TicketFormDefinition,
+    TicketFormType,
     Ticket,
     TicketType,
     TenantRecord,
@@ -521,6 +522,22 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         this.recordTicketHistory(ticket, `Ремонт закрыт: ${request.workDescription}`, 'Инженер ТП');
         this.addAssetHistory(asset, 'Тикет на ремонт закрыт', 'Инженер ТП', `${request.workDescription}; этап: ${lifecycle}`);
         return of(ticket);
+    }
+
+    getFormTicketTypes(): Observable<TicketFormType[]> {
+        return of(this.ticketTypes.map(type => ({
+            id: type.id,
+            name: type.name,
+            code: type.repair ? 'repair' : null,
+            isBuiltIn: type.builtIn ?? type.repair,
+            isPortalAvailable: type.portalAvailable,
+        })));
+    }
+
+    getFormTemplate(ticketTypeId: string): Observable<TicketFormDefinition> {
+        const form = this.forms.find(item => item.ticketTypeId === ticketTypeId);
+        if (!form) return this.fail('Форма для выбранного типа заявки не найдена.');
+        return of({ ...form, fields: form.fields.map(field => ({ ...field, options: field.options ? [...field.options] : undefined })) });
     }
 
     getForms(): Observable<TicketFormDefinition[]> { return of(this.forms.map(form => ({ ...form, fields: form.fields.map(field => ({ ...field, options: field.options ? [...field.options] : undefined })) }))); }

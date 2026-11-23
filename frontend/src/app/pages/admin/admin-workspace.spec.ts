@@ -100,6 +100,17 @@ describe('AdminWorkspaceComponent user list', () => {
                             manualAssignerName: null,
                             activeAgentsCount: 2,
                         }),
+                        getFormTicketTypes: () => of([{ id: '12', name: 'Инцидент' }]),
+                        getFormTemplate: () => of({
+                            ticketTypeId: '12',
+                            ticketTypeName: 'Инцидент',
+                            fields: [
+                                { id: 'subject', name: 'Тема', type: 'string', required: true, visibleToRequester: true, immutable: true },
+                                { id: 'description', name: 'Описание', type: 'textarea', required: true, visibleToRequester: true, immutable: true },
+                                { id: 'criticality', name: 'Критичность', type: 'dictionary', required: true, visibleToRequester: true, immutable: true },
+                            ],
+                        }),
+                        saveForm: (form: unknown) => of(form),
                         getUsers: () => of([]),
                     },
                 },
@@ -142,6 +153,102 @@ describe('AdminWorkspaceComponent user list', () => {
                 cell => cell.getAttribute('data-label'),
             ),
         ).toEqual(['ФИО', 'Email', 'Username', 'Департамент', 'Руководитель', 'Статус', 'Роли', '2FA', 'Действия']);
+    });
+
+    it('does not allow built-in form fields to be deleted', async () => {
+        TestBed.overrideProvider(ActivatedRoute, {
+            useValue: { snapshot: { data: { section: 'forms' } } },
+        });
+
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(fixture.nativeElement.querySelectorAll('.field-row').length).toBe(3);
+        expect(fixture.nativeElement.querySelector('.field-row .icon-action')).toBeNull();
+
+        const form = fixture.componentInstance.activeForm!;
+        fixture.componentInstance.removeField(form, form.fields[0]!);
+        expect(form.fields).toHaveLength(3);
+        expect(fixture.componentInstance.error).toContain('нельзя удалить');
+    });
+
+    it('adds, removes, reorders, and saves custom form fields locally', async () => {
+        TestBed.overrideProvider(ActivatedRoute, {
+            useValue: { snapshot: { data: { section: 'forms' } } },
+        });
+
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        const component = fixture.componentInstance;
+        const form = component.activeForm!;
+        for (let index = 1; index <= 5; index++) {
+            component.newFieldName = `Новое поле ${index}`;
+            component.addField(form);
+        }
+        expect(form.fields).toHaveLength(8);
+        fixture.detectChanges();
+        expect(component.activeForm).toBe(form);
+        expect(component.activeForm?.fields).toHaveLength(8);
+        expect(form.fields.filter(field => !field.immutable)).toHaveLength(5);
+        expect(fixture.nativeElement.querySelectorAll('.field-row').length).toBe(8);
+        expect(fixture.nativeElement.textContent).toContain('＋ Добавить поле');
+        expect(fixture.nativeElement.querySelectorAll('.field-delete').length).toBe(5);
+
+        component.setConditionField(form.fields[4]!, form.fields[3]!.id);
+        form.fields[4]!.conditionValue = 'Инцидент';
+        component.removeField(form, form.fields[3]!);
+        expect(form.fields[3]!.conditionFieldId).toBeUndefined();
+
+        component.removeField(form, form.fields[3]!);
+        expect(form.fields).toHaveLength(6);
+
+        const beforeMove = form.fields[3]!.id;
+        component.moveField(form, { previousIndex: 3, currentIndex: 4 });
+        expect(form.fields[4]!.id).toBe(beforeMove);
+
+        component.saveForm(form);
+        expect(component.notice).toBe('Схема формы сохранена.');
+        component.formId = '12';
+        component.loadForm('12');
+        expect(component.activeForm?.fields.map(field => field.id)).toEqual(form.fields.map(field => field.id));
+    });
+
+    it('supports local ticket type add, edit, archive, restore, and delete', async () => {
+        TestBed.overrideProvider(ActivatedRoute, {
+            useValue: { snapshot: { data: { section: 'settings' } } },
+        });
+
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+
+        const component = fixture.componentInstance;
+        component.openTicketTypeEditor();
+        component.ticketTypeDraft!.name = 'Новый тип';
+        component.saveTicketTypeDraft();
+        const addedType = component.ticketTypes.find(type => type.name === 'Новый тип')!;
+
+        component.openTicketTypeEditor(addedType);
+        component.ticketTypeDraft!.name = 'Обновлённый тип';
+        component.saveTicketTypeDraft();
+        const editedType = component.ticketTypes.find(type => type.id === addedType.id)!;
+        expect(editedType.name).toBe('Обновлённый тип');
+
+        component.archiveType(editedType);
+        expect(component.ticketTypes.some(type => type.id === editedType.id)).toBe(false);
+        component.restoreType(editedType);
+        expect(component.ticketTypes.some(type => type.id === editedType.id)).toBe(true);
+
+        const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true);
+        component.archiveType(editedType);
+        component.deleteArchivedType(editedType);
+        expect(component.archivedTicketTypes.some(type => type.id === editedType.id)).toBe(false);
+        confirm.mockRestore();
     });
 
     it('shows the owner badge and disables editing for a local admin', async () => {

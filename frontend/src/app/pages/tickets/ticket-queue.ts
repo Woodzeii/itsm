@@ -6,13 +6,14 @@ import { AuthService } from '../../core/auth/auth.service';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
 import { downloadTicketAttachment as saveTicketAttachment } from '../../core/workspace/download-ticket-attachment';
-import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, TicketAttachment, Ticket } from '../../core/workspace/workspace.models';
+import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, TicketAttachment, Ticket, TicketFormDefinition } from '../../core/workspace/workspace.models';
+import { DynamicTicketFormComponent } from '../../shared/dynamic-ticket-form/dynamic-ticket-form';
 
 
 @Component({
     selector: 'app-ticket-queue',
     standalone: true,
-    imports: [CommonModule, FormsModule, RouterLink],
+    imports: [CommonModule, FormsModule, RouterLink, DynamicTicketFormComponent],
     template: `
     <section class="page">
       <header class="heading"><div><p class="eyebrow">Service Desk / единая очередь</p><h1>Заявки</h1></div><div class="heading-actions"><button class="primary" type="button" (click)="openCreate()">+ Новая заявка</button><a class="secondary" routerLink="/admin/settings">Типы заявок и SLA</a></div></header>
@@ -23,14 +24,13 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, 
           <div class="create-heading"><div><p class="eyebrow">Новая заявка</p><h2>Заполните основные данные</h2></div><button class="icon-button" type="button" aria-label="Закрыть форму" (click)="showCreateForm = false">×</button></div>
           @if (loadingTypes) { <p class="empty">Загружаем доступные типы заявок...</p> }
           @else {
-            <label>Тип заявки<select name="newTicketType" required [(ngModel)]="newTicketTypeId"><option value="">Выберите тип заявки</option>@for (type of ticketTypes; track type.id) { <option [value]="type.id">{{ type.name }}</option> }</select></label>
+            <label>Тип заявки<select name="newTicketType" required [(ngModel)]="newTicketTypeId" (ngModelChange)="loadCreateForm($event)"><option value="">Выберите тип заявки</option>@for (type of ticketTypes; track type.id) { <option [value]="type.id">{{ type.name }}</option> }</select></label>
             @if (canSelectRequester) {
               <label>Заявитель<select name="newTicketRequester" [(ngModel)]="newTicketRequesterId"><option value="">Я — автор заявки</option>@for (requester of requesters; track requester.id) { <option [value]="requester.id">{{ requester.fullName }}@if (requester.department) { · {{ requester.department }} }</option> }</select></label>
             }
-            <label>Тема<input name="newTicketTitle" required maxlength="300" [(ngModel)]="newTicketTitle" placeholder="Кратко сформулируйте вопрос" /></label>
-            <label>Критичность<select name="newTicketPriority" required [(ngModel)]="newTicketPriority">@for (priority of criticalities; track priority) { <option [value]="priority">{{ priority }}</option> }</select></label>
-            <label class="wide">Описание<textarea name="newTicketDescription" required maxlength="10000" [(ngModel)]="newTicketDescription" placeholder="Подробно опишите ситуацию и ожидаемый результат"></textarea></label>
-            <footer class="create-actions"><button class="primary" type="submit" [disabled]="isSubmitting || !newTicketTypeId || !newTicketTitle.trim() || !newTicketDescription.trim()">Создать заявку</button><button class="secondary" type="button" (click)="showCreateForm = false">Отмена</button></footer>
+            @if (loadingCreateForm) { <p class="empty wide">Загружаем схему формы...</p> }
+            @else if (selectedCreateForm) { <app-dynamic-ticket-form class="wide" [definition]="selectedCreateForm" [criticalities]="settings?.criticalities ?? criticalities" [defaultPriority]="settings?.criticalities?.[1] ?? 'Средний'" [includeEngineerFields]="true" (validityChange)="createFormValid = $event" /> }
+            <footer class="create-actions"><button class="primary" type="submit" [disabled]="isSubmitting || loadingCreateForm || !selectedCreateForm || !createFormValid">Создать заявку</button><button class="secondary" type="button" (click)="showCreateForm = false">Отмена</button></footer>
           }
           @if (!loadingTypes && !ticketTypes.length) { <p class="notice error">Нет доступных типов заявок.</p> }
         </form>
@@ -220,6 +220,7 @@ import { AdminSettings, PortalTicketRequest, PortalTicketType, RequesterOption, 
     `],
 })
 export class TicketQueueComponent implements OnInit {
+    @ViewChild(DynamicTicketFormComponent) createTicketForm?: DynamicTicketFormComponent;
     @ViewChild('commentsScroll') private commentsScroller?: ElementRef<HTMLDivElement>;
     @ViewChild('historyScroll') private historyScroller?: ElementRef<HTMLDivElement>;
     @ViewChild('modalCommentsScroll') private modalCommentsScroller?: ElementRef<HTMLDivElement>;
@@ -272,14 +273,15 @@ export class TicketQueueComponent implements OnInit {
     loadingRequesters = false;
     criticalities = ['Низкий', 'Средний', 'Высокий'];
     newTicketTypeId = '';
-    newTicketTitle = '';
-    newTicketDescription = '';
-    newTicketPriority = 'Средний';
+    selectedCreateForm: TicketFormDefinition | null = null;
+    loadingCreateForm = false;
+    createFormValid = false;
     showCreateForm = false;
     loadingTypes = false;
     isSubmitting = false;
     notice = '';
     error = '';
+    private createFormRequestVersion = 0;
 
     get types(): string[] { return [...new Set(this.tickets.map(ticket => ticket.type).filter((type): type is string => !!type))]; }
     get assignees(): string[] { return [...new Set(this.tickets.map(ticket => ticket.assignee).filter((value): value is string => !!value))]; }
@@ -334,13 +336,16 @@ export class TicketQueueComponent implements OnInit {
 
     openCreate(): void {
         this.showCreateForm = true;
-        this.newTicketTitle = '';
-        this.newTicketDescription = '';
         this.newTicketRequesterId = '';
-        this.newTicketPriority = this.settings?.criticalities?.[1] ?? 'Средний';
+        this.selectedCreateForm = null;
+        this.createFormValid = false;
         this.error = '';
         if (this.isEngineer && !this.requesters.length && !this.loadingRequesters) this.loadRequesters();
-        if (this.ticketTypes.length || this.loadingTypes) return;
+        if (this.ticketTypes.length) {
+            this.loadCreateForm(this.newTicketTypeId);
+            return;
+        }
+        if (this.loadingTypes) return;
 
         this.loadingTypes = true;
         this.ticketsApi.getPortalTicketTypes().subscribe({
@@ -348,11 +353,38 @@ export class TicketQueueComponent implements OnInit {
                 this.ticketTypes = types;
                 this.newTicketTypeId = String(types[0]?.id ?? '');
                 this.loadingTypes = false;
+                this.loadCreateForm(this.newTicketTypeId);
                 this.changeDetector.markForCheck();
             },
             error: err => {
                 this.error = err.message;
                 this.loadingTypes = false;
+                this.changeDetector.markForCheck();
+            },
+        });
+    }
+
+    loadCreateForm(ticketTypeId: string): void {
+        this.selectedCreateForm = null;
+        this.createFormValid = false;
+        const requestVersion = ++this.createFormRequestVersion;
+        if (!ticketTypeId) {
+            this.loadingCreateForm = false;
+            return;
+        }
+
+        this.loadingCreateForm = true;
+        this.ticketsApi.getFormTemplate(ticketTypeId).subscribe({
+            next: form => {
+                if (requestVersion !== this.createFormRequestVersion) return;
+                this.selectedCreateForm = form;
+                this.loadingCreateForm = false;
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                if (requestVersion !== this.createFormRequestVersion) return;
+                this.loadingCreateForm = false;
+                this.error = err?.error?.detail ?? err.message ?? 'Не удалось загрузить схему формы.';
                 this.changeDetector.markForCheck();
             },
         });
@@ -377,33 +409,55 @@ export class TicketQueueComponent implements OnInit {
     createTicket(): void {
         const typeId = Number(this.newTicketTypeId);
         const selectedType = this.ticketTypes.find(type => type.id === typeId);
-        if (!selectedType || !Number.isInteger(typeId) || !this.newTicketTitle.trim() || !this.newTicketDescription.trim()) {
-            this.error = 'Заполните тему, описание и выберите тип заявки.';
+        const formData = this.createTicketForm?.getSubmission();
+        if (!selectedType || !Number.isInteger(typeId) || !this.selectedCreateForm || !formData) {
+            this.error = 'Заполните обязательные поля формы и выберите тип заявки.';
+            this.createTicketForm?.validate();
             return;
         }
 
         const request: PortalTicketRequest = {
-            title: this.newTicketTitle.trim(),
-            description: this.newTicketDescription.trim(),
+            title: formData.title.trim(),
+            description: formData.description.trim(),
             requester: this.auth.getLogin(),
             type: selectedType.name,
             typeId,
-            priority: this.newTicketPriority,
+            priority: formData.priority,
+            fields: formData.fields,
+            ...(formData.assetId ? { assetId: formData.assetId } : {}),
             ...(this.isEngineer && this.newTicketRequesterId ? { requesterId: Number(this.newTicketRequesterId) } : {}),
         };
         this.isSubmitting = true;
         this.error = '';
         this.ticketsApi.createPortalTicket(request).subscribe({
             next: ticket => {
-                this.tickets = [ticket, ...this.tickets];
-                this.selected = ticket;
-                this.showCreateForm = false;
-                this.notice = `Заявка ${ticket.ticketNumber || ticket.id} создана.`;
-                this.isSubmitting = false;
-                this.changeDetector.markForCheck();
+                const finish = (attachmentError?: { error?: { detail?: string }; message?: string }) => {
+                    this.tickets = [ticket, ...this.tickets];
+                    this.selected = ticket;
+                    this.showCreateForm = false;
+                    this.notice = `Заявка ${ticket.ticketNumber || ticket.id} создана.`;
+                    this.isSubmitting = false;
+                    if (attachmentError) {
+                        const detail = attachmentError.error?.detail ?? attachmentError.message ?? 'неизвестная ошибка';
+                        this.error = `Заявка создана, но вложения из формы не прикреплены: ${detail}`;
+                    }
+                    this.changeDetector.markForCheck();
+                };
+                if (!formData.files.length) {
+                    finish();
+                    return;
+                }
+                this.ticketsApi.addTicketComment(ticket.id, {
+                    author: this.auth.getLogin(),
+                    message: 'Вложения из формы заявки',
+                    internal: false,
+                }, formData.files).subscribe({
+                    next: () => finish(),
+                    error: err => finish(err),
+                });
             },
             error: err => {
-                this.error = err.message;
+                this.error = err?.error?.detail ?? err.message;
                 this.isSubmitting = false;
                 this.changeDetector.markForCheck();
             },

@@ -120,6 +120,16 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         if (!isStaff && (!type.IsPortalAvailable || type.Code == RepairTypeCode))
             throw new UnauthorizedAccessException("Создание заявок этого типа недоступно пользователю портала.");
 
+        var formTemplate = await db.FormTemplates
+            .AsNoTracking()
+            .Where(item => item.TenantId == type.TenantId && item.TicketTypeId == type.Id)
+            .OrderByDescending(item => item.UpdatedAt)
+            .ThenByDescending(item => item.Id)
+            .FirstOrDefaultAsync(ct);
+        if (formTemplate is not null
+            && TicketFormInputValidator.Validate(formTemplate.FieldsSchema, request, isStaff) is { } validationError)
+            throw new ArgumentException(validationError);
+
         Asset? asset = null;
         if (request.AssetId is int assetId)
         {
