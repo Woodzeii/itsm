@@ -79,6 +79,66 @@ public class DatabaseSeeder : IDatabaseSeeder
         _logger.LogInformation("DatabaseSeeder: создано 9 пользователей");
     }
 
+    public async Task SeedProductionAsync(
+    string? tenantAdminUsername, string? tenantAdminEmail, string? tenantAdminPassword,
+    string? tenantOwnerUsername, string? tenantOwnerEmail, string? tenantOwnerPassword,
+    CancellationToken ct = default)
+{
+    if (await _db.Users.AnyAsync(ct))
+    {
+        _logger.LogInformation("DatabaseSeeder (Prod): пользователи уже существуют, пропускаем");
+        return;
+    }
+
+    if (string.IsNullOrWhiteSpace(tenantAdminUsername) || string.IsNullOrWhiteSpace(tenantAdminPassword) ||
+        string.IsNullOrWhiteSpace(tenantOwnerUsername) || string.IsNullOrWhiteSpace(tenantOwnerPassword))
+    {
+        _logger.LogWarning("DatabaseSeeder (Prod): переменные InitialAdmin в .env не заданы, пропускаем создание админов");
+        return;
+    }
+
+    _logger.LogInformation("DatabaseSeeder (Prod): создаём администратора тенантов и владельца базового тенанта");
+
+    var tenantAdminRoleId = await _db.SystemRoles
+        .Where(r => r.Code == "tenant_admin")
+        .Select(r => r.Id)
+        .FirstAsync(ct);
+
+    var tenantOwnerRoleId = await _db.SystemRoles
+        .Where(r => r.Code == "tenant_owner")
+        .Select(r => r.Id)
+        .FirstAsync(ct);
+
+    // 1. Глобальный администратор всех тенантов (tenantId: null)
+    var tenantAdmin = NewUser(
+        username: tenantAdminUsername,
+        email: tenantAdminEmail ?? $"{tenantAdminUsername}@itsm.local",
+        fullName: "Администратор Тенантов",
+        department: "Администрация",
+        password: tenantAdminPassword,
+        tenantId: null);
+
+    // 2. Владелец базового тенанта (tenantId: 1)
+    var tenantOwner = NewUser(
+        username: tenantOwnerUsername,
+        email: tenantOwnerEmail ?? $"{tenantOwnerUsername}@itsm.local",
+        fullName: "Владелец Тенанта",
+        department: "IT",
+        password: tenantOwnerPassword,
+        tenantId: 1);
+
+    _db.Users.AddRange(tenantAdmin, tenantOwner);
+    await _db.SaveChangesAsync(ct);
+
+    _db.UserRoleMappings.AddRange(
+        new UserRoleMapping { UserId = tenantAdmin.Id, RoleId = tenantAdminRoleId },
+        new UserRoleMapping { UserId = tenantOwner.Id, RoleId = tenantOwnerRoleId }
+    );
+    await _db.SaveChangesAsync(ct);
+
+    _logger.LogInformation("DatabaseSeeder (Prod): успешно созданы tenant_admin и tenant_owner");
+}
+
     private User NewUser(string username, string email, string fullName, string department, string password, int? tenantId = 1) => new()
     {
         Username = username,

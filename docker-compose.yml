@@ -6,7 +6,7 @@ services:
     env_file:
       - ./backend/.env
     ports:
-      - "${POSTGRES_PORT:-5433}:5432"
+      - "127.0.0.1:5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
      # - ./initdb:/docker-entrypoint-initdb.d:ro  #
@@ -26,13 +26,19 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      # ASPNETCORE_ENVIRONMENT: Production
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
     volumes:
       - ./logs:/app/logs
     ports:
-      - "${BACKEND_PORT:-5062}:8080"
+      - "127.0.0.1:${BACKEND_PORT:-5062}:8080"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 
   frontend:
     build: ./frontend
@@ -42,6 +48,12 @@ services:
       - backend
     ports:
       - "${FRONTEND_PORT:-4200}:80"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
 
 volumes:
   postgres_data:

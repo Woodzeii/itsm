@@ -31,13 +31,20 @@ try
 
     builder.Services.AddOpenApi();
     builder.Services.AddControllers();
+
+    var allowedOrigins = builder.Configuration["Cors:AllowedOrigins"]
+    ?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    ?? ["http://localhost:4200"];
+
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("DevCors", policy =>
-            policy.WithOrigins("http://localhost:4200")
-                  .AllowAnyHeader()
-                  .AllowAnyMethod());
+            policy.WithOrigins(allowedOrigins)
+                .AllowAnyHeader()
+                .AllowAnyMethod());
     });
+
+
     builder.Services.AddInfrastructure(builder.Configuration);
     if (!builder.Environment.IsEnvironment("Testing"))
         builder.Services.AddHostedService<UserQuotaEnforcementWorker>();
@@ -68,11 +75,6 @@ try
     var app = builder.Build();
     app.UseCors("DevCors");
 
-    if (!app.Environment.IsEnvironment("Testing"))
-    {
-        app.UseSerilogRequestLogging();
-    }
-
     // ===== Автомиграции: применяем все pending-миграции при старте =====
     using (var scope = app.Services.CreateScope())
     {
@@ -80,6 +82,33 @@ try
         db.Database.Migrate();
         Log.Information("Автомиграции: применены все pending-миграции");
     }
+
+    // ===== Инициализация пользователей ПОСЛЕ миграций =====
+    if (!app.Environment.IsEnvironment("Testing"))
+    {
+        using var scope = app.Services.CreateScope();
+        var seeder = scope.ServiceProvider.GetRequiredService<IDatabaseSeeder>();
+
+        if (app.Environment.IsDevelopment())
+        {
+            seeder.SeedAsync().GetAwaiter().GetResult();
+        }
+        else
+        {
+            var initSection = builder.Configuration.GetSection("InitialAdmin");
+            seeder.SeedProductionAsync(
+                initSection["TenantAdminUsername"],
+                initSection["TenantAdminEmail"],
+                initSection["TenantAdminPassword"],
+                initSection["TenantOwnerUsername"],
+                initSection["TenantOwnerEmail"],
+                initSection["TenantOwnerPassword"]
+            ).GetAwaiter().GetResult();
+        }
+    }
+
+
+    
 
     // Инициализация тестовых пользователей в Development
     if (app.Environment.IsDevelopment())
