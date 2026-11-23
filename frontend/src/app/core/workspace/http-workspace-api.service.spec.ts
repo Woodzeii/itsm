@@ -91,6 +91,42 @@ describe('HttpWorkspaceApiService backend contract', () => {
         });
     });
 
+    it('saves the complete form schema and maps condition rules from the response', () => {
+        const form = {
+            ticketTypeId: '12',
+            ticketTypeName: 'Инцидент',
+            fields: [{
+                id: 'address',
+                name: 'Адрес',
+                type: 'string' as const,
+                required: false,
+                visibleToRequester: true,
+                conditionFieldId: 'kind',
+                conditionOperator: 'equals' as const,
+                conditionValue: 'Инцидент',
+            }],
+        };
+        let saved: unknown;
+
+        service.saveForm(form).subscribe(result => saved = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/form-templates/12`);
+        expect(request.request.method).toBe('PUT');
+        expect(request.request.body).toEqual({ ...form, ticketTypeId: 12 });
+        request.flush({
+            ticketTypeId: 12,
+            ticketTypeName: 'Инцидент',
+            fieldsSchema: { fields: form.fields },
+            fields: [],
+        });
+
+        expect(saved).toEqual({
+            ...form,
+            ticketTypeId: '12',
+            fields: [{ ...form.fields[0], immutable: false }],
+        });
+    });
+
     it('loads ticket messages and preserves internal flags and downloadable attachment ids', () => {
         let comments: unknown;
         service.getTicketComments('42').subscribe(result => comments = result);

@@ -110,6 +110,7 @@ describe('AdminWorkspaceComponent user list', () => {
                                 { id: 'criticality', name: 'Критичность', type: 'dictionary', required: true, visibleToRequester: true, immutable: true },
                             ],
                         }),
+                        saveForm: (form: unknown) => of(form),
                         getUsers: () => of([]),
                     },
                 },
@@ -198,7 +199,11 @@ describe('AdminWorkspaceComponent user list', () => {
         expect(fixture.nativeElement.textContent).toContain('＋ Добавить поле');
         expect(fixture.nativeElement.querySelectorAll('.field-delete').length).toBe(5);
 
+        component.setConditionField(form.fields[4]!, form.fields[3]!.id);
+        form.fields[4]!.conditionValue = 'Инцидент';
         component.removeField(form, form.fields[3]!);
+        expect(form.fields[3]!.conditionFieldId).toBeUndefined();
+
         component.removeField(form, form.fields[3]!);
         expect(form.fields).toHaveLength(6);
 
@@ -207,7 +212,7 @@ describe('AdminWorkspaceComponent user list', () => {
         expect(form.fields[4]!.id).toBe(beforeMove);
 
         component.saveForm(form);
-        expect(component.notice).toContain('памяти текущего сеанса');
+        expect(component.notice).toBe('Схема формы сохранена.');
         component.formId = '12';
         component.loadForm('12');
         expect(component.activeForm?.fields.map(field => field.id)).toEqual(form.fields.map(field => field.id));

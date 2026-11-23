@@ -378,7 +378,17 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     }
 
     getForms() { return this.unsupported<TicketFormDefinition[]>('ticket forms'); }
-    saveForm(_form: TicketFormDefinition) { return this.unsupported<TicketFormDefinition>('ticket forms'); }
+    saveForm(form: TicketFormDefinition): Observable<TicketFormDefinition> {
+        const id = Number(form.ticketTypeId);
+        if (!Number.isSafeInteger(id) || id < 1) {
+            return throwError(() => new Error('Выбран некорректный тип заявки.'));
+        }
+
+        return this.http.put<unknown>(`${this.baseUrl}/form-templates/${id}`, {
+            ...form,
+            ticketTypeId: id,
+        }).pipe(map(response => parseTicketFormDefinition(response, String(id))));
+    }
     getEscalationPolicies() { return this.unsupported<EscalationPolicy[]>('escalation policies'); }
     saveEscalationPolicies(_policies: EscalationPolicy[]) { return this.unsupported<EscalationPolicy[]>('escalation policies'); }
     getEscalationHistory() {
@@ -1196,6 +1206,19 @@ function parseTicketFormField(value: unknown, index: number): FormFieldDefinitio
     const hint = value['hint'] ?? value['Hint'];
     const visibleToRequester = value['visibleToRequester'] ?? value['VisibleToRequester'];
     const options = value['options'] ?? value['Options'];
+    const conditionFieldId = value['conditionFieldId'] ?? value['ConditionFieldId'];
+    const conditionOperator = value['conditionOperator'] ?? value['ConditionOperator'];
+    const conditionValue = value['conditionValue'] ?? value['ConditionValue'];
+    if (conditionFieldId !== undefined && typeof conditionFieldId !== 'string') {
+        throw new Error(`Сервер вернул условие поля №${index + 1} в неожиданном формате.`);
+    }
+    if (conditionOperator !== undefined && conditionOperator !== 'equals'
+        && conditionOperator !== 'notEquals' && conditionOperator !== 'greaterThan') {
+        throw new Error(`Сервер вернул оператор условия поля №${index + 1} в неожиданном формате.`);
+    }
+    if (conditionValue !== undefined && typeof conditionValue !== 'string') {
+        throw new Error(`Сервер вернул значение условия поля №${index + 1} в неожиданном формате.`);
+    }
 
     return {
         id,
@@ -1208,6 +1231,11 @@ function parseTicketFormField(value: unknown, index: number): FormFieldDefinitio
         ...(typeof validation === 'string' ? { validation } : {}),
         ...(typeof hint === 'string' ? { hint } : {}),
         ...(Array.isArray(options) && options.every(option => typeof option === 'string') ? { options } : {}),
+        ...(typeof conditionFieldId === 'string' ? { conditionFieldId } : {}),
+        ...(conditionOperator === 'equals' || conditionOperator === 'notEquals' || conditionOperator === 'greaterThan'
+            ? { conditionOperator }
+            : {}),
+        ...(typeof conditionValue === 'string' ? { conditionValue } : {}),
     };
 }
 

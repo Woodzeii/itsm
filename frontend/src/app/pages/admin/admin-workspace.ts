@@ -150,13 +150,13 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
               <div class="field-main"><label>Название<input [name]="'field-name-' + field.id" [(ngModel)]="field.name" [disabled]="field.immutable ?? false" /></label><label>Тип поля<select [name]="'field-type-' + field.id" [(ngModel)]="field.type" [disabled]="field.immutable ?? false"><option value="string">Строка</option><option value="textarea">Многострочный текст</option><option value="number">Число</option><option value="date">Дата</option><option value="dictionary">Справочник</option><option value="asset">Выбор актива</option><option value="file">Вложение</option><option value="boolean">Да/нет</option></select></label><label class="check"><input type="checkbox" [name]="'required-' + field.id" [(ngModel)]="field.required" [disabled]="field.immutable ?? false" /> Обязательное</label><label class="check"><input type="checkbox" [name]="'visible-' + field.id" [(ngModel)]="field.visibleToRequester" /> Видно автору</label></div>
               <div class="field-options"><label>Значение по умолчанию<input [name]="'default-' + field.id" [(ngModel)]="field.defaultValue" /></label><label>Проверка ввода<input [name]="'validation-' + field.id" [(ngModel)]="field.validation" placeholder="Например, регулярное выражение" /></label><label>Подсказка<input [name]="'hint-' + field.id" [(ngModel)]="field.hint" /></label>
                 @if (field.type === 'dictionary') { <label>Значения списка<input [name]="'options-' + field.id" [ngModel]="field.options?.join(', ') || ''" (ngModelChange)="setOptions(field,$event)" placeholder="Значение 1, Значение 2" /></label> }
-                @if (!field.immutable) { <label>Показывать, если поле равно<input [name]="'condition-' + field.id" [(ngModel)]="field.conditionValue" placeholder="Значение условия" /></label><label>Зависит от поля<select [name]="'condition-field-' + field.id" [(ngModel)]="field.conditionFieldId"><option value="">Всегда показывать</option>@for (other of form.fields; track other.id) { @if (other.id !== field.id) { <option [value]="other.id">{{ other.name }}</option> } }</select></label> }
+                @if (!field.immutable) { <label>Показывать, если поле<select [name]="'condition-field-' + field.id" [ngModel]="field.conditionFieldId || ''" (ngModelChange)="setConditionField(field,$event)"><option value="">Всегда показывать</option>@for (other of form.fields; track other.id) { @if (other.id !== field.id) { <option [value]="other.id">{{ other.name }}</option> } }</select></label>@if (field.conditionFieldId) { <label>Условие<select [name]="'condition-operator-' + field.id" [(ngModel)]="field.conditionOperator"><option value="equals">Равно</option><option value="notEquals">Не равно</option><option value="greaterThan" [disabled]="!conditionSourceIsNumeric(form,field)">Больше</option></select></label><label>Значение условия<input [name]="'condition-value-' + field.id" [(ngModel)]="field.conditionValue" placeholder="Введите значение" /></label> } }
               </div>
               @if (!field.immutable) { <button class="icon-action field-delete" type="button" [attr.aria-label]="'Удалить поле ' + field.name" title="Удалить поле" (click)="removeField(form,field)">×</button> }
             </article>
             </div>
             <div class="add-field"><label>Новое поле<input name="newFieldName" [(ngModel)]="newFieldName" placeholder="Название поля" /></label><label>Тип<select name="newFieldType" [(ngModel)]="newFieldType"><option value="string">Строка</option><option value="textarea">Многострочный текст</option><option value="number">Число</option><option value="date">Дата</option><option value="dictionary">Справочник</option><option value="asset" [disabled]="form.fields.some(field => field.type === 'asset')">Выбор актива</option><option value="file">Вложение</option><option value="boolean">Да/нет</option></select></label><button class="quiet align-end" type="button" [disabled]="!newFieldName.trim() || (newFieldType === 'asset' && form.fields.some(field => field.type === 'asset'))" (click)="addField(form)">＋ Добавить поле</button></div>
-            <button class="primary save-button" type="button" (click)="saveForm(form)">Сохранить форму</button>
+            <button class="primary save-button" type="button" [disabled]="savingFormIds.has(form.ticketTypeId)" (click)="saveForm(form)">{{ savingFormIds.has(form.ticketTypeId) ? 'Сохранение…' : 'Сохранить форму' }}</button>
           </div> }
         </section>
       }
@@ -453,6 +453,7 @@ export class AdminWorkspaceComponent implements OnInit {
     twoFactorGraceDays = 0;
     error = '';
     notice = '';
+    readonly savingFormIds = new Set<string>();
     newCriticality = '';
     newStatus = '';
     newUsername = '';
@@ -909,15 +910,64 @@ export class AdminWorkspaceComponent implements OnInit {
             return;
         }
         form.fields = form.fields.filter(item => item.id !== field.id);
+        for (const dependent of form.fields) {
+            if (dependent.conditionFieldId === field.id) this.setConditionField(dependent, '');
+        }
         this.changeDetector.markForCheck();
     }
     setOptions(field: FormFieldDefinition, value: string): void { field.options = value.split(',').map(item => item.trim()).filter(Boolean); }
+    setConditionField(field: FormFieldDefinition, fieldId: string): void {
+        if (!fieldId) {
+            delete field.conditionFieldId;
+            delete field.conditionOperator;
+            delete field.conditionValue;
+            return;
+        }
+        field.conditionFieldId = fieldId;
+        field.conditionOperator = 'equals';
+        field.conditionValue = '';
+    }
+    conditionSourceIsNumeric(form: TicketFormDefinition, field: FormFieldDefinition): boolean {
+        return form.fields.find(item => item.id === field.conditionFieldId)?.type === 'number';
+    }
     saveForm(form: TicketFormDefinition): void {
-        const saved = this.cloneForm(form);
-        this.savedFormDrafts.set(saved.ticketTypeId, saved);
-        this.formDrafts.set(saved.ticketTypeId, saved);
-        this.forms = [saved];
-        this.notice = 'Схема формы сохранена в памяти текущего сеанса; серверный API сохранения не подключён.';
+        if (this.savingFormIds.has(form.ticketTypeId)) return;
+        for (const field of form.fields) {
+            if (!field.conditionFieldId) continue;
+            const source = form.fields.find(item => item.id === field.conditionFieldId);
+            if (!source || source.id === field.id) {
+                this.error = `Для поля «${field.name}» выберите существующее поле условия.`;
+                return;
+            }
+            if (!field.conditionOperator || !field.conditionValue?.trim()) {
+                this.error = `Для поля «${field.name}» заполните оператор и значение условия.`;
+                return;
+            }
+            if (field.conditionOperator === 'greaterThan'
+                && (source.type !== 'number' || !Number.isFinite(Number(field.conditionValue)))) {
+                this.error = `Условие «Больше» для поля «${field.name}» требует числовое поле и значение.`;
+                return;
+            }
+        }
+        this.error = '';
+        this.notice = '';
+        this.savingFormIds.add(form.ticketTypeId);
+        this.workspace.saveForm(this.cloneForm(form)).subscribe({
+            next: savedForm => {
+                const saved = this.cloneForm(savedForm);
+                this.savedFormDrafts.set(saved.ticketTypeId, saved);
+                this.formDrafts.set(saved.ticketTypeId, saved);
+                if (this.formId === saved.ticketTypeId) this.forms = [saved];
+                this.savingFormIds.delete(form.ticketTypeId);
+                this.notice = 'Схема формы сохранена.';
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                this.savingFormIds.delete(form.ticketTypeId);
+                this.error = err?.error?.detail ?? err?.message ?? 'Не удалось сохранить схему формы.';
+                this.changeDetector.markForCheck();
+            },
+        });
     }
     loadReports(): void {
         this.reportLoading = true;

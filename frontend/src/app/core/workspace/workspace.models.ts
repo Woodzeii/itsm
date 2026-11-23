@@ -257,6 +257,7 @@ export interface FormFieldDefinition {
     visibleToRequester: boolean;
     options?: string[];
     conditionFieldId?: string;
+    conditionOperator?: 'equals' | 'notEquals' | 'greaterThan';
     conditionValue?: string;
     immutable?: boolean;
 }
