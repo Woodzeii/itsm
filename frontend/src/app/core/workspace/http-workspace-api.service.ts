@@ -1110,11 +1110,26 @@ function parseTicketFormTypes(value: unknown): TicketFormType[] {
 
         const id = item['id'] ?? item['Id'];
         const name = item['name'] ?? item['Name'];
+        const code = item['code'] ?? item['Code'];
+        const isBuiltIn = item['isBuiltIn'] ?? item['IsBuiltIn'];
+        const isPortalAvailable = item['isPortalAvailable'] ?? item['IsPortalAvailable'];
         if (typeof id !== 'number' || !Number.isSafeInteger(id) || typeof name !== 'string') {
             throw new Error('Сервер вернул тип заявки в неожиданном формате.');
         }
 
-        return { id: String(id), name };
+        if ((code !== undefined && code !== null && typeof code !== 'string')
+            || (isBuiltIn !== undefined && typeof isBuiltIn !== 'boolean')
+            || (isPortalAvailable !== undefined && typeof isPortalAvailable !== 'boolean')) {
+            throw new Error('Сервер вернул тип заявки в неожиданном формате.');
+        }
+
+        return {
+            id: String(id),
+            name,
+            ...(typeof code === 'string' || code === null ? { code } : {}),
+            ...(typeof isBuiltIn === 'boolean' ? { isBuiltIn } : {}),
+            ...(typeof isPortalAvailable === 'boolean' ? { isPortalAvailable } : {}),
+        };
     });
 }
 

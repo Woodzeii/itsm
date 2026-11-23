@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { finalize } from 'rxjs';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportDetail, ReportSummary, TenantUserQuota, TicketFormDefinition, TicketFormType, TicketType } from '../../core/workspace/workspace.models';
@@ -16,7 +17,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 @Component({
     selector: 'app-admin-workspace',
     standalone: true,
-    imports: [CommonModule, FormsModule, RouterLink],
+    imports: [CommonModule, DragDropModule, FormsModule, RouterLink],
     template: `
     <section class="page">
       <header class="heading"><div><p class="eyebrow">Администрирование</p><h1>{{ pageTitle }}</h1></div></header>
@@ -101,12 +102,16 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
           </section>
 
           <section class="panel"><header><h2>Типы заявок и SLA</h2><p>Нормативы времени реакции и решения задаются для сочетания типа и критичности</p></header>
+            <div class="type-toolbar"><button class="quiet" type="button" (click)="openTicketTypeEditor()">+ Добавить тип заявки</button></div>
             <div class="type-list">@for (type of ticketTypes; track type.id) { <article class="type-row">
-              <div class="type-top"><label>Тип заявки<input [name]="'type-' + type.id" [(ngModel)]="type.name" [disabled]="type.repair" /></label><label class="check"><input type="checkbox" [name]="'portal-' + type.id" [(ngModel)]="type.portalAvailable" [disabled]="type.repair" /> Доступен на портале</label><label class="check"><input type="checkbox" [name]="'type-sla-' + type.id" [(ngModel)]="type.slaEnabled" /> SLA включён</label><span class="builtin">{{ type.repair ? 'Встроенный тип' : '' }}</span></div>
+              <div class="type-top"><div class="type-name"><strong>{{ type.name }}</strong>@if (type.builtIn || type.repair) { <span class="builtin">Встроенный тип</span> }</div><label class="check"><input type="checkbox" [name]="'portal-' + type.id" [(ngModel)]="type.portalAvailable" [disabled]="type.builtIn || type.repair" (ngModelChange)="ticketTypeChangesDirty = true" /> Доступен на портале</label><label class="check"><input type="checkbox" [name]="'type-sla-' + type.id" [(ngModel)]="type.slaEnabled" (ngModelChange)="ticketTypeChangesDirty = true" /> SLA включён</label><div class="type-actions">@if (!type.builtIn && !type.repair) { <button class="icon-button" type="button" [attr.aria-label]="'Редактировать тип ' + type.name" (click)="openTicketTypeEditor(type)">✎</button><button class="remove-type" type="button" (click)="archiveType(type)">Архивировать</button> }</div></div>
               <div class="sla-grid">@for (level of settings.criticalities; track level) { <div class="sla-level"><strong>{{ level }}</strong><label>Реакция<input [name]="'reaction-' + type.id + '-' + level" [ngModel]="type.slaByCriticality?.[level]?.reaction || type.reactionSla" (ngModelChange)="setTypeSla(type,level,'reaction',$event)" /></label><label>Решение<input [name]="'resolution-' + type.id + '-' + level" [ngModel]="type.slaByCriticality?.[level]?.resolution || type.resolutionSla" (ngModelChange)="setTypeSla(type,level,'resolution',$event)" /></label></div> }</div>
-              @if (!type.repair) { <button class="remove-type" type="button" (click)="removeType(type)">Удалить тип</button> }
             </article> }</div>
-            <div class="inline add-row"><input name="newType" [(ngModel)]="newType" placeholder="Название нового типа заявки" /><button class="quiet" type="button" [disabled]="!newType.trim()" (click)="addType()">Создать тип</button></div>
+            @if (archivedTicketTypes.length) {
+              <div class="archived-types"><h3>Архив типов заявок</h3>@for (type of archivedTicketTypes; track type.id) { <div><span>{{ type.name }}</span><button class="quiet" type="button" (click)="restoreType(type)">Восстановить</button><button class="remove-type" type="button" (click)="deleteArchivedType(type)">Удалить</button></div> }</div>
+            }
+            @if (ticketTypeChangesDirty) { <button class="quiet type-discard" type="button" (click)="discardTicketTypeChanges()">Отменить несохранённые изменения</button> }
+            <button class="primary save-button" type="button" [disabled]="!ticketTypeChangesDirty" (click)="saveTicketTypeChanges()">Сохранить изменения типов</button>
           </section>
 
           <section class="panel"><header><h2>Портальные учётные записи</h2><p>Учётные записи создаёт администратор; пароль проверяется по настроенной политике</p></header>
@@ -120,21 +125,37 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
           <section class="panel"><header><h2>Сроки SLA на портале</h2><p>Выберите показатели, видимые автору заявки</p></header><div class="field-grid"><label class="check"><input type="checkbox" [checked]="settings.portalSlaFields.includes('Время реакции')" (change)="togglePortalSla('Время реакции',$event)" /> Время реакции</label><label class="check"><input type="checkbox" [checked]="settings.portalSlaFields.includes('Время решения')" (change)="togglePortalSla('Время решения',$event)" /> Время решения</label></div></section>
           <button class="primary save-button" type="submit">Сохранить настройки</button>
         </form>
+        @if (ticketTypeEditorOpen && ticketTypeDraft; as draft) {
+          <div class="type-modal-backdrop" (click)="closeTicketTypeEditor()">
+            <section class="type-modal" role="dialog" aria-modal="true" [attr.aria-label]="editingTicketTypeId ? 'Редактировать тип заявки' : 'Добавить тип заявки'" (click)="$event.stopPropagation()">
+              <header><div><p class="eyebrow">Тип заявки</p><h2>{{ editingTicketTypeId ? 'Редактирование типа' : 'Новый тип заявки' }}</h2></div><button class="icon-button" type="button" aria-label="Закрыть" (click)="closeTicketTypeEditor()">×</button></header>
+              <div class="type-modal-fields">
+                <label>Название<input name="ticketTypeNameDraft" [(ngModel)]="draft.name" (keydown.enter)="$event.preventDefault(); saveTicketTypeDraft()" autofocus /></label>
+                <label class="check"><input type="checkbox" name="ticketTypePortalDraft" [(ngModel)]="draft.portalAvailable" /> Доступен на портале</label>
+                <label class="check"><input type="checkbox" name="ticketTypeSlaDraft" [(ngModel)]="draft.slaEnabled" /> SLA включён</label>
+              </div>
+              <footer><button class="quiet" type="button" (click)="closeTicketTypeEditor()">Отмена</button><button class="primary" type="button" [disabled]="!draft.name.trim()" (click)="saveTicketTypeDraft()">Сохранить тип</button></footer>
+            </section>
+          </div>
+        }
       }
 
       @if (section === 'forms') {
         <section class="panel"><header><h2>Формы по типам заявок</h2><p>Одна форма на тип; встроенные поля нельзя удалить</p></header><label class="form-select">Тип заявки<select name="formId" [(ngModel)]="formId" (ngModelChange)="loadForm($event)"><option value="">Выберите тип заявки</option>@for (type of formTicketTypes; track type.id) { <option [value]="type.id">{{ type.name }}</option> }</select></label>
           @if (formLoading) { <p class="empty">Загрузка схемы формы…</p> }
           @if (activeForm; as form) { <div class="fields">
-            <article class="field-row" *ngFor="let field of form.fields; let index = index">
+            <div class="field-list" cdkDropList [cdkDropListData]="form.fields" (cdkDropListDropped)="moveField(form,$event)">
+            <article class="field-row" *ngFor="let field of form.fields" cdkDrag>
+              <button class="drag-handle" type="button" cdkDragHandle aria-label="Переместить поле" title="Перетащить поле">⠿</button>
               <div class="field-main"><label>Название<input [name]="'field-name-' + field.id" [(ngModel)]="field.name" [disabled]="field.immutable ?? false" /></label><label>Тип поля<select [name]="'field-type-' + field.id" [(ngModel)]="field.type" [disabled]="field.immutable ?? false"><option value="string">Строка</option><option value="textarea">Многострочный текст</option><option value="number">Число</option><option value="date">Дата</option><option value="dictionary">Справочник</option><option value="asset">Выбор актива</option><option value="file">Вложение</option><option value="boolean">Да/нет</option></select></label><label class="check"><input type="checkbox" [name]="'required-' + field.id" [(ngModel)]="field.required" [disabled]="field.immutable ?? false" /> Обязательное</label><label class="check"><input type="checkbox" [name]="'visible-' + field.id" [(ngModel)]="field.visibleToRequester" /> Видно автору</label></div>
               <div class="field-options"><label>Значение по умолчанию<input [name]="'default-' + field.id" [(ngModel)]="field.defaultValue" /></label><label>Проверка ввода<input [name]="'validation-' + field.id" [(ngModel)]="field.validation" placeholder="Например, регулярное выражение" /></label><label>Подсказка<input [name]="'hint-' + field.id" [(ngModel)]="field.hint" /></label>
                 @if (field.type === 'dictionary') { <label>Значения списка<input [name]="'options-' + field.id" [ngModel]="field.options?.join(', ') || ''" (ngModelChange)="setOptions(field,$event)" placeholder="Значение 1, Значение 2" /></label> }
-                @if (index > 2) { <label>Показывать, если поле равно<input [name]="'condition-' + field.id" [(ngModel)]="field.conditionValue" placeholder="Значение условия" /></label><label>Зависит от поля<select [name]="'condition-field-' + field.id" [(ngModel)]="field.conditionFieldId"><option value="">Всегда показывать</option>@for (other of form.fields; track other.id) { @if (other.id !== field.id) { <option [value]="other.id">{{ other.name }}</option> } }</select></label> }
+                @if (!field.immutable) { <label>Показывать, если поле равно<input [name]="'condition-' + field.id" [(ngModel)]="field.conditionValue" placeholder="Значение условия" /></label><label>Зависит от поля<select [name]="'condition-field-' + field.id" [(ngModel)]="field.conditionFieldId"><option value="">Всегда показывать</option>@for (other of form.fields; track other.id) { @if (other.id !== field.id) { <option [value]="other.id">{{ other.name }}</option> } }</select></label> }
               </div>
-              @if (!field.immutable) { <button class="icon-action" type="button" aria-label="Удалить поле" (click)="removeField(form,field)">Удалить поле</button> }
+              @if (!field.immutable) { <button class="icon-action field-delete" type="button" [attr.aria-label]="'Удалить поле ' + field.name" title="Удалить поле" (click)="removeField(form,field)">×</button> }
             </article>
-            <div class="add-field"><label>Новое поле<input name="newFieldName" [(ngModel)]="newFieldName" placeholder="Название поля" /></label><label>Тип<select name="newFieldType" [(ngModel)]="newFieldType"><option value="string">Строка</option><option value="textarea">Многострочный текст</option><option value="number">Число</option><option value="date">Дата</option><option value="dictionary">Справочник</option><option value="asset" [disabled]="form.fields.some(field => field.type === 'asset')">Выбор актива</option><option value="file">Вложение</option><option value="boolean">Да/нет</option></select></label><button class="quiet align-end" type="button" [disabled]="!newFieldName.trim() || (newFieldType === 'asset' && form.fields.some(field => field.type === 'asset'))" (click)="addField(form)">Добавить поле</button></div>
+            </div>
+            <div class="add-field"><label>Новое поле<input name="newFieldName" [(ngModel)]="newFieldName" placeholder="Название поля" /></label><label>Тип<select name="newFieldType" [(ngModel)]="newFieldType"><option value="string">Строка</option><option value="textarea">Многострочный текст</option><option value="number">Число</option><option value="date">Дата</option><option value="dictionary">Справочник</option><option value="asset" [disabled]="form.fields.some(field => field.type === 'asset')">Выбор актива</option><option value="file">Вложение</option><option value="boolean">Да/нет</option></select></label><button class="quiet align-end" type="button" [disabled]="!newFieldName.trim() || (newFieldType === 'asset' && form.fields.some(field => field.type === 'asset'))" (click)="addField(form)">＋ Добавить поле</button></div>
             <button class="primary save-button" type="button" (click)="saveForm(form)">Сохранить форму</button>
           </div> }
         </section>
@@ -388,7 +409,17 @@ export class AdminWorkspaceComponent implements OnInit {
     formTicketTypes: TicketFormType[] = [];
     formId = '';
     formLoading = false;
+    private readonly formDrafts = new Map<string, TicketFormDefinition>();
+    private readonly savedFormDrafts = new Map<string, TicketFormDefinition>();
     private formRequestVersion = 0;
+    archivedTicketTypes: TicketType[] = [];
+    ticketTypeEditorOpen = false;
+    ticketTypeDraft: TicketType | null = null;
+    editingTicketTypeId: string | null = null;
+    ticketTypeChangesDirty = false;
+    private savedTicketTypes: TicketType[] = [];
+    private savedArchivedTicketTypes: TicketType[] = [];
+    private localIdSequence = 0;
     policies: EscalationPolicy[] = [];
     escalationHistory: EscalationHistoryEntry[] = [];
     reports: ReportSummary[] = [];
@@ -424,7 +455,6 @@ export class AdminWorkspaceComponent implements OnInit {
     notice = '';
     newCriticality = '';
     newStatus = '';
-    newType = '';
     newUsername = '';
     newPassword = '';
     newFieldName = '';
@@ -529,7 +559,40 @@ export class AdminWorkspaceComponent implements OnInit {
                 },
             });
         }
-        if (this.section === 'settings' && this.workspace.supportsTicketTypeConfiguration) this.workspace.getTicketTypes().subscribe({ next: types => this.ticketTypes = types, error: err => this.error = err.message });
+        if (this.section === 'settings') {
+            if (this.workspace.supportsTicketTypeConfiguration) {
+                this.workspace.getTicketTypes().subscribe({
+                    next: types => {
+                        this.ticketTypes = types;
+                        this.savedTicketTypes = this.cloneTicketTypes(types);
+                        this.savedArchivedTicketTypes = [];
+                    },
+                    error: err => this.error = err.message,
+                });
+            } else {
+                this.workspace.getFormTicketTypes().subscribe({
+                    next: types => {
+                        this.ticketTypes = types.map(type => ({
+                            id: type.id,
+                            name: type.name,
+                            portalAvailable: type.isPortalAvailable ?? true,
+                            repair: type.code === 'repair',
+                            builtIn: type.isBuiltIn ?? type.code === 'repair',
+                            slaEnabled: true,
+                            reactionSla: '1 ч',
+                            resolutionSla: '8 ч',
+                        }));
+                        this.savedTicketTypes = this.cloneTicketTypes(this.ticketTypes);
+                        this.savedArchivedTicketTypes = [];
+                        this.changeDetector.markForCheck();
+                    },
+                    error: err => {
+                        this.error = err.message;
+                        this.changeDetector.markForCheck();
+                    },
+                });
+            }
+        }
         if (this.section === 'forms') this.workspace.getFormTicketTypes().subscribe({
             next: types => {
                 this.formTicketTypes = types;
@@ -662,24 +725,113 @@ export class AdminWorkspaceComponent implements OnInit {
       const enabled = (event.target as HTMLInputElement).checked;
       this.settings.statusTransitions[source] = enabled ? [...new Set([...allowed, target])] : allowed.filter(status => status !== target);
     }
-    addType(): void {
-        if (!this.settings || !this.newType.trim()) return;
-        const id = `type-${Date.now()}`;
-        const slaByCriticality = Object.fromEntries(this.settings.criticalities.map(level => [level, { reaction: '1 ч', resolution: '8 ч' }]));
-        const type: TicketType = { id, name: this.newType.trim(), portalAvailable: true, repair: false, slaEnabled: true, reactionSla: '1 ч', resolutionSla: '8 ч', slaByCriticality };
-        this.ticketTypes = [...this.ticketTypes, type];
-        this.workspace.saveTicketTypes(this.ticketTypes).subscribe({
-            next: () => {
-                this.workspace.saveForm({ ticketTypeId: id, ticketTypeName: type.name, fields: this.defaultFields(id) }).subscribe({ next: form => { this.forms.push(form); this.newType = ''; this.notice = 'Тип и базовая форма созданы.'; }, error: err => this.error = err.message });
-            },
-            error: err => this.error = err.message,
-        });
+    openTicketTypeEditor(type?: TicketType): void {
+        if (type?.builtIn || type?.repair) return;
+        this.editingTicketTypeId = type?.id ?? null;
+        this.ticketTypeDraft = type
+            ? this.cloneTicketType(type)
+            : {
+                id: '',
+                name: '',
+                portalAvailable: true,
+                repair: false,
+                builtIn: false,
+                slaEnabled: true,
+                reactionSla: '1 ч',
+                resolutionSla: '8 ч',
+                slaByCriticality: Object.fromEntries(
+                    (this.settings?.criticalities ?? []).map(level => [level, { reaction: '1 ч', resolution: '8 ч' }]),
+                ),
+            };
+        this.ticketTypeEditorOpen = true;
     }
-    removeType(type: TicketType): void { this.ticketTypes = this.ticketTypes.filter(item => item.id !== type.id); }
+
+    closeTicketTypeEditor(): void {
+        this.ticketTypeEditorOpen = false;
+        this.ticketTypeDraft = null;
+        this.editingTicketTypeId = null;
+    }
+
+    saveTicketTypeDraft(): void {
+        const draft = this.ticketTypeDraft;
+        const name = draft?.name.trim();
+        if (!draft || !name) return;
+        if (this.ticketTypes.some(type => type.id !== this.editingTicketTypeId && type.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+            this.error = 'Тип заявки с таким названием уже существует.';
+            return;
+        }
+
+        const isNewType = this.editingTicketTypeId === null;
+        const type = {
+            ...draft,
+            id: this.editingTicketTypeId ?? `local-type-${Date.now()}-${++this.localIdSequence}`,
+            name,
+        };
+        if (isNewType) {
+            this.ticketTypes = [...this.ticketTypes, type];
+            this.formDrafts.set(type.id, {
+                ticketTypeId: type.id,
+                ticketTypeName: type.name,
+                fields: this.defaultFields(type.id),
+            });
+        } else {
+            this.ticketTypes = this.ticketTypes.map(item => item.id === type.id ? type : item);
+            const formDraft = this.formDrafts.get(type.id);
+            if (formDraft) formDraft.ticketTypeName = type.name;
+        }
+
+        this.ticketTypeChangesDirty = true;
+        this.syncFormTicketTypes();
+        this.closeTicketTypeEditor();
+        this.error = '';
+    }
+
+    archiveType(type: TicketType): void {
+        if (type.builtIn || type.repair || !this.ticketTypes.some(item => item.id === type.id)) return;
+        this.ticketTypes = this.ticketTypes.filter(item => item.id !== type.id);
+        this.archivedTicketTypes = [...this.archivedTicketTypes, type];
+        this.ticketTypeChangesDirty = true;
+        this.syncFormTicketTypes();
+    }
+
+    restoreType(type: TicketType): void {
+        if (this.ticketTypes.some(item => item.name.trim().toLocaleLowerCase() === type.name.trim().toLocaleLowerCase())) {
+            this.error = 'Тип заявки с таким названием уже существует.';
+            return;
+        }
+        this.archivedTicketTypes = this.archivedTicketTypes.filter(item => item.id !== type.id);
+        this.ticketTypes = [...this.ticketTypes, type];
+        this.ticketTypeChangesDirty = true;
+        this.syncFormTicketTypes();
+        this.error = '';
+    }
+
+    deleteArchivedType(type: TicketType): void {
+        if (!confirm(`Удалить тип заявки «${type.name}» из локального списка?`)) return;
+        this.archivedTicketTypes = this.archivedTicketTypes.filter(item => item.id !== type.id);
+        this.ticketTypeChangesDirty = true;
+    }
+
+    saveTicketTypeChanges(): void {
+        this.savedTicketTypes = this.cloneTicketTypes(this.ticketTypes);
+        this.savedArchivedTicketTypes = this.cloneTicketTypes(this.archivedTicketTypes);
+        this.ticketTypeChangesDirty = false;
+        this.notice = 'Изменения типов сохранены в памяти текущего сеанса; серверный API сохранения не подключён.';
+    }
+
+    discardTicketTypeChanges(): void {
+        this.ticketTypes = this.cloneTicketTypes(this.savedTicketTypes);
+        this.archivedTicketTypes = this.cloneTicketTypes(this.savedArchivedTicketTypes);
+        this.ticketTypeChangesDirty = false;
+        this.closeTicketTypeEditor();
+        this.syncFormTicketTypes();
+    }
+
     setTypeSla(type: TicketType, level: string, metric: 'reaction' | 'resolution', value: string): void {
         type.slaByCriticality ??= {};
         type.slaByCriticality[level] ??= { reaction: type.reactionSla, resolution: type.resolutionSla };
         type.slaByCriticality[level][metric] = value;
+        this.ticketTypeChangesDirty = true;
     }
     togglePortalSla(field: string, event: Event): void { if (!this.settings) return; this.settings.portalSlaFields = this.toggleString(this.settings.portalSlaFields, field, (event.target as HTMLInputElement).checked); }
     toggleWorkingDay(day: string, event: Event): void { if (!this.settings) return; this.settings.workingDays = this.toggleString(this.settings.workingDays, day, (event.target as HTMLInputElement).checked); }
@@ -696,12 +848,19 @@ export class AdminWorkspaceComponent implements OnInit {
     addField(form: TicketFormDefinition): void {
         const name = this.newFieldName.trim();
         if (!name) return;
-      if (this.newFieldType === 'asset' && form.fields.some(field => field.type === 'asset')) {
-        this.error = 'В одной форме можно связать заявку только с одним активом.';
-        return;
-      }
-        form.fields.push({ id: `field-${Date.now()}`, name, type: this.newFieldType, required: false, visibleToRequester: true });
+        if (this.newFieldType === 'asset' && form.fields.some(field => field.type === 'asset')) {
+            this.error = 'В одной форме можно связать заявку только с одним активом.';
+            return;
+        }
+        form.fields = [...form.fields, {
+            id: `field-${Date.now()}-${++this.localIdSequence}`,
+            name,
+            type: this.newFieldType,
+            required: false,
+            visibleToRequester: true,
+        }];
         this.newFieldName = '';
+        this.changeDetector.markForCheck();
     }
     loadForm(ticketTypeId: string): void {
         this.error = '';
@@ -713,11 +872,21 @@ export class AdminWorkspaceComponent implements OnInit {
             return;
         }
 
+        const cachedDraft = this.formDrafts.get(ticketTypeId);
+        const cachedForm = cachedDraft ?? this.savedFormDrafts.get(ticketTypeId);
+        if (cachedForm) {
+            this.forms = [cachedForm];
+            this.formLoading = false;
+            return;
+        }
+
         this.formLoading = true;
         this.workspace.getFormTemplate(ticketTypeId).subscribe({
             next: form => {
                 if (requestVersion !== this.formRequestVersion) return;
-                this.forms = [form];
+                const draft = this.cloneForm(form);
+                this.formDrafts.set(ticketTypeId, draft);
+                this.forms = [draft];
                 this.formLoading = false;
                 this.changeDetector.markForCheck();
             },
@@ -729,15 +898,27 @@ export class AdminWorkspaceComponent implements OnInit {
             },
         });
     }
+    moveField(form: TicketFormDefinition, event: Pick<CdkDragDrop<FormFieldDefinition[]>, 'previousIndex' | 'currentIndex'>): void {
+        moveItemInArray(form.fields, event.previousIndex, event.currentIndex);
+        form.fields = [...form.fields];
+        this.changeDetector.markForCheck();
+    }
     removeField(form: TicketFormDefinition, field: FormFieldDefinition): void {
         if (field.immutable) {
             this.error = `Встроенное поле «${field.name}» нельзя удалить.`;
             return;
         }
         form.fields = form.fields.filter(item => item.id !== field.id);
+        this.changeDetector.markForCheck();
     }
     setOptions(field: FormFieldDefinition, value: string): void { field.options = value.split(',').map(item => item.trim()).filter(Boolean); }
-    saveForm(form: TicketFormDefinition): void { this.workspace.saveForm(form).subscribe({ next: saved => { this.forms = this.forms.map(item => item.ticketTypeId === saved.ticketTypeId ? saved : item); this.notice = 'Форма сохранена и будет использоваться для новых и существующих заявок.'; }, error: err => this.error = err.message }); }
+    saveForm(form: TicketFormDefinition): void {
+        const saved = this.cloneForm(form);
+        this.savedFormDrafts.set(saved.ticketTypeId, saved);
+        this.formDrafts.set(saved.ticketTypeId, saved);
+        this.forms = [saved];
+        this.notice = 'Схема формы сохранена в памяти текущего сеанса; серверный API сохранения не подключён.';
+    }
     loadReports(): void {
         this.reportLoading = true;
         this.reportError = '';
@@ -800,6 +981,39 @@ export class AdminWorkspaceComponent implements OnInit {
                 this.downloadingReportId = null;
             },
         });
+    }
+
+    private syncFormTicketTypes(): void {
+        this.formTicketTypes = this.ticketTypes.map(type => ({
+            id: type.id,
+            name: type.name,
+            code: type.repair ? 'repair' : null,
+            isBuiltIn: type.builtIn ?? type.repair,
+            isPortalAvailable: type.portalAvailable,
+        }));
+    }
+
+    private cloneTicketType(type: TicketType): TicketType {
+        return {
+            ...type,
+            slaByCriticality: type.slaByCriticality
+                ? Object.fromEntries(Object.entries(type.slaByCriticality).map(([level, sla]) => [level, { ...sla }]))
+                : undefined,
+        };
+    }
+
+    private cloneTicketTypes(types: TicketType[]): TicketType[] {
+        return types.map(type => this.cloneTicketType(type));
+    }
+
+    private cloneForm(form: TicketFormDefinition): TicketFormDefinition {
+        return {
+            ...form,
+            fields: form.fields.map(field => ({
+                ...field,
+                options: field.options ? [...field.options] : undefined,
+            })),
+        };
     }
 
     private toggleString(values: string[], value: string, enabled: boolean): string[] { return enabled ? [...new Set([...values, value])] : values.filter(item => item !== value); }

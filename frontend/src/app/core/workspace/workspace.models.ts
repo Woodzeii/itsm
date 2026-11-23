@@ -59,6 +59,7 @@ export interface TicketType {
     name: string;
     portalAvailable: boolean;
     repair: boolean;
+    builtIn?: boolean;
     slaEnabled: boolean;
     reactionSla: string;
     resolutionSla: string;
@@ -73,6 +74,9 @@ export interface PortalTicketType {
 export interface TicketFormType {
     id: string;
     name: string;
+    code?: string | null;
+    isBuiltIn?: boolean;
+    isPortalAvailable?: boolean;
 }
 
 export interface RequesterOption {

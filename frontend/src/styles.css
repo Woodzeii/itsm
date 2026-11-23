@@ -1858,3 +1858,187 @@ html[data-theme='dark'] app-admin-workspace .report-table-wrap td {
 html[data-theme='dark'] app-admin-workspace .report-copy small {
     color: var(--app-muted);
 }
+
+app-admin-workspace .type-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 12px 16px 0;
+}
+
+app-admin-workspace .type-name {
+    display: grid;
+    gap: 4px;
+    color: #414c5a;
+    font-size: 10px;
+}
+
+app-admin-workspace .type-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+app-admin-workspace .type-actions .remove-type {
+    margin: 0;
+}
+
+app-admin-workspace .archived-types {
+    display: grid;
+    gap: 8px;
+    margin: 4px 16px 14px;
+    padding: 12px;
+    border-radius: 5px;
+    background: #f7f9fb;
+}
+
+app-admin-workspace .archived-types h3 {
+    color: #576273;
+}
+
+app-admin-workspace .archived-types > div {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #677383;
+    font-size: 10px;
+}
+
+app-admin-workspace .archived-types > div span {
+    flex: 1;
+}
+
+app-admin-workspace .type-discard {
+    margin: 0 16px 12px;
+}
+
+app-admin-workspace .type-modal-backdrop {
+    position: fixed;
+    z-index: 3000;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(20, 29, 42, .55);
+}
+
+app-admin-workspace .type-modal {
+    width: min(480px, 100%);
+    max-height: 90vh;
+    overflow: auto;
+    border: 1px solid #dce3ed;
+    border-radius: 8px;
+    background: #fff;
+    box-shadow: 0 18px 60px rgba(20, 29, 42, .24);
+}
+
+app-admin-workspace .type-modal > header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px;
+    border-bottom: 1px solid #edf0f4;
+}
+
+app-admin-workspace .type-modal > header h2 {
+    font-size: 14px;
+}
+
+app-admin-workspace .type-modal-fields {
+    display: grid;
+    gap: 12px;
+    padding: 16px;
+}
+
+app-admin-workspace .type-modal-fields .check {
+    justify-content: flex-start;
+}
+
+app-admin-workspace .type-modal > footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    padding: 12px 16px 16px;
+}
+
+app-admin-workspace .type-modal > footer .primary {
+    min-height: 32px;
+    padding: 0 12px;
+    border: 0;
+    border-radius: 4px;
+    background: #2563eb;
+    color: #fff;
+    cursor: pointer;
+}
+
+app-admin-workspace .type-modal > footer .primary:disabled {
+    opacity: .5;
+    cursor: not-allowed;
+}
+
+app-admin-workspace .icon-button {
+    width: 28px;
+    height: 28px;
+    border: 0;
+    border-radius: 4px;
+    background: #f0f2f5;
+    color: #546173;
+    cursor: pointer;
+}
+
+app-admin-workspace .field-list {
+    display: grid;
+}
+
+app-admin-workspace .field-row {
+    padding: 14px 38px 14px 32px;
+}
+
+app-admin-workspace .drag-handle {
+    position: absolute;
+    top: 14px;
+    left: 0;
+    width: 24px;
+    height: 28px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #8591a0;
+    font-size: 18px;
+    cursor: grab;
+    touch-action: none;
+}
+
+app-admin-workspace .drag-handle:active {
+    cursor: grabbing;
+}
+
+app-admin-workspace .field-delete {
+    position: absolute;
+    top: 14px;
+    right: 0;
+    width: 26px !important;
+    height: 26px;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 17px;
+    line-height: 1;
+}
+
+app-admin-workspace .field-row.cdk-drag-preview {
+    padding: 14px 38px 14px 32px;
+    border: 1px solid #dfe4ea;
+    border-radius: 5px;
+    background: #fff;
+    box-shadow: 0 7px 18px rgba(27, 39, 55, .16);
+}
+
+app-admin-workspace .field-list.cdk-drop-list-dragging .field-row:not(.cdk-drag-placeholder) {
+    transition: transform 180ms ease;
+}
+
+html[data-theme='dark'] app-admin-workspace .type-modal,
+html[data-theme='dark'] app-admin-workspace .archived-types {
+    border-color: var(--app-border);
+    background: var(--app-surface);
+    color: var(--app-text);
+}
