@@ -339,6 +339,7 @@ export interface ReportDetail {
     total: number;
     skip: number;
     take: number;
+    aggregates?: Record<string, number> | null;
 }
 
 export interface PortalTicketRequest extends CreateTicketRequest {

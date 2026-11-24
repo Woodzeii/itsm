@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Security.Claims;
@@ -260,6 +261,58 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         Assert.Null(ticket.AssigneeId);
         Assert.True(await scope.Db.TicketAuditLogs.AnyAsync(log =>
             log.TicketId == ticket.Id && log.FieldName == "created"));
+    }
+
+    [Fact]
+    public async Task CreateTicketAssignsMatchingSlaAndCalculatesDeadlines()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var db = scope.Db;
+        var service = CreateService(scope);
+        await service.UpdateAssignmentSettingAsync(new UpdateAssignmentSettingRequest { Mode = "manual" });
+        var creator = await CreateUserAsync(db);
+        var policy = new SlaPolicy
+        {
+            Name = "High criticality SLA",
+            ScheduleType = "24x7",
+            ReactionTimeMinutes = 120,
+            ResolutionTimeMinutes = 600
+        };
+        db.SlaPolicies.Add(policy);
+        db.SlaValues.Add(new SlaValue
+        {
+            TicketTypeId = 1,
+            CriticalityLevelId = 3,
+            SlaPolicy = policy,
+            ReactionTimeMinutes = 120,
+            ResolutionTimeMinutes = 600
+        });
+        await db.SaveChangesAsync();
+
+        var response = await service.CreateAsync(
+            NewTicketRequest(),
+            creator.Id,
+            isStaff: false,
+            isEngineer: false);
+        var ticket = await db.Tickets.SingleAsync(item => item.Id == response.Id);
+
+        Assert.Equal(3, response.CriticalityLevelId);
+        Assert.Equal(policy.Id, ticket.SlaPolicyId);
+        Assert.Equal(ticket.CreatedAt.AddMinutes(120), ticket.SlaReactionDeadline);
+        Assert.Equal(ticket.CreatedAt.AddMinutes(600), ticket.SlaResolutionDeadline);
+        Assert.Equal(ticket.CreatedAt, ticket.SlaReactionStartedAt);
+        Assert.Equal(ticket.CreatedAt, ticket.SlaResolutionStartedAt);
+        Assert.NotNull(ticket.SlaCalendarSnapshot);
+
+        await service.ChangeStatusAsync(
+            response.Id,
+            new ChangeTicketStatusRequest { StatusId = 2 },
+            creator.Id,
+            []);
+        ticket = await db.Tickets.SingleAsync(item => item.Id == response.Id);
+
+        Assert.NotNull(ticket.ActualReactionTime);
+        Assert.Null(ticket.ActualResolutionTime);
     }
 
 

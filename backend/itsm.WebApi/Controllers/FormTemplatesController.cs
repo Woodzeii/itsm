@@ -283,6 +283,32 @@ public sealed class FormTemplatesController(ItsmDbContext db) : ControllerBase
         return node is null ? schema : JsonSerializer.SerializeToElement(node);
     }
 
+    private static FormTemplateResponse CreateDefaultResponse(TicketType ticketType)
+    {
+        var schemaFields = new[]
+        {
+            new { id = "subject", name = "Тема", type = "string", required = true, visibleToRequester = true, immutable = true },
+            new { id = "description", name = "Описание", type = "textarea", required = true, visibleToRequester = true, immutable = true },
+            new { id = "criticality", name = "Критичность", type = "dictionary", required = true, visibleToRequester = true, immutable = true }
+        };
+        var schema = JsonSerializer.SerializeToElement(new
+        {
+            ticketTypeId = ticketType.Id,
+            ticketTypeName = ticketType.Name,
+            fields = schemaFields
+        }, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        return new FormTemplateResponse(
+            ticketType.Id,
+            ticketType.Name,
+            schema,
+            [
+                new FormFieldResponse("subject", "Тема", "string", true, true, false, null, null, null, null, 0),
+                new FormFieldResponse("description", "Описание", "textarea", true, true, false, null, null, null, null, 1),
+                new FormFieldResponse("criticality", "Критичность", "dictionary", true, true, false, null, null, null, null, 2)
+            ]);
+    }
+
     private static string? ValidateFields(
         IReadOnlyList<FormFieldSchemaRequest>? requestedFields,
         JsonElement currentSchema,

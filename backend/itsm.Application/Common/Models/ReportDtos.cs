@@ -11,4 +11,5 @@ public sealed record ReportDetailResponse(
     IReadOnlyList<ReportDetailRow> Items,
     int Total,
     int Skip,
-    int Take);
+    int Take,
+    IReadOnlyDictionary<string, int>? Aggregates = null);
