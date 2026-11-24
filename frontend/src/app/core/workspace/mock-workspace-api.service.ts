@@ -534,10 +534,19 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         })));
     }
 
-    getFormTemplate(ticketTypeId: string): Observable<TicketFormDefinition> {
+    getFormTemplate(ticketTypeId: string, includeCommon = true): Observable<TicketFormDefinition> {
         const form = this.forms.find(item => item.ticketTypeId === ticketTypeId);
+        if (ticketTypeId === 'common') {
+            return of(form
+                ? { ...form, fields: form.fields.map(field => ({ ...field, options: field.options ? [...field.options] : undefined })) }
+                : { ticketTypeId: 'common', ticketTypeName: 'Общие поля', fields: [] });
+        }
         if (!form) return this.fail('Форма для выбранного типа заявки не найдена.');
-        return of({ ...form, fields: form.fields.map(field => ({ ...field, options: field.options ? [...field.options] : undefined })) });
+        const commonFields = includeCommon
+            ? this.forms.find(item => item.ticketTypeId === 'common')?.fields ?? []
+            : [];
+        const mergedFields = [...commonFields, ...form.fields.filter(field => !commonFields.some(common => common.id === field.id))];
+        return of({ ...form, fields: mergedFields.map(field => ({ ...field, options: field.options ? [...field.options] : undefined })) });
     }
 
     getForms(): Observable<TicketFormDefinition[]> { return of(this.forms.map(form => ({ ...form, fields: form.fields.map(field => ({ ...field, options: field.options ? [...field.options] : undefined })) }))); }
@@ -545,9 +554,11 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     saveForm(form: TicketFormDefinition): Observable<TicketFormDefinition> {
         const index = this.forms.findIndex(item => item.ticketTypeId === form.ticketTypeId);
         const oldForm = this.forms[index];
-        if (!this.ticketTypes.some(type => type.id === form.ticketTypeId)) return this.fail('Тип заявки не найден.');
-        for (const required of ['Тема', 'Описание', 'Критичность']) {
-            if (!form.fields.some(field => field.name === required && field.immutable)) return this.fail(`Встроенное поле «${required}» нельзя удалить или изменить.`);
+        if (form.ticketTypeId !== 'common' && !this.ticketTypes.some(type => type.id === form.ticketTypeId)) return this.fail('Тип заявки не найден.');
+        if (form.ticketTypeId !== 'common') {
+            for (const required of ['Тема', 'Описание', 'Критичность']) {
+                if (!form.fields.some(field => field.name === required && field.immutable)) return this.fail(`Встроенное поле «${required}» нельзя удалить или изменить.`);
+            }
         }
         const oldFields = new Set((oldForm?.fields ?? []).map(field => field.id));
         const nextFields = new Set(form.fields.map(field => field.id));

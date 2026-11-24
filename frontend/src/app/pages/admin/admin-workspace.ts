@@ -11,6 +11,8 @@ import { RoleSummary, UpdateAdminUserRequest, UserSummary } from '../../core/adm
 import { TenantUserQuotaService } from '../../core/workspace/tenant-user-quota.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
+import { DictionaryApiService } from '../../core/dictionaries/dictionary.service';
+import { DictionaryDto } from '../../core/dictionaries/dictionary.models';
 
 type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
 
@@ -141,15 +143,15 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
       }
 
       @if (section === 'forms') {
-        <section class="panel"><header><h2>Формы по типам заявок</h2><p>Одна форма на тип; встроенные поля нельзя удалить</p></header><label class="form-select">Тип заявки<select name="formId" [(ngModel)]="formId" (ngModelChange)="loadForm($event)"><option value="">Выберите тип заявки</option>@for (type of formTicketTypes; track type.id) { <option [value]="type.id">{{ type.name }}</option> }</select></label>
+        <section class="panel"><header><h2>Формы по типам заявок</h2><p>Одна форма на тип и общие поля для всех типов; встроенные поля нельзя удалить</p></header><label class="form-select">Тип заявки<select name="formId" [(ngModel)]="formId" (ngModelChange)="loadForm($event)"><option value="">Выберите тип заявки</option><option value="common">Общие поля для всех типов</option>@for (type of formTicketTypes; track type.id) { <option [value]="type.id">{{ type.name }}</option> }</select></label>
           @if (formLoading) { <p class="empty">Загрузка схемы формы…</p> }
           @if (activeForm; as form) { <div class="fields">
             <div class="field-list" cdkDropList [cdkDropListData]="form.fields" (cdkDropListDropped)="moveField(form,$event)">
             <article class="field-row" *ngFor="let field of form.fields" cdkDrag>
               <button class="drag-handle" type="button" cdkDragHandle aria-label="Переместить поле" title="Перетащить поле">⠿</button>
-              <div class="field-main"><label>Название<input [name]="'field-name-' + field.id" [(ngModel)]="field.name" [disabled]="field.immutable ?? false" /></label><label>Тип поля<select [name]="'field-type-' + field.id" [(ngModel)]="field.type" [disabled]="field.immutable ?? false"><option value="string">Строка</option><option value="textarea">Многострочный текст</option><option value="number">Число</option><option value="date">Дата</option><option value="dictionary">Справочник</option><option value="asset">Выбор актива</option><option value="file">Вложение</option><option value="boolean">Да/нет</option></select></label><label class="check"><input type="checkbox" [name]="'required-' + field.id" [(ngModel)]="field.required" [disabled]="field.immutable ?? false" /> Обязательное</label><label class="check"><input type="checkbox" [name]="'visible-' + field.id" [(ngModel)]="field.visibleToRequester" /> Видно автору</label></div>
+              <div class="field-main"><label>Название<input [name]="'field-name-' + field.id" [(ngModel)]="field.name" [disabled]="field.immutable ?? false" /></label><label>Тип поля<select [name]="'field-type-' + field.id" [(ngModel)]="field.type" [disabled]="field.immutable ?? false"><option value="string">Строка</option><option value="textarea">Многострочный текст</option><option value="number">Число</option><option value="date">Дата</option><option value="dictionary">Справочник</option><option value="asset">Выбор актива</option><option value="file">Вложение</option><option value="boolean">Да/нет</option></select></label><label class="check"><input type="checkbox" [name]="'required-' + field.id" [(ngModel)]="field.required" [disabled]="field.immutable ?? false" /> Обязательное</label><label class="check"><input type="checkbox" [name]="'visible-' + field.id" [(ngModel)]="field.visibleToRequester" [disabled]="field.immutable ?? false" /> Видно автору</label></div>
               <div class="field-options"><label>Значение по умолчанию<input [name]="'default-' + field.id" [(ngModel)]="field.defaultValue" /></label><label>Проверка ввода<input [name]="'validation-' + field.id" [(ngModel)]="field.validation" placeholder="Например, регулярное выражение" /></label><label>Подсказка<input [name]="'hint-' + field.id" [(ngModel)]="field.hint" /></label>
-                @if (field.type === 'dictionary') { <label>Значения списка<input [name]="'options-' + field.id" [ngModel]="field.options?.join(', ') || ''" (ngModelChange)="setOptions(field,$event)" placeholder="Значение 1, Значение 2" /></label> }
+                @if (field.type === 'dictionary' && !field.immutable) { <label>Справочник<select [name]="'dictionary-' + field.id" [ngModel]="field.dictionaryCode || ''" (ngModelChange)="setDictionary(field,$event)"><option value="">Выберите справочник</option>@for (dictionary of dictionaries; track dictionary.code) { <option [value]="dictionary.code">{{ dictionary.name }}</option> }</select></label> }
                 @if (!field.immutable) { <label>Показывать, если поле<select [name]="'condition-field-' + field.id" [ngModel]="field.conditionFieldId || ''" (ngModelChange)="setConditionField(field,$event)"><option value="">Всегда показывать</option>@for (other of form.fields; track other.id) { @if (other.id !== field.id) { <option [value]="other.id">{{ other.name }}</option> } }</select></label>@if (field.conditionFieldId) { <label>Условие<select [name]="'condition-operator-' + field.id" [(ngModel)]="field.conditionOperator"><option value="equals">Равно</option><option value="notEquals">Не равно</option><option value="greaterThan" [disabled]="!conditionSourceIsNumeric(form,field)">Больше</option></select></label><label>Значение условия<input [name]="'condition-value-' + field.id" [(ngModel)]="field.conditionValue" placeholder="Введите значение" /></label> } }
               </div>
               @if (!field.immutable) { <button class="icon-action field-delete" type="button" [attr.aria-label]="'Удалить поле ' + field.name" title="Удалить поле" (click)="removeField(form,field)">×</button> }
@@ -399,6 +401,7 @@ export class AdminWorkspaceComponent implements OnInit {
     private readonly route = inject(ActivatedRoute);
     private readonly router = inject(Router);
     private readonly changeDetector = inject(ChangeDetectorRef);
+    private readonly dictionaryApi = inject(DictionaryApiService);
 
     section: AdminSection = 'settings';
     settings: AdminSettings | null = null;
@@ -407,6 +410,7 @@ export class AdminWorkspaceComponent implements OnInit {
     ticketTypes: TicketType[] = [];
     forms: TicketFormDefinition[] = [];
     formTicketTypes: TicketFormType[] = [];
+    dictionaries: DictionaryDto[] = [];
     formId = '';
     formLoading = false;
     private readonly formDrafts = new Map<string, TicketFormDefinition>();
@@ -571,7 +575,7 @@ export class AdminWorkspaceComponent implements OnInit {
                     error: err => this.error = err.message,
                 });
             } else {
-                this.workspace.getFormTicketTypes().subscribe({
+                this.tenantSettingsApi.getFormTicketTypes().subscribe({
                     next: types => {
                         this.ticketTypes = types.map(type => ({
                             id: type.id,
@@ -594,18 +598,24 @@ export class AdminWorkspaceComponent implements OnInit {
                 });
             }
         }
-        if (this.section === 'forms') this.workspace.getFormTicketTypes().subscribe({
-            next: types => {
-                this.formTicketTypes = types;
-                this.formId = types[0]?.id ?? '';
-                if (this.formId) this.loadForm(this.formId);
-                this.changeDetector.markForCheck();
-            },
-            error: err => {
-                this.error = err.message;
-                this.changeDetector.markForCheck();
-            },
-        });
+        if (this.section === 'forms') {
+            this.dictionaryApi.getAll().subscribe({
+                next: dictionaries => { this.dictionaries = dictionaries; this.changeDetector.markForCheck(); },
+                error: err => { this.error = err.message; this.changeDetector.markForCheck(); },
+            });
+            this.tenantSettingsApi.getFormTicketTypes().subscribe({
+                next: types => {
+                    this.formTicketTypes = types;
+                    this.formId = types[0]?.id ?? '';
+                    if (this.formId) this.loadForm(this.formId);
+                    this.changeDetector.markForCheck();
+                },
+                error: err => {
+                    this.error = err.message;
+                    this.changeDetector.markForCheck();
+                },
+            });
+        }
         if (this.section === 'escalations') {
             this.workspace.getEscalationPolicies().subscribe({ next: policies => this.policies = policies, error: err => this.error = err.message });
             this.workspace.getEscalationHistory().subscribe({ next: history => this.escalationHistory = history, error: err => this.error = err.message });
@@ -882,7 +892,7 @@ export class AdminWorkspaceComponent implements OnInit {
         }
 
         this.formLoading = true;
-        this.workspace.getFormTemplate(ticketTypeId).subscribe({
+        this.tenantSettingsApi.getFormTemplate(ticketTypeId, false).subscribe({
             next: form => {
                 if (requestVersion !== this.formRequestVersion) return;
                 const draft = this.cloneForm(form);
@@ -916,6 +926,15 @@ export class AdminWorkspaceComponent implements OnInit {
         this.changeDetector.markForCheck();
     }
     setOptions(field: FormFieldDefinition, value: string): void { field.options = value.split(',').map(item => item.trim()).filter(Boolean); }
+    setDictionary(field: FormFieldDefinition, code: string): void {
+        if (code) {
+            field.dictionaryCode = code;
+            delete field.options;
+        } else {
+            delete field.dictionaryCode;
+            delete field.options;
+        }
+    }
     setConditionField(field: FormFieldDefinition, fieldId: string): void {
         if (!fieldId) {
             delete field.conditionFieldId;
@@ -933,6 +952,11 @@ export class AdminWorkspaceComponent implements OnInit {
     saveForm(form: TicketFormDefinition): void {
         if (this.savingFormIds.has(form.ticketTypeId)) return;
         for (const field of form.fields) {
+            if (field.type === 'dictionary' && !field.immutable
+                && !field.dictionaryCode && !field.options?.length) {
+                this.error = `Для поля «${field.name}» выберите справочник.`;
+                return;
+            }
             if (!field.conditionFieldId) continue;
             const source = form.fields.find(item => item.id === field.conditionFieldId);
             if (!source || source.id === field.id) {
@@ -952,7 +976,7 @@ export class AdminWorkspaceComponent implements OnInit {
         this.error = '';
         this.notice = '';
         this.savingFormIds.add(form.ticketTypeId);
-        this.workspace.saveForm(this.cloneForm(form)).subscribe({
+        this.tenantSettingsApi.saveForm(this.cloneForm(form)).subscribe({
             next: savedForm => {
                 const saved = this.cloneForm(savedForm);
                 this.savedFormDrafts.set(saved.ticketTypeId, saved);

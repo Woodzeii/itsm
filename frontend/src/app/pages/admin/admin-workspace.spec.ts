@@ -6,6 +6,7 @@ import { UserSummary } from '../../core/admin/admin.models';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
 import { AuthService } from '../../core/auth/auth.service';
 import { HttpWorkspaceApiService } from '../../core/workspace/http-workspace-api.service';
+import { DictionaryApiService } from '../../core/dictionaries/dictionary.service';
 import { AdminWorkspaceComponent } from './admin-workspace';
 
 describe('AdminWorkspaceComponent user list', () => {
@@ -16,6 +17,9 @@ describe('AdminWorkspaceComponent user list', () => {
         getReports: ReturnType<typeof vi.fn>;
         getReportDetails: ReturnType<typeof vi.fn>;
         downloadReportCsv: ReturnType<typeof vi.fn>;
+        getFormTicketTypes: ReturnType<typeof vi.fn>;
+        getFormTemplate: ReturnType<typeof vi.fn>;
+        saveForm: ReturnType<typeof vi.fn>;
     };
 
     const user: UserSummary = {
@@ -56,6 +60,17 @@ describe('AdminWorkspaceComponent user list', () => {
                 take: 30,
             })),
             downloadReportCsv: vi.fn().mockReturnValue(of(new Blob(['csv']))),
+            getFormTicketTypes: vi.fn().mockReturnValue(of([{ id: '12', name: 'Инцидент' }])),
+            getFormTemplate: vi.fn().mockReturnValue(of({
+                ticketTypeId: '12',
+                ticketTypeName: 'Инцидент',
+                fields: [
+                    { id: 'subject', name: 'Тема', type: 'string', required: true, visibleToRequester: true, immutable: true },
+                    { id: 'description', name: 'Описание', type: 'textarea', required: true, visibleToRequester: true, immutable: true },
+                    { id: 'criticality', name: 'Критичность', type: 'dictionary', required: true, visibleToRequester: true, immutable: true },
+                ],
+            })),
+            saveForm: vi.fn().mockImplementation((form: unknown) => of(form)),
         };
         await TestBed.configureTestingModule({
             imports: [AdminWorkspaceComponent],
@@ -119,6 +134,10 @@ describe('AdminWorkspaceComponent user list', () => {
                     useValue: tenantSettingsApi,
                 },
                 {
+                    provide: DictionaryApiService,
+                    useValue: { getAll: () => of([]) },
+                },
+                {
                     provide: AdminService,
                     useValue: {
                         getUsers: () => of([user]),
@@ -174,7 +193,7 @@ describe('AdminWorkspaceComponent user list', () => {
         expect(fixture.componentInstance.error).toContain('нельзя удалить');
     });
 
-    it('adds, removes, reorders, and saves custom form fields locally', async () => {
+    it('loads and saves form schemas through the backend API', async () => {
         TestBed.overrideProvider(ActivatedRoute, {
             useValue: { snapshot: { data: { section: 'forms' } } },
         });
@@ -185,6 +204,8 @@ describe('AdminWorkspaceComponent user list', () => {
         fixture.detectChanges();
 
         const component = fixture.componentInstance;
+        expect(tenantSettingsApi.getFormTicketTypes).toHaveBeenCalledOnce();
+        expect(tenantSettingsApi.getFormTemplate).toHaveBeenCalledWith('12', false);
         const form = component.activeForm!;
         for (let index = 1; index <= 5; index++) {
             component.newFieldName = `Новое поле ${index}`;
@@ -212,6 +233,7 @@ describe('AdminWorkspaceComponent user list', () => {
         expect(form.fields[4]!.id).toBe(beforeMove);
 
         component.saveForm(form);
+        expect(tenantSettingsApi.saveForm).toHaveBeenCalledOnce();
         expect(component.notice).toBe('Схема формы сохранена.');
         component.formId = '12';
         component.loadForm('12');

@@ -1128,7 +1128,7 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("service_catalog_id");
 
-                    b.Property<int>("ServiceId")
+                    b.Property<int?>("ServiceId")
                         .HasColumnType("integer")
                         .HasColumnName("service_id");
 

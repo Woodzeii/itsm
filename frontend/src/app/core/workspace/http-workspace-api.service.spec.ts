@@ -127,6 +127,42 @@ describe('HttpWorkspaceApiService backend contract', () => {
         });
     });
 
+    it('saves common form fields through the common endpoint', () => {
+        const form = {
+            ticketTypeId: 'common',
+            ticketTypeName: 'Общие поля',
+            fields: [{
+                id: 'location',
+                name: 'Местоположение',
+                type: 'dictionary' as const,
+                required: true,
+                visibleToRequester: true,
+                dictionaryCode: 'locations',
+            }],
+        };
+        let saved: unknown;
+
+        service.saveForm(form).subscribe(result => saved = result);
+
+        const request = http.expectOne(`${environment.apiBaseUrl}/form-templates/common`);
+        expect(request.request.method).toBe('PUT');
+        expect(request.request.body).toEqual({
+            ticketTypeId: null,
+            ticketTypeName: 'Общие поля',
+            fields: form.fields,
+        });
+        request.flush({
+            ticketTypeId: null,
+            ticketTypeName: 'Общие поля',
+            fieldsSchema: { fields: form.fields },
+            fields: [],
+        });
+        expect(saved).toEqual({
+            ...form,
+            fields: [{ ...form.fields[0], immutable: false }],
+        });
+    });
+
     it('loads ticket messages and preserves internal flags and downloadable attachment ids', () => {
         let comments: unknown;
         service.getTicketComments('42').subscribe(result => comments = result);

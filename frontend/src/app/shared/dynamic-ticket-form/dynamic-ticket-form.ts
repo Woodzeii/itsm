@@ -158,14 +158,15 @@ export class DynamicTicketFormComponent implements OnChanges {
             if (builtIn === 'title') result.title = String(value ?? '');
             else if (builtIn === 'description') result.description = String(value ?? '');
             else if (builtIn === 'priority') result.priority = String(value ?? '');
+            else if (field.type === 'asset') {
+                if (value !== null && value !== '') result.assetId = String(value);
+                if (!field.immutable) result.fields[field.id] = this.toJsonValue(value);
+            }
             else {
                 result.fields[field.id] = this.toJsonValue(value);
                 if (field.type === 'file') {
                     const file = this.selectedFiles.get(field.id);
                     if (file) result.files.push(file);
-                }
-                if (field.type === 'asset' && value !== null && value !== '') {
-                    result.assetId = String(value);
                 }
             }
         }

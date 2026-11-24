@@ -60,7 +60,7 @@ export class WorkspaceService {
     createRepairTicket(assetId: string, title: string) { return this.api.createRepairTicket(assetId, title); }
     closeRepairTicket(ticketId: string, request: RepairCloseRequest) { return this.api.closeRepairTicket(ticketId, request); }
     getFormTicketTypes() { return this.api.getFormTicketTypes(); }
-    getFormTemplate(ticketTypeId: string) { return this.api.getFormTemplate(ticketTypeId); }
+    getFormTemplate(ticketTypeId: string, includeCommon = true) { return this.api.getFormTemplate(ticketTypeId, includeCommon); }
     getForms() { return this.api.getForms(); }
     saveForm(form: TicketFormDefinition) { return this.api.saveForm(form); }
     getEscalationPolicies() { return this.api.getEscalationPolicies(); }

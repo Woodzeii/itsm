@@ -136,7 +136,7 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.Property(x => x.FieldsSchema).HasColumnType("jsonb");
             entity.Property(x => x.UpdatedAt).HasDefaultValueSql("now()");
 
-            entity.HasOne(x => x.Service).WithMany().HasForeignKey(x => x.ServiceId).OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(x => x.Service).WithMany().HasForeignKey(x => x.ServiceId).OnDelete(DeleteBehavior.Cascade).IsRequired(false);
             entity.HasOne(x => x.TicketType).WithMany().HasForeignKey(x => x.TicketTypeId).OnDelete(DeleteBehavior.Restrict);
         });
 

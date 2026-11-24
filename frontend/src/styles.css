@@ -52,6 +52,45 @@ body {
     box-sizing: border-box;
 }
 
+app-ticket-queue .ticket-form-values,
+app-self-service-portal .ticket-form-values {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 9px;
+    margin: 12px 0;
+    padding: 11px;
+    border: 1px solid #e8edf3;
+    border-radius: 6px;
+}
+
+app-ticket-queue .ticket-form-values h3,
+app-self-service-portal .ticket-form-values h3 {
+    grid-column: 1 / -1;
+    margin: 0;
+    font-size: 11px;
+}
+
+app-ticket-queue .ticket-form-values small,
+app-ticket-queue .ticket-form-values strong,
+app-self-service-portal .ticket-form-values small,
+app-self-service-portal .ticket-form-values strong {
+    display: block;
+}
+
+app-ticket-queue .ticket-form-values small,
+app-self-service-portal .ticket-form-values small {
+    color: #9099a6;
+    font-size: 9px;
+}
+
+app-ticket-queue .ticket-form-values strong,
+app-self-service-portal .ticket-form-values strong {
+    margin-top: 3px;
+    color: #45505e;
+    font-size: 10px;
+    overflow-wrap: anywhere;
+}
+
 app-admin-workspace .role-tags {
     display: flex;
     flex-wrap: wrap;
