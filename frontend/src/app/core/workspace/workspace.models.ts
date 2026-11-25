@@ -254,6 +254,7 @@ export interface FormFieldDefinition {
     defaultValue?: string;
     validation?: string;
     hint?: string;
+    dictionaryCode?: string;
     visibleToRequester: boolean;
     options?: string[];
     conditionFieldId?: string;

@@ -9,7 +9,12 @@ public static class TicketFormInputValidator
 {
     private static readonly TimeSpan RegexTimeout = TimeSpan.FromMilliseconds(100);
 
-    public static string? Validate(JsonElement schema, CreateTicketRequest request, bool isStaff)
+    public static string? Validate(
+        JsonElement schema,
+        CreateTicketRequest request,
+        bool isStaff,
+        bool isRepair = false,
+        IReadOnlyDictionary<string, IReadOnlySet<string>>? dictionaryValues = null)
     {
         if (schema.ValueKind != JsonValueKind.Object
             || !TryGetProperty(schema, "fields", out var schemaFields)
@@ -39,11 +44,25 @@ public static class TicketFormInputValidator
                 ReadString(item, "conditionFieldId"),
                 ReadString(item, "conditionOperator") ?? "equals",
                 ReadString(item, "conditionValue"),
-                ReadStringArray(item, "options")));
+                ReadStringArray(item, "options"),
+                ReadString(item, "dictionaryCode")));
         }
 
         if (fields.Select(field => field.Id).Distinct(StringComparer.Ordinal).Count() != fields.Count)
             return "Схема формы содержит повторяющиеся идентификаторы полей.";
+        var requiredBuiltIns = isRepair
+            ? new[] { "subject", "description", "criticality", "asset" }
+            : ["subject", "description", "criticality"];
+        foreach (var id in requiredBuiltIns)
+        {
+            if (!fields.Any(field => field.Id == id && field.IsBuiltIn && field.Required))
+                return "Схема формы не содержит обязательные встроенные поля.";
+        }
+        var assetFields = fields.Where(field => field.Type == "asset").ToArray();
+        if (assetFields.Length > 1)
+            return "Схема формы содержит несколько полей выбора актива.";
+        if (assetFields.Length == 0 && request.AssetId is not null)
+            return "Актив должен быть указан через поле выбора актива формы.";
 
         var customValues = new Dictionary<string, string?>(StringComparer.Ordinal);
         if (request.CustomFieldsData is JsonElement customFields)
@@ -58,8 +77,11 @@ public static class TicketFormInputValidator
             {
                 if (!customFieldIds.Contains(property.Name))
                     return $"Неизвестное поле «{property.Name}».";
+                var rule = fields.First(field => field.Id == property.Name);
+                if (!isStaff && !rule.VisibleToRequester)
+                    return $"Поле «{rule.Name}» недоступно автору заявки.";
                 if (!TryScalarValue(property.Value, out var value))
-                    return $"Поле «{fields.First(field => field.Id == property.Name).Name}» должно содержать простое значение.";
+                    return $"Поле «{rule.Name}» должно содержать простое значение.";
                 customValues[property.Name] = value;
             }
         }
@@ -82,11 +104,18 @@ public static class TicketFormInputValidator
                 return $"Поле «{field.Name}» обязательно.";
             if (string.IsNullOrWhiteSpace(value))
                 continue;
+            if (field.DictionaryCode is not null)
+            {
+                if (dictionaryValues is null || !dictionaryValues.TryGetValue(field.DictionaryCode, out var allowedValues))
+                    return $"Справочник поля «{field.Name}» недоступен.";
+                if (!allowedValues.Contains(value))
+                    return $"Поле «{field.Name}» должно содержать значение из справочника.";
+            }
 
             var typeError = ValidateType(field, value);
             if (typeError is not null)
                 return $"Поле «{field.Name}» {typeError}.";
-            if (field.Options.Count > 0 && !field.Options.Contains(value, StringComparer.Ordinal))
+            if (field.DictionaryCode is null && field.Options.Count > 0 && !field.Options.Contains(value, StringComparer.Ordinal))
                 return $"Поле «{field.Name}» должно содержать одно из допустимых значений.";
             if (field.Validation is not null)
             {
@@ -103,6 +132,21 @@ public static class TicketFormInputValidator
                 {
                     return $"Проверка поля «{field.Name}» превысила допустимое время.";
                 }
+            }
+        }
+
+        if (assetFields.Length == 1)
+        {
+            values.TryGetValue(assetFields[0].Id, out var selectedAssetId);
+            if (string.IsNullOrWhiteSpace(selectedAssetId))
+            {
+                if (request.AssetId is not null)
+                    return "Идентификатор актива не совпадает со значением поля выбора актива.";
+            }
+            else if (!int.TryParse(selectedAssetId, NumberStyles.None, CultureInfo.InvariantCulture, out var parsedAssetId)
+                || request.AssetId != parsedAssetId)
+            {
+                return "Идентификатор актива не совпадает со значением поля выбора актива.";
             }
         }
 
@@ -151,6 +195,8 @@ public static class TicketFormInputValidator
             return request.Description;
         if (normalizedName == "критичность" || normalizedId is "criticality" or "priority")
             return request.Priority;
+        if (field.Type == "asset")
+            return request.AssetId?.ToString(CultureInfo.InvariantCulture);
         return null;
     }
 
@@ -231,5 +277,6 @@ public static class TicketFormInputValidator
         string? ConditionFieldId,
         string ConditionOperator,
         string? ConditionValue,
-        IReadOnlyList<string> Options);
+        IReadOnlyList<string> Options,
+        string? DictionaryCode);
 }

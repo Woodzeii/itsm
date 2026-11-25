@@ -128,8 +128,44 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             .OrderByDescending(item => item.UpdatedAt)
             .ThenByDescending(item => item.Id)
             .FirstOrDefaultAsync(ct);
-        if (formTemplate is not null
-            && TicketFormInputValidator.Validate(formTemplate.FieldsSchema, request, isStaff) is { } validationError)
+        var commonFormTemplate = await db.FormTemplates
+            .AsNoTracking()
+            .Where(item => item.TenantId == type.TenantId && item.TicketTypeId == null)
+            .OrderByDescending(item => item.UpdatedAt)
+            .ThenByDescending(item => item.Id)
+            .FirstOrDefaultAsync(ct);
+        var formSchema = TicketFormSchemaComposer.Compose(
+            type.Id,
+            type.Name,
+            commonFormTemplate?.FieldsSchema ?? TicketFormSchemaComposer.CreateCommon(),
+            TicketFormSchemaComposer.CreateDefault(type),
+            formTemplate?.FieldsSchema ?? TicketFormSchemaComposer.CreateDefault(type));
+        var dictionaryCodes = TicketFormSchemaComposer.GetFields(formSchema)
+            .Select(field => TicketFormSchemaComposer.TryGetProperty(field, "dictionaryCode", out var code)
+                && code.ValueKind == JsonValueKind.String ? code.GetString() : null)
+            .Where(code => !string.IsNullOrWhiteSpace(code))
+            .Select(code => code!)
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var dictionaries = new List<itsm.Domain.Entities.Dictionary>();
+        if (dictionaryCodes.Length > 0)
+        {
+            dictionaries = await db.Dictionaries.AsNoTracking()
+                .Include(dictionary => dictionary.Values.Where(value => !value.IsArchived))
+                .Where(dictionary => dictionary.TenantId == type.TenantId
+                    && !dictionary.IsArchived && dictionaryCodes.Contains(dictionary.Code))
+                .ToListAsync(ct);
+        }
+        var dictionaryValues = new Dictionary<string, IReadOnlySet<string>>(StringComparer.Ordinal);
+        foreach (var dictionary in dictionaries)
+            dictionaryValues[dictionary.Code] = dictionary.Values.Select(value => value.Name).ToHashSet(StringComparer.Ordinal);
+
+        if (TicketFormInputValidator.Validate(
+                formSchema,
+                request,
+                isStaff,
+                type.Code == RepairTypeCode,
+                dictionaryValues) is { } validationError)
             throw new ArgumentException(validationError);
 
         Asset? asset = null;

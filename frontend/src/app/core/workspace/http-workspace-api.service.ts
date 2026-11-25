@@ -367,18 +367,31 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return this.http.get<unknown>(`${this.baseUrl}/ticket-types`).pipe(map(parseTicketFormTypes));
     }
 
-    getFormTemplate(ticketTypeId: string): Observable<TicketFormDefinition> {
+    getFormTemplate(ticketTypeId: string, includeCommon = true): Observable<TicketFormDefinition> {
+        if (ticketTypeId === 'common') {
+            return this.http.get<unknown>(`${this.baseUrl}/form-templates/common`)
+                .pipe(map(response => parseTicketFormDefinition(response, ticketTypeId)));
+        }
         const id = Number(ticketTypeId);
         if (!Number.isSafeInteger(id) || id < 1) {
             return throwError(() => new Error('Выбран некорректный тип заявки.'));
         }
 
-        return this.http.get<unknown>(`${this.baseUrl}/form-templates/${id}`)
+        return this.http.get<unknown>(`${this.baseUrl}/form-templates/${id}`, {
+            params: includeCommon ? {} : { includeCommon: false },
+        })
             .pipe(map(response => parseTicketFormDefinition(response, ticketTypeId)));
     }
 
     getForms() { return this.unsupported<TicketFormDefinition[]>('ticket forms'); }
     saveForm(form: TicketFormDefinition): Observable<TicketFormDefinition> {
+        if (form.ticketTypeId === 'common') {
+            return this.http.put<unknown>(`${this.baseUrl}/form-templates/common`, {
+                ticketTypeId: null,
+                ticketTypeName: 'Общие поля',
+                fields: form.fields,
+            }).pipe(map(response => parseTicketFormDefinition(response, 'common')));
+        }
         const id = Number(form.ticketTypeId);
         if (!Number.isSafeInteger(id) || id < 1) {
             return throwError(() => new Error('Выбран некорректный тип заявки.'));
@@ -1204,6 +1217,7 @@ function parseTicketFormField(value: unknown, index: number): FormFieldDefinitio
     const defaultValue = value['defaultValue'] ?? value['DefaultValue'];
     const validation = value['validationRules'] ?? value['ValidationRules'] ?? value['validation'] ?? value['Validation'];
     const hint = value['hint'] ?? value['Hint'];
+    const dictionaryCode = value['dictionaryCode'] ?? value['DictionaryCode'];
     const visibleToRequester = value['visibleToRequester'] ?? value['VisibleToRequester'];
     const options = value['options'] ?? value['Options'];
     const conditionFieldId = value['conditionFieldId'] ?? value['ConditionFieldId'];
@@ -1219,6 +1233,9 @@ function parseTicketFormField(value: unknown, index: number): FormFieldDefinitio
     if (conditionValue !== undefined && typeof conditionValue !== 'string') {
         throw new Error(`Сервер вернул значение условия поля №${index + 1} в неожиданном формате.`);
     }
+    if (dictionaryCode !== undefined && typeof dictionaryCode !== 'string') {
+        throw new Error(`Сервер вернул справочник поля №${index + 1} в неожиданном формате.`);
+    }
 
     return {
         id,
@@ -1230,6 +1247,7 @@ function parseTicketFormField(value: unknown, index: number): FormFieldDefinitio
         ...(typeof defaultValue === 'string' ? { defaultValue } : {}),
         ...(typeof validation === 'string' ? { validation } : {}),
         ...(typeof hint === 'string' ? { hint } : {}),
+        ...(typeof dictionaryCode === 'string' ? { dictionaryCode } : {}),
         ...(Array.isArray(options) && options.every(option => typeof option === 'string') ? { options } : {}),
         ...(typeof conditionFieldId === 'string' ? { conditionFieldId } : {}),
         ...(conditionOperator === 'equals' || conditionOperator === 'notEquals' || conditionOperator === 'greaterThan'

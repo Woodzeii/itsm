@@ -49,6 +49,7 @@ import { DynamicTicketFormComponent } from '../../shared/dynamic-ticket-form/dyn
           <div class="detail-grid"><article class="detail-main">
             <div class="ticket-header"><div><p>{{ active.type }} · {{ active.createdOn || active.createdAt }}</p><h2>{{ active.title }}</h2></div><span class="status">{{ active.status }}</span></div>
             <div class="ticket-meta"><span>Критичность <strong>{{ active.priority }}</strong></span><span>Исполнитель <strong>{{ active.assignee || 'Назначается' }}</strong></span></div>
+            @if (activeFormDefinition && fieldsForTicket(active).length) { <section class="ticket-form-values"><h3>Поля формы</h3>@for (field of fieldsForTicket(active); track field.id) { <div><small>{{ field.name }}</small><strong>{{ field.value }}</strong></div> }</section> }
             @if (settings?.portalSlaFields?.includes('Время реакции')) { <p class="sla-line">Время реакции: <strong>{{ active.reactionSla || 'ожидается' }}</strong></p> }
             @if (settings?.portalSlaFields?.includes('Время решения')) { <p class="sla-line">Время решения: <strong>{{ active.resolutionSla || active.slaRemaining }}</strong></p> }
             <section class="conversation"><h3>Переписка</h3>@if (loadingComments) { <p class="empty">Загрузка сообщений...</p> }@for (comment of publicComments; track comment.id) { <article><strong>{{ comment.author }}</strong><p>{{ comment.message }}</p><small>{{ comment.createdAt }}</small>@if (comment.attachmentRecords?.length) { @for (attachment of comment.attachmentRecords; track attachment.id) { <button class="attachment" type="button" (click)="downloadAttachment(attachment)">📎 {{ attachment.fileName }}</button> } }@else { @for (file of comment.attachments; track file) { <span class="attachment">📎 {{ file }}</span> } }</article> }
@@ -114,6 +115,7 @@ export class SelfServicePortalComponent implements OnInit {
     view: 'list' | 'create' | 'detail' = 'list';
     tickets: Ticket[] = [];
     active: Ticket | null = null;
+    activeFormDefinition: TicketFormDefinition | null = null;
     ticketTypes: PortalTicketType[] = [];
     settings: AdminSettings | null = null;
     policies = this.workspace.getEscalationPolicies();
@@ -190,7 +192,7 @@ export class SelfServicePortalComponent implements OnInit {
         }
 
         this.formLoading = true;
-        this.workspace.getFormTemplate(ticketTypeId).subscribe({
+        this.portalApi.getFormTemplate(ticketTypeId).subscribe({
             next: form => {
                 if (requestVersion !== this.formRequestVersion) return;
                 this.selectedForm = form;
@@ -207,8 +209,23 @@ export class SelfServicePortalComponent implements OnInit {
     }
     openTicket(ticket: Ticket): void {
         this.active = { ...ticket, comments: [] };
+        this.activeFormDefinition = null;
         this.view = 'detail';
         this.loadingComments = true;
+        if (ticket.typeId) {
+            this.portalApi.getFormTemplate(String(ticket.typeId)).subscribe({
+                next: form => {
+                    if (this.active?.id !== ticket.id) return;
+                    this.activeFormDefinition = form;
+                    this.changeDetector.markForCheck();
+                },
+                error: err => {
+                    if (this.active?.id !== ticket.id) return;
+                    this.error = err?.error?.detail ?? err.message ?? 'Не удалось загрузить схему полей заявки.';
+                    this.changeDetector.markForCheck();
+                },
+            });
+        }
         this.chatApi.getTicketComments(ticket.id).subscribe({
             next: comments => {
                 if (this.active?.id !== ticket.id) return;
@@ -223,6 +240,12 @@ export class SelfServicePortalComponent implements OnInit {
                 this.changeDetector.markForCheck();
             },
         });
+    }
+
+    fieldsForTicket(ticket: Ticket): { id: string; name: string; value: string }[] {
+        return (this.activeFormDefinition?.fields ?? [])
+            .filter(field => field.visibleToRequester && !field.immutable && ticket.fields && Object.hasOwn(ticket.fields, field.id))
+            .map(field => ({ id: field.id, name: field.name, value: String(ticket.fields![field.id] ?? '') }));
     }
     pickCommentFiles(event: Event): void {
         this.commentFileInput = event.target as HTMLInputElement;

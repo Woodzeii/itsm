@@ -43,6 +43,27 @@ public class TicketFormInputValidatorTests
         Assert.Null(error);
     }
 
+    [Fact]
+    public void AssetCannotBeLinkedWithoutAnAssetFieldInTheForm()
+    {
+        using var schema = JsonDocument.Parse("""
+            {
+              "fields": [
+                { "id": "subject", "name": "Тема", "type": "string", "required": true, "immutable": true },
+                { "id": "description", "name": "Описание", "type": "textarea", "required": true, "immutable": true },
+                { "id": "criticality", "name": "Критичность", "type": "dictionary", "required": true, "immutable": true }
+              ]
+            }
+            """);
+
+        var error = TicketFormInputValidator.Validate(
+            schema.RootElement,
+            Request("{}") with { AssetId = 42 },
+            isStaff: false);
+
+        Assert.Equal("Актив должен быть указан через поле выбора актива формы.", error);
+    }
+
     private static CreateTicketRequest Request(string customFields)
     {
         using var values = JsonDocument.Parse(customFields);

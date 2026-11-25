@@ -164,6 +164,14 @@ describe('TicketQueueComponent real queue', () => {
         expect(api.changeTicketStatus).toHaveBeenCalledWith('42', 3);
     });
 
+    it('loads ticket form schemas from the backend API', () => {
+        const component = createComponent();
+
+        component.select({ ...openTicket, typeId: 1 });
+
+        expect(api.getFormTemplate).toHaveBeenCalledWith('1');
+    });
+
     it('resolves the assignee id from the real queue and assigns the ticket', () => {
         const component = createComponent();
         component.select(openTicket);
