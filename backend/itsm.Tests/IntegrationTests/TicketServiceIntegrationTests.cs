@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
+using System.Security.Claims;
 using itsm.Application.Common.Models;
 using itsm.Domain.Constants;
 using itsm.Domain.Entities;
@@ -18,31 +19,225 @@ namespace itsm.Tests.IntegrationTests;
 public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
 {
     [Fact]
-    public async Task GetFormTemplateWithoutSavedTemplateReturnsBuiltInFields()
+    public async Task MissingTemplateReturnsRequiredBuiltInFields()
     {
         await using var scope = await fixture.CreateScopeAsync();
-        var controller = new FormTemplatesController(scope.Db)
-        {
-            ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext
-                {
-                    User = new ClaimsPrincipal(new ClaimsIdentity(
-                        [new Claim(ClaimTypes.Role, "portal_user")],
-                        "test"))
-                }
-            }
-        };
+        var ticketType = await scope.Db.TicketTypes.OrderBy(type => type.Id).FirstAsync();
+        var controller = CreateFormTemplatesController(scope.Db, "portal_user");
 
-        var action = await controller.GetByTicketType(2, CancellationToken.None);
-        var ok = Assert.IsType<OkObjectResult>(action.Result);
-        var response = Assert.IsType<FormTemplatesController.FormTemplateResponse>(ok.Value);
+        var action = await controller.GetByTicketType(ticketType.Id, ct: CancellationToken.None);
+        var response = Assert.IsType<FormTemplatesController.FormTemplateResponse>(
+            Assert.IsType<OkObjectResult>(action.Result).Value);
         var fields = response.FieldsSchema.GetProperty("fields").EnumerateArray().ToArray();
 
-        Assert.Equal(2, response.TicketTypeId);
         Assert.Equal(["subject", "description", "criticality"],
             fields.Select(field => field.GetProperty("id").GetString() ?? string.Empty).ToArray());
         Assert.All(fields, field => Assert.True(field.GetProperty("immutable").GetBoolean()));
+    }
+
+    [Fact]
+    public async Task FormTemplateCanBeCreatedAndIsUsedWhenCreatingTickets()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var db = scope.Db;
+        var ticketType = await db.TicketTypes.OrderBy(type => type.Id).FirstAsync();
+        var controller = CreateFormTemplatesController(db);
+        var commonSave = await controller.SaveCommon(new FormTemplatesController.SaveFormTemplateRequest
+        {
+            TicketTypeName = "Общие поля",
+            Fields =
+            [
+                new FormTemplatesController.FormFieldSchemaRequest
+                {
+                    Id = "location",
+                    Name = "Местоположение",
+                    Type = "string",
+                    Required = true,
+                    VisibleToRequester = true
+                }
+            ]
+        }, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(commonSave.Result);
+
+        var fields = RequiredBuiltInFields();
+        fields.Add(new FormTemplatesController.FormFieldSchemaRequest
+        {
+            Id = "incident-code",
+            Name = "Код инцидента",
+            Type = "string",
+            Required = false,
+            VisibleToRequester = true
+        });
+
+        var save = await controller.Save(ticketType.Id, new FormTemplatesController.SaveFormTemplateRequest
+        {
+            TicketTypeId = ticketType.Id,
+            TicketTypeName = ticketType.Name,
+            Fields = fields
+        }, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(save.Result);
+        Assert.True(await db.FormTemplates.AnyAsync(template => template.TicketTypeId == ticketType.Id));
+
+        var creator = await CreateUserAsync(db);
+        var request = NewTicketRequest(ticketType.Id) with
+        {
+            CustomFieldsData = JsonDocument.Parse("""{"location":"Москва"}""").RootElement.Clone()
+        };
+        var ticketService = CreateService(scope);
+        var created = await ticketService.CreateAsync(request, creator.Id, isStaff: false, isEngineer: false);
+
+        Assert.Equal("Москва", created.CustomFieldsData!.Value.GetProperty("location").GetString());
+        var get = await controller.GetByTicketType(ticketType.Id, ct: CancellationToken.None);
+        var response = Assert.IsType<FormTemplatesController.FormTemplateResponse>(
+            Assert.IsType<OkObjectResult>(get.Result).Value);
+        var schemaFields = response.FieldsSchema.GetProperty("fields").EnumerateArray().ToArray();
+        Assert.Contains(schemaFields, field => field.GetProperty("id").GetString() == "location");
+        Assert.Contains(schemaFields, field => field.GetProperty("id").GetString() == "incident-code");
+    }
+
+    [Fact]
+    public async Task RemovingFormFieldClearsExistingTicketValues()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var db = scope.Db;
+        var ticketType = await db.TicketTypes.OrderBy(type => type.Id).FirstAsync();
+        var controller = CreateFormTemplatesController(db);
+        var fields = RequiredBuiltInFields();
+        fields.Add(new FormTemplatesController.FormFieldSchemaRequest
+        {
+            Id = "old-field",
+            Name = "Старое поле",
+            Type = "string",
+            Required = false,
+            VisibleToRequester = true
+        });
+        Assert.IsType<OkObjectResult>((await controller.Save(ticketType.Id, new()
+        {
+            TicketTypeId = ticketType.Id,
+            TicketTypeName = ticketType.Name,
+            Fields = fields
+        }, CancellationToken.None)).Result);
+
+        var creator = await CreateUserAsync(db);
+        var ticket = await CreateService(scope).CreateAsync(NewTicketRequest(ticketType.Id) with
+        {
+            CustomFieldsData = JsonDocument.Parse("""{"old-field":"value"}""").RootElement.Clone()
+        }, creator.Id, isStaff: false, isEngineer: false);
+        fields.RemoveAt(fields.Count - 1);
+
+        var save = await controller.Save(ticketType.Id, new()
+        {
+            TicketTypeId = ticketType.Id,
+            TicketTypeName = ticketType.Name,
+            Fields = fields
+        }, CancellationToken.None);
+
+        Assert.IsType<OkObjectResult>(save.Result);
+        var updatedTicket = await db.Tickets.SingleAsync(item => item.Id == ticket.Id);
+        Assert.False(updatedTicket.CustomFieldsData!.Value.TryGetProperty("old-field", out _));
+    }
+
+    [Fact]
+    public async Task AssetFieldCannotBeRemovedWhenAnExistingTicketUsesAnAsset()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var db = scope.Db;
+        var ticketType = await db.TicketTypes.OrderBy(type => type.Id).FirstAsync();
+        var controller = CreateFormTemplatesController(db);
+        var fields = RequiredBuiltInFields();
+        fields.Add(new FormTemplatesController.FormFieldSchemaRequest
+        {
+            Id = "linked-asset",
+            Name = "Выбор актива",
+            Type = "asset",
+            Required = false,
+            VisibleToRequester = true
+        });
+        Assert.IsType<OkObjectResult>((await controller.Save(ticketType.Id, new()
+        {
+            TicketTypeId = ticketType.Id,
+            TicketTypeName = ticketType.Name,
+            Fields = fields
+        }, CancellationToken.None)).Result);
+
+        var creator = await CreateUserAsync(db);
+        var asset = await CreateAssetAsync(db, AssetLifecycleStages.InUse);
+        await CreateService(scope).CreateAsync(NewTicketRequest(ticketType.Id, asset.Id) with
+        {
+            CustomFieldsData = JsonDocument.Parse($$"""{"linked-asset":"{{asset.Id}}"}""").RootElement.Clone()
+        }, creator.Id, isStaff: false, isEngineer: false);
+        fields.RemoveAt(fields.Count - 1);
+
+        var save = await controller.Save(ticketType.Id, new()
+        {
+            TicketTypeId = ticketType.Id,
+            TicketTypeName = ticketType.Name,
+            Fields = fields
+        }, CancellationToken.None);
+
+        Assert.IsType<BadRequestObjectResult>(save.Result);
+    }
+
+    [Fact]
+    public async Task DictionaryFieldUsesTenantDictionaryValuesForRenderingAndValidation()
+    {
+        await using var scope = await fixture.CreateScopeAsync();
+        var db = scope.Db;
+        var ticketType = await db.TicketTypes.OrderBy(type => type.Id).FirstAsync();
+        var dictionary = new itsm.Domain.Entities.Dictionary
+        {
+            TenantId = db.CurrentTenantId,
+            Code = $"form-{Guid.NewGuid():N}",
+            Name = "Локации"
+        };
+        dictionary.Values.Add(new DictionaryValue { Code = "moscow", Name = "Москва", SortOrder = 1 });
+        db.Dictionaries.Add(dictionary);
+        await db.SaveChangesAsync();
+
+        var fields = RequiredBuiltInFields();
+        fields.Add(new FormTemplatesController.FormFieldSchemaRequest
+        {
+            Id = "location",
+            Name = "Местоположение",
+            Type = "dictionary",
+            Required = true,
+            VisibleToRequester = true,
+            DictionaryCode = dictionary.Code
+        });
+        var controller = CreateFormTemplatesController(db);
+        var save = await controller.Save(ticketType.Id, new()
+        {
+            TicketTypeId = ticketType.Id,
+            TicketTypeName = ticketType.Name,
+            Fields = fields
+        }, CancellationToken.None);
+        Assert.IsType<OkObjectResult>(save.Result);
+
+        var get = await controller.GetByTicketType(ticketType.Id, ct: CancellationToken.None);
+        var response = Assert.IsType<FormTemplatesController.FormTemplateResponse>(
+            Assert.IsType<OkObjectResult>(get.Result).Value);
+        var location = response.FieldsSchema.GetProperty("fields").EnumerateArray()
+            .Single(field => field.GetProperty("id").GetString() == "location");
+        Assert.Equal("Москва", location.GetProperty("options")[0].GetString());
+
+        var creator = await CreateUserAsync(db);
+        await Assert.ThrowsAsync<ArgumentException>(() => CreateService(scope).CreateAsync(
+            NewTicketRequest(ticketType.Id) with
+            {
+                CustomFieldsData = JsonDocument.Parse("""{"location":"Неизвестный город"}""").RootElement.Clone()
+            },
+            creator.Id,
+            isStaff: false,
+            isEngineer: false));
+        var ticket = await CreateService(scope).CreateAsync(
+            NewTicketRequest(ticketType.Id) with
+            {
+                CustomFieldsData = JsonDocument.Parse("""{"location":"Москва"}""").RootElement.Clone()
+            },
+            creator.Id,
+            isStaff: false,
+            isEngineer: false);
+        Assert.Equal("Москва", ticket.CustomFieldsData!.Value.GetProperty("location").GetString());
     }
 
     [Fact]
@@ -383,7 +578,6 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
             isEngineer: true);
 
         Assert.Equal(asset.Id, ticket.AssetId);
-        Assert.Equal("test", ticket.CustomFieldsData!.Value.GetProperty("source").GetString());
         Assert.Equal(AssetLifecycleStages.InRepair, (await scope.Db.Assets.FindAsync(asset.Id))!.LifecycleStage);
         Assert.Contains(await scope.Db.AssetHistoryLogs.Where(log => log.TicketId == ticket.Id).ToListAsync(),
             log => log.ActionType == AssetHistoryActionTypes.TicketCreated);
@@ -1349,6 +1543,51 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
         return new TicketService(scope.Db, new PhysicalTicketAttachmentStorage(configuration));
     }
 
+    private static FormTemplatesController CreateFormTemplatesController(ItsmDbContext db, string role = "admin") =>
+        new(db)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(
+                        [new Claim(ClaimTypes.Role, role)],
+                        "test"))
+                }
+            }
+        };
+
+    private static List<FormTemplatesController.FormFieldSchemaRequest> RequiredBuiltInFields() =>
+    [
+        new()
+        {
+            Id = "subject",
+            Name = "Тема",
+            Type = "string",
+            Required = true,
+            VisibleToRequester = true,
+            Immutable = true
+        },
+        new()
+        {
+            Id = "description",
+            Name = "Описание",
+            Type = "textarea",
+            Required = true,
+            VisibleToRequester = true,
+            Immutable = true
+        },
+        new()
+        {
+            Id = "criticality",
+            Name = "Критичность",
+            Type = "dictionary",
+            Required = true,
+            VisibleToRequester = true,
+            Immutable = true
+        }
+    ];
+
     private static async Task<User> CreateUserAsync(
         ItsmDbContext db,
         string? roleCode = null,
@@ -1501,6 +1740,6 @@ public sealed class TicketServiceIntegrationTests(TicketServiceFixture fixture)
             Priority = "High",
             AssetId = assetId,
             RequesterId = requesterId,
-            CustomFieldsData = JsonDocument.Parse("{\"source\":\"test\"}").RootElement.Clone()
+            CustomFieldsData = null
         };
 }

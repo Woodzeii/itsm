@@ -77,7 +77,7 @@ export abstract class WorkspaceApi {
     abstract createRepairTicket(assetId: string, title: string): Observable<Ticket>;
     abstract closeRepairTicket(ticketId: string, request: RepairCloseRequest): Observable<Ticket>;
     abstract getFormTicketTypes(): Observable<TicketFormType[]>;
-    abstract getFormTemplate(ticketTypeId: string): Observable<TicketFormDefinition>;
+    abstract getFormTemplate(ticketTypeId: string, includeCommon?: boolean): Observable<TicketFormDefinition>;
     abstract getForms(): Observable<TicketFormDefinition[]>;
     abstract saveForm(form: TicketFormDefinition): Observable<TicketFormDefinition>;
     abstract getEscalationPolicies(): Observable<EscalationPolicy[]>;

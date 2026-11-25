@@ -6,12 +6,12 @@ public class FormTemplate : IMultiTenant
 {
     public int Id { get; set; }
     public int TenantId { get; set; }
-    public int ServiceId { get; set; }
+    public int? ServiceId { get; set; }
     public int? TicketTypeId { get; set; }
     public JsonElement FieldsSchema { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
 
-    public ServiceCatalog Service { get; set; } = null!;
+    public ServiceCatalog? Service { get; set; }
     public TicketType? TicketType { get; set; }
     public ICollection<FormField> Fields { get; set; } = new List<FormField>();
 }

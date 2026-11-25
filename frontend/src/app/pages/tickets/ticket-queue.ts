@@ -57,6 +57,7 @@ import { DynamicTicketFormComponent } from '../../shared/dynamic-ticket-form/dyn
           @if (selected) {
             <header class="detail-heading"><div><p class="eyebrow">{{ selected.ticketNumber || selected.id }} · {{ selected.type }}</p><h2>{{ selected.title }}</h2></div><button class="icon-button" type="button" aria-label="Закрыть карточку" (click)="selected = null">×</button></header>
             <div class="ticket-facts"><div><small>Автор</small><strong>{{ selected.creatorName || selected.requester }}</strong></div>@if (selected.creatorName) { <div><small>Заявитель</small><strong>{{ selected.requester }}</strong></div> }<div><small>Исполнитель</small><strong>{{ selected.assignee || 'Не назначен' }}</strong></div><div><small>Критичность</small><strong>{{ selected.priority }}</strong></div><div><small>Статус</small><strong>{{ selected.status }}</strong></div><div><small>Реакция</small><strong>{{ selected.reactionSla || '—' }}</strong></div><div><small>Решение</small><strong>{{ selected.resolutionSla || selected.slaRemaining }}</strong></div></div>
+            @if (selectedFormDefinition && fieldsForTicket(selected).length) { <section class="ticket-form-values"><h3>Поля формы</h3>@for (field of fieldsForTicket(selected); track field.id) { <div><small>{{ field.name }}</small><strong>{{ field.value }}</strong></div> }</section> }
             @if (settings?.assignmentMode === 'manual') { <div class="assignment"><label>Исполнитель<select name="assignee" [(ngModel)]="assigneeDraft"><option value="">Выбрать инженера</option>@for (engineer of engineerOptions; track engineer) { <option [value]="engineer">{{ engineer }}</option> }</select></label><button class="secondary" type="button" [disabled]="!assigneeDraft || isAssigning" (click)="assign()">Назначить</button><button class="secondary" type="button" [disabled]="isAssigning" (click)="autoAssign()">Распределить автоматически</button></div> }
             @if (isEngineer && selected.status !== 'Закрыта') { <div class="priority-edit"><label>Критичность<select name="priority" [(ngModel)]="priorityDraft">@for (priority of settings?.criticalities ?? []; track priority) { <option [value]="priority">{{ priority }}</option> }</select></label><button class="secondary" type="button" [disabled]="priorityDraft === selected.priority" (click)="changePriority()">Изменить</button></div> }
             @for (nextStatus of nextStatuses; track nextStatus) { <button class="primary transition" type="button" (click)="changeStatus(nextStatus.statusId)">Перевести в «{{ nextStatus.name }}»</button> }
@@ -236,6 +237,7 @@ export class TicketQueueComponent implements OnInit {
     tickets: Ticket[] = [];
     settings: AdminSettings | null = null;
     selected: Ticket | null = null;
+    selectedFormDefinition: TicketFormDefinition | null = null;
     activityPanel: 'history' | 'comments' | null = null;
     isEngineer = false;
     isAssigning = false;
@@ -467,6 +469,21 @@ export class TicketQueueComponent implements OnInit {
     select(ticket: Ticket): void {
         this.closeActivityPanel();
         this.selected = { ...ticket, comments: [], history: [] };
+        this.selectedFormDefinition = null;
+        if (ticket.typeId) {
+            this.ticketsApi.getFormTemplate(String(ticket.typeId)).subscribe({
+                next: form => {
+                    if (this.selected?.id !== ticket.id) return;
+                    this.selectedFormDefinition = form;
+                    this.changeDetector.markForCheck();
+                },
+                error: err => {
+                    if (this.selected?.id !== ticket.id) return;
+                    this.error = err?.error?.detail ?? err.message ?? 'Не удалось загрузить схему полей заявки.';
+                    this.changeDetector.markForCheck();
+                },
+            });
+        }
         this.repairDescription = '';
         this.assigneeDraft = '';
         this.priorityDraft = ticket.priority;
@@ -498,6 +515,12 @@ export class TicketQueueComponent implements OnInit {
                 }
             },
         });
+    }
+
+    fieldsForTicket(ticket: Ticket): { id: string; name: string; value: string }[] {
+        return (this.selectedFormDefinition?.fields ?? [])
+            .filter(field => !field.immutable && ticket.fields && Object.hasOwn(ticket.fields, field.id))
+            .map(field => ({ id: field.id, name: field.name, value: String(ticket.fields![field.id] ?? '') }));
     }
 
     openActivityPanel(panel: 'history' | 'comments'): void {
