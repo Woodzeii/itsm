@@ -26,6 +26,11 @@ public class Tenant
     public string TwoFactorMode { get; set; } = "all";
     public int TwoFactorGraceDays { get; set; } = 0;
 
+    // Настройки Service Desk
+    public bool SlaEnabled { get; set; } = true;
+    public bool PortalSlaReactionVisible { get; set; } = true;
+    public bool PortalSlaResolutionVisible { get; set; } = true;
+
     // Статистика
     public int CurrentUserCount { get; set; } = 0;
     public int CurrentAssetCount { get; set; } = 0;

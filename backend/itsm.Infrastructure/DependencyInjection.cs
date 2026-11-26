@@ -51,6 +51,7 @@ public static class DependencyInjection
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IReportService, ReportService>();
         services.AddScoped<ITicketService, TicketService>();
+        services.AddScoped<IServiceDeskSettingsService, ServiceDeskSettingsService>();
         services.AddScoped<ITicketAttachmentStorage, PhysicalTicketAttachmentStorage>();
         services.AddScoped<IDatabaseSeeder, DatabaseSeeder>();
 

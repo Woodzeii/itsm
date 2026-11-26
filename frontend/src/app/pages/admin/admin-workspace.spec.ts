@@ -17,6 +17,7 @@ describe('AdminWorkspaceComponent user list', () => {
         getReportDetails: ReturnType<typeof vi.fn>;
         downloadReportCsv: ReturnType<typeof vi.fn>;
     };
+    let saveAdminSettings: ReturnType<typeof vi.fn>;
 
     const user: UserSummary = {
         id: 7,
@@ -57,6 +58,7 @@ describe('AdminWorkspaceComponent user list', () => {
             })),
             downloadReportCsv: vi.fn().mockReturnValue(of(new Blob(['csv']))),
         };
+        saveAdminSettings = vi.fn().mockImplementation((settings: unknown) => of(settings));
         await TestBed.configureTestingModule({
             imports: [AdminWorkspaceComponent],
             providers: [
@@ -101,6 +103,9 @@ describe('AdminWorkspaceComponent user list', () => {
                             activeAgentsCount: 2,
                         }),
                         getFormTicketTypes: () => of([{ id: '12', name: 'Инцидент' }]),
+                        getTicketTypes: () => of([{ id: '12', name: 'Инцидент', portalAvailable: true, repair: false, slaEnabled: true, reactionSla: '', resolutionSla: '' }]),
+                        saveAdminSettings,
+                        saveTicketTypes: (types: unknown) => of(types),
                         getFormTemplate: () => of({
                             ticketTypeId: '12',
                             ticketTypeName: 'Инцидент',
@@ -298,10 +303,73 @@ describe('AdminWorkspaceComponent user list', () => {
         toggle.dispatchEvent(new Event('change'));
         fixture.detectChanges();
 
-        (section.querySelector('button') as HTMLButtonElement).click();
+        const saveButton = fixture.nativeElement.querySelector('.settings-footer button') as HTMLButtonElement;
+        saveButton.click();
 
-        expect(tenantSettingsApi.saveTenantAdminCreationPolicy).toHaveBeenCalledOnce();
-        expect(tenantSettingsApi.saveTenantAdminCreationPolicy).toHaveBeenCalledWith(false);
+        expect(saveAdminSettings).toHaveBeenCalled();
+        const savedSettings = saveAdminSettings.mock.calls[0][0] as { allowAdminsCreateAdmins: boolean };
+        expect(savedSettings.allowAdminsCreateAdmins).toBe(false);
+        expect(tenantSettingsApi.saveTenantAdminCreationPolicy).not.toHaveBeenCalled();
+    });
+
+    it('enforces criticality limits and protects used levels', () => {
+        TestBed.overrideProvider(ActivatedRoute, {
+            useValue: { snapshot: { data: { section: 'settings' } } },
+        });
+
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        const component = fixture.componentInstance;
+        component.settings = {
+            ...component.settings!,
+            criticalities: ['A', 'B', 'C', 'D', 'E'],
+            criticalityLevels: ['A', 'B', 'C', 'D', 'E'].map((name, index) => ({
+                id: index + 1,
+                code: name.toLocaleLowerCase(),
+                name,
+                sortOrder: index + 1,
+                isActive: true,
+                assignedTicketCount: 0,
+                canDelete: true,
+            })),
+            maxCriticalityLevels: 5,
+            minCriticalityLevels: 3,
+        };
+
+        component.newCriticality = 'F';
+        component.addCriticality();
+        expect(component.settings.criticalities).toHaveLength(5);
+        expect(component.error).toContain('5');
+
+        component.settings.criticalityLevels![1].assignedTicketCount = 2;
+        component.removeCriticality(1);
+        expect(component.settings.criticalities).toHaveLength(5);
+        expect(component.error).toContain('назначен');
+    });
+
+    it('tracks unsaved changes and resets the dirty state after save', async () => {
+        TestBed.overrideProvider(ActivatedRoute, {
+            useValue: { snapshot: { data: { section: 'settings' } } },
+        });
+
+        const fixture = TestBed.createComponent(AdminWorkspaceComponent);
+        fixture.detectChanges();
+        await fixture.whenStable();
+        const component = fixture.componentInstance;
+
+        expect(component.hasUnsavedSettings).toBe(false);
+        component.settings!.maxCriticalityLevels = 4;
+        expect(component.hasUnsavedSettings).toBe(true);
+        fixture.detectChanges();
+
+        const saveButton = fixture.nativeElement.querySelector('.settings-footer button') as HTMLButtonElement;
+        expect(saveButton.disabled).toBe(false);
+        component.saveSettings();
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(saveAdminSettings).toHaveBeenCalled();
+        expect(component.hasUnsavedSettings).toBe(false);
     });
 
     it('keeps only one assignable role when editing a legacy multi-role user', () => {

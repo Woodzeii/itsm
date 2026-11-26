@@ -1,11 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit, inject } from '@angular/core';
+import { ChangeDetectorRef, Component, HostListener, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { finalize } from 'rxjs';
 import { WorkspaceService } from '../../core/workspace/workspace.service';
-import { AdminSettings, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportDetail, ReportSummary, TenantUserQuota, TicketFormDefinition, TicketFormType, TicketType } from '../../core/workspace/workspace.models';
+import { AdminSettings, CriticalityLevelOption, EscalationHistoryEntry, EscalationPolicy, FormFieldDefinition, ReportDetail, ReportSummary, TenantUserQuota, TicketFormDefinition, TicketFormType, TicketType } from '../../core/workspace/workspace.models';
 import { AdminService } from '../../core/admin/admin.service';
 import { RoleSummary, UpdateAdminUserRequest, UserSummary } from '../../core/admin/admin.models';
 import { TenantUserQuotaService } from '../../core/workspace/tenant-user-quota.service';
@@ -42,9 +42,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
                 @if (!canManageAdminCreationSetting) {
                   <p class="field-note">Настройку может изменять только владелец тенанта.</p>
                 } @else {
-                  <button class="primary" type="button" [disabled]="savingTenantPolicy" (click)="saveTenantAdminCreationPolicy()">
-                    {{ savingTenantPolicy ? 'Сохранение…' : 'Сохранить настройку' }}
-                  </button>
+                  <p class="field-note">Изменение применится после нажатия «Сохранить настройки» внизу страницы.</p>
                 }
               }
             </div>
@@ -91,8 +89,8 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
           </div></section>
 
           <section class="panel"><header><h2>Критичность</h2><p>От 3 до 5 уровней; уровень задаёт автор, инженер может изменить</p></header>
-            <div class="list-editor">@for (level of settings.criticalities; track $index; let index = $index) { <label>Уровень {{ index + 1 }}<div class="inline"><input [name]="'priority-' + index" [(ngModel)]="settings.criticalities[index]" /><button class="icon-action" type="button" aria-label="Удалить уровень" [disabled]="settings.criticalities.length <= 3" (click)="removeCriticality(index)">×</button></div></label> }</div>
-            <div class="inline add-row"><input name="newCriticality" [(ngModel)]="newCriticality" placeholder="Новый уровень критичности" /><button class="quiet" type="button" [disabled]="settings.criticalities.length >= 5 || !newCriticality.trim()" (click)="addCriticality()">Добавить уровень</button></div>
+            <div class="list-editor">@for (level of settings.criticalities; track $index; let index = $index) { <label>Уровень {{ index + 1 }}<div class="inline"><input [name]="'priority-' + index" [ngModel]="settings.criticalities[index]" (ngModelChange)="renameCriticality(index,$event)" />@if ((settings.criticalityLevels?.[index]?.assignedTicketCount ?? 0) > 0) { <small class="field-note">Используется в заявках</small> }<button class="icon-action" type="button" [attr.aria-label]="'Удалить уровень ' + settings.criticalities[index]" [title]="criticalityDeleteHint(index)" [disabled]="isCriticalityLocked(index)" (click)="removeCriticality(index)">×</button></div></label> }</div>
+            <div class="inline add-row"><input name="newCriticality" [(ngModel)]="newCriticality" placeholder="Новый уровень критичности" [disabled]="settings.criticalities.length >= (settings.maxCriticalityLevels ?? 5)" /><button class="quiet" type="button" [disabled]="settings.criticalities.length >= (settings.maxCriticalityLevels ?? 5) || !newCriticality.trim()" (click)="addCriticality()">Добавить уровень</button>@if (settings.criticalities.length >= (settings.maxCriticalityLevels ?? 5)) { <small class="field-note">Достигнут лимит {{ settings.maxCriticalityLevels ?? 5 }} уровней</small> }</div>
           </section>
 
           <section class="panel"><header><h2>Статусы и SLA</h2><p>Стандартные статусы обязательны; дополнительные статусы могут приостанавливать SLA</p></header>
@@ -104,26 +102,32 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
           <section class="panel"><header><h2>Типы заявок и SLA</h2><p>Нормативы времени реакции и решения задаются для сочетания типа и критичности</p></header>
             <div class="type-toolbar"><button class="quiet" type="button" (click)="openTicketTypeEditor()">+ Добавить тип заявки</button></div>
             <div class="type-list">@for (type of ticketTypes; track type.id) { <article class="type-row">
-              <div class="type-top"><div class="type-name"><strong>{{ type.name }}</strong>@if (type.builtIn || type.repair) { <span class="builtin">Встроенный тип</span> }</div><label class="check"><input type="checkbox" [name]="'portal-' + type.id" [(ngModel)]="type.portalAvailable" [disabled]="type.builtIn || type.repair" (ngModelChange)="ticketTypeChangesDirty = true" /> Доступен на портале</label><label class="check"><input type="checkbox" [name]="'type-sla-' + type.id" [(ngModel)]="type.slaEnabled" (ngModelChange)="ticketTypeChangesDirty = true" /> SLA включён</label><div class="type-actions">@if (!type.builtIn && !type.repair) { <button class="icon-button" type="button" [attr.aria-label]="'Редактировать тип ' + type.name" (click)="openTicketTypeEditor(type)">✎</button><button class="remove-type" type="button" (click)="archiveType(type)">Архивировать</button> }</div></div>
+              <div class="type-top"><div class="type-name"><strong>{{ type.name }}</strong>@if (type.builtIn || type.repair) { <span class="builtin">Встроенный тип</span> }</div><label class="check"><input type="checkbox" [name]="'portal-' + type.id" [(ngModel)]="type.portalAvailable" [disabled]="type.builtIn || type.repair" (ngModelChange)="ticketTypeChangesDirty = true" /> Доступен на портале</label><label class="check"><input type="checkbox" [name]="'type-sla-' + type.id" [(ngModel)]="type.slaEnabled" (ngModelChange)="ticketTypeChangesDirty = true" /> SLA включён</label><div class="type-actions">@if (!type.builtIn && !type.repair) { <button class="icon-button" type="button" [attr.aria-label]="'Редактировать тип ' + type.name" (click)="openTicketTypeEditor(type)">✎</button><button class="remove-type" type="button" [disabled]="(type.activeTicketCount ?? 0) > 0" [title]="(type.activeTicketCount ?? 0) > 0 ? 'Тип используется в активных заявках и не может быть удалён' : 'Архивировать тип'" (click)="archiveType(type)">Архивировать</button> }</div></div>
               <div class="sla-grid">@for (level of settings.criticalities; track level) { <div class="sla-level"><strong>{{ level }}</strong><label>Реакция<input [name]="'reaction-' + type.id + '-' + level" [ngModel]="type.slaByCriticality?.[level]?.reaction || type.reactionSla" (ngModelChange)="setTypeSla(type,level,'reaction',$event)" /></label><label>Решение<input [name]="'resolution-' + type.id + '-' + level" [ngModel]="type.slaByCriticality?.[level]?.resolution || type.resolutionSla" (ngModelChange)="setTypeSla(type,level,'resolution',$event)" /></label></div> }</div>
             </article> }</div>
             @if (archivedTicketTypes.length) {
               <div class="archived-types"><h3>Архив типов заявок</h3>@for (type of archivedTicketTypes; track type.id) { <div><span>{{ type.name }}</span><button class="quiet" type="button" (click)="restoreType(type)">Восстановить</button><button class="remove-type" type="button" (click)="deleteArchivedType(type)">Удалить</button></div> }</div>
             }
-            @if (ticketTypeChangesDirty) { <button class="quiet type-discard" type="button" (click)="discardTicketTypeChanges()">Отменить несохранённые изменения</button> }
-            <button class="primary save-button" type="button" [disabled]="!ticketTypeChangesDirty" (click)="saveTicketTypeChanges()">Сохранить изменения типов</button>
+            @if (hasUnsavedSettings) { <button class="quiet type-discard" type="button" (click)="discardTicketTypeChanges()">Отменить несохранённые изменения</button> }
+            <p class="field-note">Изменения типов и SLA сохраняются кнопкой «Сохранить настройки» внизу страницы.</p>
           </section>
 
           <section class="panel"><header><h2>Портальные учётные записи</h2><p>Учётные записи создаёт администратор; пароль проверяется по настроенной политике</p></header>
-            <div class="account-grid"><label>Новый логин<input name="portalUsername" [(ngModel)]="newUsername" autocomplete="off" /></label><label>Временный пароль<input name="portalPassword" type="password" [(ngModel)]="newPassword" autocomplete="new-password" /></label><button class="quiet align-end" type="button" [disabled]="!newUsername.trim() || !newPassword" (click)="createPortalAccount()">Создать учётную запись</button></div>
+            <div class="account-grid"><label>Новый логин<input name="portalUsername" [(ngModel)]="newUsername" autocomplete="off" [class.invalid]="portalAccountError !== ''" /></label><label>Временный пароль<input name="portalPassword" type="password" [(ngModel)]="newPassword" autocomplete="new-password" /><button class="quiet" type="button" (click)="generateTemporaryPassword()">Сгенерировать</button></label><button class="quiet align-end" type="button" [disabled]="!newUsername.trim() || !newPassword" (click)="createPortalAccount()">Создать учётную запись</button></div>
+            @if (portalAccountError) { <p class="field-note error" role="alert">{{ portalAccountError }}</p> }
             <p class="account-list">{{ (settings.portalAccounts ?? []).join(' · ') || 'Учётных записей нет' }}</p>
           </section>
 
           <section class="panel"><header><h2>Пароли и блокировка</h2><p>Правила применяются при создании пользовательских учётных записей</p></header>
-            @if (settings.passwordPolicy; as passwordPolicy) { <div class="field-grid"><label>Минимальная длина<input type="number" min="8" name="minLength" [(ngModel)]="passwordPolicy.minLength" /></label><label>Срок действия, дней<input type="number" min="0" name="expiryDays" [(ngModel)]="passwordPolicy.expiryDays" /></label><label>Неудачных попыток до блокировки<input type="number" min="1" name="maxAttempts" [(ngModel)]="passwordPolicy.maxFailedAttempts" /></label><label>Блокировка, минут<input type="number" min="1" name="lockoutMinutes" [(ngModel)]="passwordPolicy.lockoutMinutes" /></label><label class="check"><input type="checkbox" name="uppercase" [(ngModel)]="passwordPolicy.requireUppercase" /> Требовать заглавную букву</label><label class="check"><input type="checkbox" name="special" [(ngModel)]="passwordPolicy.requireSpecial" /> Требовать спецсимвол</label></div> }
+            @if (settings.passwordPolicy; as passwordPolicy) { <div class="field-grid"><label>Минимальная длина<input type="number" min="8" name="minLength" [(ngModel)]="passwordPolicy.minLength" /></label><label>Срок действия, дней<input type="number" min="0" name="expiryDays" [(ngModel)]="passwordPolicy.expiryDays" /></label><label>Неудачных попыток до блокировки<input type="number" min="1" name="maxAttempts" [(ngModel)]="passwordPolicy.maxFailedAttempts" /></label><label>Блокировка, минут<input type="number" min="1" name="lockoutMinutes" [(ngModel)]="passwordPolicy.lockoutMinutes" /></label><label class="check"><input type="checkbox" name="uppercase" [(ngModel)]="passwordPolicy.requireUppercase" /> Требовать заглавную букву</label><label class="check"><input type="checkbox" name="special" [(ngModel)]="passwordPolicy.requireSpecial" /> Требовать спецсимвол</label></div>
+              @if (passwordPolicyError) { <p class="field-note error" role="alert">{{ passwordPolicyError }}</p> }
+            }
           </section>
           <section class="panel"><header><h2>Сроки SLA на портале</h2><p>Выберите показатели, видимые автору заявки</p></header><div class="field-grid"><label class="check"><input type="checkbox" [checked]="settings.portalSlaFields.includes('Время реакции')" (change)="togglePortalSla('Время реакции',$event)" /> Время реакции</label><label class="check"><input type="checkbox" [checked]="settings.portalSlaFields.includes('Время решения')" (change)="togglePortalSla('Время решения',$event)" /> Время решения</label></div></section>
-          <button class="primary save-button" type="submit">Сохранить настройки</button>
+          <footer class="settings-footer">
+            <span class="footer-state">{{ (settingsSaving ? 'Сохранение…' : (hasUnsavedSettings ? 'Есть несохранённые изменения' : 'Все изменения сохранены')) }}</span>
+            <button class="primary save-button" type="submit" [disabled]="!hasUnsavedSettings || settingsSaving">Сохранить настройки</button>
+          </footer>
         </form>
         @if (ticketTypeEditorOpen && ticketTypeDraft; as draft) {
           <div class="type-modal-backdrop" (click)="closeTicketTypeEditor()">
@@ -133,6 +137,7 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
                 <label>Название<input name="ticketTypeNameDraft" [(ngModel)]="draft.name" (keydown.enter)="$event.preventDefault(); saveTicketTypeDraft()" autofocus /></label>
                 <label class="check"><input type="checkbox" name="ticketTypePortalDraft" [(ngModel)]="draft.portalAvailable" /> Доступен на портале</label>
                 <label class="check"><input type="checkbox" name="ticketTypeSlaDraft" [(ngModel)]="draft.slaEnabled" /> SLA включён</label>
+                <label class="check"><input type="checkbox" [checked]="draft.builtIn || draft.repair" disabled /> Встроенный тип</label>
               </div>
               <footer><button class="quiet" type="button" (click)="closeTicketTypeEditor()">Отмена</button><button class="primary" type="button" [disabled]="!draft.name.trim()" (click)="saveTicketTypeDraft()">Сохранить тип</button></footer>
             </section>
@@ -345,7 +350,8 @@ type AdminSection = 'settings' | 'forms' | 'escalations' | 'reports' | 'users';
       .remove-type { margin-top:8px; padding:4px 0; border:0; background:none; color:#ad4a4a; font-size:9px; cursor:pointer; }
       .account-grid { display:grid; grid-template-columns:1fr 1fr auto; gap:10px; align-items:end; padding:14px 16px 0; } .align-end { align-self:end; }
       .account-list { padding:0 16px 12px; color:#84909d; font-size:9px; }
-      .save-button { min-height:36px; margin:0 16px 16px; padding:0 13px; border:0; border-radius:5px; background:#2563eb; color:#fff; font-size:10px; font-weight:650; cursor:pointer; }
+      .save-button { min-height:36px; margin:0; padding:0 13px; border:0; border-radius:5px; background:#2563eb; color:#fff; font-size:10px; font-weight:650; cursor:pointer; }
+      .settings-footer{position:sticky;bottom:0;display:flex;justify-content:space-between;align-items:center;padding:10px;background:#fff;border-top:1px solid #e3e7ed}
       .feedback { padding:9px 12px; border-radius:4px; font-size:10px; } .error { color:#a93232; background:#fff0ef; } .success { color:#176f52; background:#edf8f2; }
       .form-select { max-width:380px; margin:14px 16px; } .fields { padding-top:0; } .field-row { position:relative; padding:14px 0; border-bottom:1px solid #edf0f4; }
       .field-main { display:grid; grid-template-columns:1.5fr 1fr auto auto; align-items:end; gap:10px; }
@@ -402,6 +408,12 @@ export class AdminWorkspaceComponent implements OnInit {
 
     section: AdminSection = 'settings';
     settings: AdminSettings | null = null;
+    settingsSaving = false;
+    private savedSettingsSnapshot = '';
+    private settingsLoaded = false;
+    private ticketTypesLoaded = false;
+    portalAccountError = '';
+    passwordPolicyError = '';
     manualAssignerUserId: number | null = null;
     assignerOptions: { id: number; fullName: string }[] = [];
     ticketTypes: TicketType[] = [];
@@ -466,7 +478,11 @@ export class AdminWorkspaceComponent implements OnInit {
     readonly weekDays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
     get assignableRoles(): RoleSummary[] { return this.availableRoles.filter(role => ['admin', 'manager', 'agent', 'portal_user'].includes(role.code)); }
-    get canManageAdminCreationSetting(): boolean { return this.auth.isTenantOwner(); }
+    get canManageAdminCreationSetting(): boolean { return this.settings?.canManageAdminCreation ?? this.auth.isTenantOwner(); }
+    get hasUnsavedSettings(): boolean {
+        if (!this.settings || !this.savedSettingsSnapshot) return false;
+        return this.settingsSnapshot() !== this.savedSettingsSnapshot;
+    }
     get canCreateAdminRoleForCurrentUser(): boolean {
         if (this.auth.isTenantOwner() || this.auth.isTenantAdmin()) return true;
         return this.auth.isAdmin() && this.allowAdminsCreateAdmins;
@@ -517,7 +533,15 @@ export class AdminWorkspaceComponent implements OnInit {
             }
         }
         this.workspace.getAdminSettings().subscribe({
-            next: settings => this.settings = settings,
+            next: settings => {
+                this.settings = this.normalizeSettings(settings);
+                this.allowAdminsCreateAdmins = settings.allowAdminsCreateAdmins ?? this.allowAdminsCreateAdmins;
+                this.manualAssignerUserId = settings.manualAssignerUserId ?? this.manualAssignerUserId;
+                this.settingsLoaded = true;
+                this.remapTicketTypeSla();
+                this.refreshDirtyBaselineIfLoaded();
+                this.changeDetector.markForCheck();
+            },
             error: err => this.error = err.message,
         });
         if (this.section === 'settings') {
@@ -528,7 +552,9 @@ export class AdminWorkspaceComponent implements OnInit {
                     this.settings = {
                         ...this.settings,
                         assignmentMode: assignment.mode === 'manual' ? 'manual' : 'automatic',
+                        manualAssignerUserId: assignment.manualAssignerUserId ?? null,
                     };
+                    this.refreshDirtyBaselineIfLoaded();
                 },
                 error: err => this.error = err?.error?.detail ?? err.message,
             });
@@ -551,6 +577,7 @@ export class AdminWorkspaceComponent implements OnInit {
                     this.twoFactorGraceDays = policy.twoFactorGraceDays ?? 0;
                     this.tenantPolicyLoaded = true;
                     this.tenantPolicyLoading = false;
+                    this.refreshDirtyBaselineIfLoaded();
                     this.changeDetector.markForCheck();
                 },
                 error: err => {
@@ -567,6 +594,10 @@ export class AdminWorkspaceComponent implements OnInit {
                         this.ticketTypes = types;
                         this.savedTicketTypes = this.cloneTicketTypes(types);
                         this.savedArchivedTicketTypes = [];
+                        this.ticketTypesLoaded = true;
+                        this.remapTicketTypeSla();
+                        this.refreshDirtyBaselineIfLoaded();
+                        this.changeDetector.markForCheck();
                     },
                     error: err => this.error = err.message,
                 });
@@ -585,6 +616,9 @@ export class AdminWorkspaceComponent implements OnInit {
                         }));
                         this.savedTicketTypes = this.cloneTicketTypes(this.ticketTypes);
                         this.savedArchivedTicketTypes = [];
+                        this.ticketTypesLoaded = true;
+                        this.remapTicketTypeSla();
+                        this.refreshDirtyBaselineIfLoaded();
                         this.changeDetector.markForCheck();
                     },
                     error: err => {
@@ -634,32 +668,85 @@ export class AdminWorkspaceComponent implements OnInit {
 
     saveSettings(): void {
         const currentSettings = this.settings;
-        if (!currentSettings) return;
-        this.workspace.saveAdminSettings({
+        if (!currentSettings || this.settingsSaving || !this.hasUnsavedSettings) return;
+        if (!this.validateSettings()) return;
+
+        this.settingsSaving = true;
+        this.error = '';
+        this.notice = '';
+        const settingsForSave: AdminSettings = {
             ...currentSettings,
             allowAdminsCreateAdmins: this.allowAdminsCreateAdmins,
-        }).subscribe({
+            manualAssignerUserId: this.manualAssignerUserId,
+        };
+        this.workspace.saveAdminSettings(settingsForSave, this.ticketTypes).pipe(finalize(() => {
+            this.settingsSaving = false;
+            this.changeDetector.markForCheck();
+        })).subscribe({
             next: settings => {
-                this.settings = settings;
+                this.settings = this.normalizeSettings({
+                    ...settings,
+                    assignmentMode: settings.assignmentMode ?? currentSettings.assignmentMode,
+                });
+                this.allowAdminsCreateAdmins = this.settings.allowAdminsCreateAdmins ?? this.allowAdminsCreateAdmins;
+                this.manualAssignerUserId = this.settings.manualAssignerUserId ?? null;
+                this.reloadTicketTypes();
+                this.markSettingsClean();
                 this.notice = 'Настройки сохранены.';
             },
-            error: err => this.error = err.message,
+            error: err => this.error = this.apiError(err, 'Не удалось сохранить настройки Service Desk.'),
         });
-        this.workspace.saveAssignmentSettingWithAssigner(
-            currentSettings.assignmentMode === 'manual' ? 'manual' : 'auto',
-            currentSettings.assignmentMode === 'manual' ? this.manualAssignerUserId : null,
-        ).subscribe({
-            next: assignment => {
-                this.manualAssignerUserId = assignment.manualAssignerUserId ?? null;
+    }
+
+    private reloadTicketTypes(): void {
+        this.workspace.getTicketTypes().subscribe({
+            next: types => {
+                this.ticketTypes = types;
+                this.savedTicketTypes = this.cloneTicketTypes(types);
+                this.savedArchivedTicketTypes = [];
+                this.ticketTypesLoaded = true;
+                this.remapTicketTypeSla();
+                this.markSettingsClean();
+                this.changeDetector.markForCheck();
             },
-            error: err => this.error = err?.error?.detail ?? err.message,
+            error: err => this.error = this.apiError(err, 'Не удалось обновить типы заявок.'),
         });
-        if (this.workspace.supportsTicketTypeConfiguration) {
-            this.workspace.saveTicketTypes(this.ticketTypes).subscribe({
-                next: types => this.ticketTypes = types,
-                error: err => this.error = err.message,
-            });
+    }
+
+    private validateSettings(): boolean {
+        if (!this.settings) return false;
+        this.passwordPolicyError = '';
+        const policy = this.settings.passwordPolicy;
+        if (policy) {
+            if (!Number.isFinite(policy.minLength) || policy.minLength < 8) {
+                this.passwordPolicyError = 'Минимальная длина пароля не может быть меньше 8.';
+                return false;
+            }
+            if (!Number.isFinite(policy.maxFailedAttempts) || policy.maxFailedAttempts < 1) {
+                this.passwordPolicyError = 'Число неудачных попыток должно быть положительным.';
+                return false;
+            }
+            if (!Number.isFinite(policy.lockoutMinutes) || policy.lockoutMinutes < 1) {
+                this.passwordPolicyError = 'Время блокировки должно быть положительным.';
+                return false;
+            }
+            if (policy.expiryDays < 0) {
+                this.passwordPolicyError = 'Срок действия пароля не может быть отрицательным.';
+                return false;
+            }
         }
+
+        const max = this.settings.maxCriticalityLevels ?? 5;
+        if (this.settings.criticalities.length > max) {
+            this.error = `Максимальное количество уровней критичности — ${max}.`;
+            return false;
+        }
+        return true;
+    }
+
+    private apiError(error: unknown, fallback: string): string {
+        const value = error as { error?: { detail?: string; message?: string }; message?: string } | null;
+        return value?.error?.detail ?? value?.error?.message ?? value?.message ?? fallback;
     }
 
     saveTenantAdminCreationPolicy(): void {
@@ -708,8 +795,83 @@ export class AdminWorkspaceComponent implements OnInit {
         });
     }
 
-    addCriticality(): void { if (!this.settings || this.settings.criticalities.length >= 5 || !this.newCriticality.trim()) return; this.settings.criticalities.push(this.newCriticality.trim()); this.newCriticality = ''; }
-    removeCriticality(index: number): void { if (this.settings && this.settings.criticalities.length > 3) this.settings.criticalities.splice(index, 1); }
+    addCriticality(): void {
+      if (!this.settings) return;
+      const name = this.newCriticality.trim();
+      const max = this.settings.maxCriticalityLevels ?? 5;
+      if (!name) return;
+      if (this.settings.criticalities.length >= max) {
+        this.error = `Максимальное количество уровней критичности — ${max}.`;
+        return;
+      }
+      if (this.settings.criticalities.some(level => level.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+        this.error = 'Уровень критичности с таким названием уже существует.';
+        return;
+      }
+      this.settings.criticalities.push(name);
+      this.settings.criticalityLevels ??= [];
+      this.settings.criticalityLevels.push({
+        id: 0,
+        code: '',
+        name,
+        sortOrder: this.settings.criticalities.length,
+        isActive: true,
+        assignedTicketCount: 0,
+        canDelete: true,
+      });
+      this.newCriticality = '';
+      this.error = '';
+    }
+    removeCriticality(index: number): void {
+      if (!this.settings) return;
+      const level = this.settings.criticalityLevels?.[index];
+      const name = this.settings.criticalities[index];
+      if (level && level.assignedTicketCount > 0) {
+        this.error = `Уровень «${level.name}» назначен хотя бы одной заявке и не может быть удалён.`;
+        return;
+      }
+      if ((this.activeCriticalityCount() - 1) < (this.settings.minCriticalityLevels ?? 3)) {
+        this.error = `Должно оставаться не менее ${this.settings.minCriticalityLevels ?? 3} уровней критичности.`;
+        return;
+      }
+      this.settings.criticalities.splice(index, 1);
+      this.settings.criticalityLevels?.splice(index, 1);
+      for (const type of this.ticketTypes) {
+        if (type.slaByCriticality) delete type.slaByCriticality[name];
+      }
+      this.error = '';
+    }
+    renameCriticality(index: number, value: string): void {
+      if (!this.settings) return;
+      const previous = this.settings.criticalities[index];
+      const next = value;
+      this.settings.criticalities[index] = next;
+      if (this.settings.criticalityLevels?.[index]) this.settings.criticalityLevels[index].name = next;
+      if (previous === next) return;
+      for (const type of this.ticketTypes) {
+        const cells = type.slaByCriticality;
+        if (!cells || !(previous in cells)) continue;
+        cells[next] = cells[previous];
+        delete cells[previous];
+      }
+    }
+    isCriticalityLocked(index: number): boolean {
+      const level = this.settings?.criticalityLevels?.[index];
+      if (level && level.assignedTicketCount > 0) return true;
+      return this.activeCriticalityCount() <= (this.settings?.minCriticalityLevels ?? 3);
+    }
+    criticalityDeleteHint(index: number): string {
+      const level = this.settings?.criticalityLevels?.[index];
+      if (level && level.assignedTicketCount > 0) return 'Уровень назначен хотя бы одной заявке и не может быть удалён';
+      if (this.activeCriticalityCount() <= (this.settings?.minCriticalityLevels ?? 3)) {
+        return `Должно оставаться не менее ${this.settings?.minCriticalityLevels ?? 3} уровней критичности`;
+      }
+      return 'Удалить уровень';
+    }
+    private activeCriticalityCount(): number {
+      const levels = this.settings?.criticalityLevels;
+      return levels?.length ? levels.filter(level => level.isActive).length : (this.settings?.criticalities.length ?? 0);
+    }
     addStatus(): void { if (!this.settings || !this.newStatus.trim()) return; const name = this.newStatus.trim(); this.settings.statuses.push({ name, pausesSla: false, immutable: false }); this.settings.statusTransitions[name] = []; this.newStatus = ''; }
     removeStatus(index: number): void {
       if (!this.settings || this.settings.statuses[index].immutable) return;
@@ -789,10 +951,15 @@ export class AdminWorkspaceComponent implements OnInit {
 
     archiveType(type: TicketType): void {
         if (type.builtIn || type.repair || !this.ticketTypes.some(item => item.id === type.id)) return;
+        if ((type.activeTicketCount ?? 0) > 0) {
+            this.error = `Тип «${type.name}» используется в активных заявках и не может быть удалён.`;
+            return;
+        }
         this.ticketTypes = this.ticketTypes.filter(item => item.id !== type.id);
         this.archivedTicketTypes = [...this.archivedTicketTypes, type];
         this.ticketTypeChangesDirty = true;
         this.syncFormTicketTypes();
+        this.error = '';
     }
 
     restoreType(type: TicketType): void {
@@ -814,10 +981,7 @@ export class AdminWorkspaceComponent implements OnInit {
     }
 
     saveTicketTypeChanges(): void {
-        this.savedTicketTypes = this.cloneTicketTypes(this.ticketTypes);
-        this.savedArchivedTicketTypes = this.cloneTicketTypes(this.archivedTicketTypes);
-        this.ticketTypeChangesDirty = false;
-        this.notice = 'Изменения типов сохранены в памяти текущего сеанса; серверный API сохранения не подключён.';
+        this.saveSettings();
     }
 
     discardTicketTypeChanges(): void {
@@ -825,7 +989,9 @@ export class AdminWorkspaceComponent implements OnInit {
         this.archivedTicketTypes = this.cloneTicketTypes(this.savedArchivedTicketTypes);
         this.ticketTypeChangesDirty = false;
         this.closeTicketTypeEditor();
+        this.remapTicketTypeSla();
         this.syncFormTicketTypes();
+        this.error = '';
     }
 
     setTypeSla(type: TicketType, level: string, metric: 'reaction' | 'resolution', value: string): void {
@@ -840,10 +1006,70 @@ export class AdminWorkspaceComponent implements OnInit {
     removeHoliday(date: string): void { if (this.settings) this.settings.holidays = this.settings.holidays.filter(holiday => holiday !== date); }
     toggleReportRole(role: string, event: Event): void { if (!this.settings) return; this.settings.reportAccessRoles = this.toggleString(this.settings.reportAccessRoles ?? [], role, (event.target as HTMLInputElement).checked); }
     createPortalAccount(): void {
-        this.workspace.createPortalAccount({ username: this.newUsername, temporaryPassword: this.newPassword }).subscribe({
-            next: username => { if (this.settings) this.settings.portalAccounts = [...(this.settings.portalAccounts ?? []), username]; this.newUsername = ''; this.newPassword = ''; this.notice = 'Портальная учётная запись создана.'; },
-            error: err => this.error = err.message,
+        const username = this.newUsername.trim();
+        const password = this.newPassword;
+        this.portalAccountError = '';
+        if (!/^[a-zA-Z0-9._-]{3,64}$/.test(username)) {
+            this.portalAccountError = 'Логин должен содержать от 3 до 64 символов: буквы, цифры, точки, дефисы и подчёркивания.';
+            return;
+        }
+        if (password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
+            this.portalAccountError = 'Пароль должен быть не короче 8 символов и содержать буквы и цифры.';
+            return;
+        }
+        const policy = this.settings?.passwordPolicy;
+        if (policy && password.length < policy.minLength) {
+            this.portalAccountError = `Минимальная длина пароля — ${policy.minLength} символов.`;
+            return;
+        }
+        if (policy?.requireUppercase && !/[A-ZА-Я]/.test(password)) {
+            this.portalAccountError = 'Пароль должен содержать заглавную букву.';
+            return;
+        }
+        if (policy?.requireSpecial && !/[^A-Za-zА-Яа-я0-9]/.test(password)) {
+            this.portalAccountError = 'Пароль должен содержать специальный символ.';
+            return;
+        }
+
+        this.workspace.createPortalAccount({ username, temporaryPassword: password }).subscribe({
+            next: created => {
+                if (this.settings) this.settings.portalAccounts = [...(this.settings.portalAccounts ?? []), created];
+                this.newUsername = '';
+                this.newPassword = '';
+                this.notice = 'Портальная учётная запись создана.';
+                this.changeDetector.markForCheck();
+            },
+            error: err => {
+                this.portalAccountError = this.apiError(err, 'Не удалось создать портальную учётную запись.');
+                this.changeDetector.markForCheck();
+            },
         });
+    }
+
+    generateTemporaryPassword(): void {
+        const policy = this.settings?.passwordPolicy;
+        const length = Math.max(8, policy?.minLength ?? 8);
+        const alphabet = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        const specials = '!@#$%^&*';
+        const characters = [...alphabet];
+        const required = [
+            'Abcdefgh',
+            '12345678',
+            ...(policy?.requireUppercase ? ['ABCDEFGH'] : []),
+            ...(policy?.requireSpecial ? [specials] : []),
+        ];
+        while (characters.length < length - required.length) {
+            characters.push(alphabet[Math.floor(Math.random() * alphabet.length)]);
+        }
+        for (const item of required) {
+            characters.push(item[Math.floor(Math.random() * item.length)]);
+        }
+        this.newPassword = characters
+            .map(character => ({ character, sort: Math.random() }))
+            .sort((left, right) => left.sort - right.sort)
+            .map(item => item.character)
+            .join('');
+        this.portalAccountError = '';
     }
     savePolicies(): void { this.workspace.saveEscalationPolicies(this.policies).subscribe({ next: policies => { this.policies = policies; this.notice = 'Правила эскалации сохранены.'; }, error: err => this.error = err.message }); }
     addField(form: TicketFormDefinition): void {
@@ -1046,6 +1272,7 @@ export class AdminWorkspaceComponent implements OnInit {
     private cloneTicketType(type: TicketType): TicketType {
         return {
             ...type,
+            slaValues: type.slaValues?.map(value => ({ ...value })),
             slaByCriticality: type.slaByCriticality
                 ? Object.fromEntries(Object.entries(type.slaByCriticality).map(([level, sla]) => [level, { ...sla }]))
                 : undefined,
@@ -1054,6 +1281,80 @@ export class AdminWorkspaceComponent implements OnInit {
 
     private cloneTicketTypes(types: TicketType[]): TicketType[] {
         return types.map(type => this.cloneTicketType(type));
+    }
+
+    private normalizeSettings(settings: AdminSettings): AdminSettings {
+        const levels: CriticalityLevelOption[] = settings.criticalityLevels?.length
+            ? settings.criticalityLevels.map(level => ({ ...level }))
+            : settings.criticalities.map((name, index) => ({
+                id: 0,
+                code: '',
+                name,
+                sortOrder: index + 1,
+                isActive: true,
+                assignedTicketCount: 0,
+                canDelete: true,
+            }));
+        return {
+            ...settings,
+            criticalities: [...settings.criticalities],
+            criticalityLevels: levels,
+            maxCriticalityLevels: settings.maxCriticalityLevels ?? 5,
+            minCriticalityLevels: settings.minCriticalityLevels ?? 3,
+            canManageAdminCreation: settings.canManageAdminCreation ?? this.auth.isTenantOwner(),
+            portalAccounts: [...(settings.portalAccounts ?? [])],
+            slaEnabled: settings.slaEnabled,
+        };
+    }
+
+    private remapTicketTypeSla(): void {
+        if (!this.settings) return;
+        const levels = this.settings.criticalityLevels ?? [];
+        const nameById = new Map(levels.map(level => [String(level.id), level.name]));
+        for (const type of this.ticketTypes) {
+            if (!type.slaValues?.length) continue;
+            const cells: Record<string, { reaction: string; resolution: string }> = {};
+            for (const value of type.slaValues) {
+                const name = value.criticalityName || nameById.get(String(value.criticalityLevelId)) || '';
+                if (!name) continue;
+                cells[name] = {
+                    reaction: value.reactionTimeMinutes == null ? '' : String(value.reactionTimeMinutes),
+                    resolution: value.resolutionTimeMinutes == null ? '' : String(value.resolutionTimeMinutes),
+                };
+            }
+            if (Object.keys(cells).length) type.slaByCriticality = cells;
+        }
+    }
+
+    private settingsSnapshot(): string {
+        return JSON.stringify({
+            settings: this.settings,
+            ticketTypes: this.ticketTypes,
+            archived: this.archivedTicketTypes.map(type => type.id),
+            manualAssignerUserId: this.manualAssignerUserId,
+            allowAdminsCreateAdmins: this.allowAdminsCreateAdmins,
+        });
+    }
+
+    private refreshDirtyBaselineIfLoaded(): void {
+        if (!this.savedSettingsSnapshot && this.settingsLoaded && this.ticketTypesLoaded) {
+            this.markSettingsClean();
+        }
+    }
+
+    private markSettingsClean(): void {
+        this.savedSettingsSnapshot = this.settingsSnapshot();
+    }
+
+    canDeactivate(): boolean {
+        return !this.hasUnsavedSettings || confirm('Есть несохранённые изменения настроек. Покинуть страницу без сохранения?');
+    }
+
+    @HostListener('window:beforeunload', ['$event'])
+    onBeforeUnload(event: BeforeUnloadEvent): void {
+        if (!this.hasUnsavedSettings) return;
+        event.preventDefault();
+        event.returnValue = '';
     }
 
     private cloneForm(form: TicketFormDefinition): TicketFormDefinition {
