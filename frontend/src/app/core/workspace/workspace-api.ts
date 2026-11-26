@@ -84,7 +84,7 @@ export abstract class WorkspaceApi {
     abstract saveEscalationPolicies(policies: EscalationPolicy[]): Observable<EscalationPolicy[]>;
     abstract getEscalationHistory(): Observable<EscalationHistoryEntry[]>;
     abstract getAdminSettings(): Observable<AdminSettings>;
-    abstract saveAdminSettings(settings: AdminSettings): Observable<AdminSettings>;
+    abstract saveAdminSettings(settings: AdminSettings, ticketTypes?: TicketType[]): Observable<AdminSettings>;
     abstract getReports(from?: string, to?: string): Observable<ReportSummary[]>;
     abstract getReportDetails(reportType: string, from: string | undefined, to: string | undefined, skip: number, take: number): Observable<ReportDetail>;
     abstract downloadReportCsv(reportType: string, from: string | undefined, to: string | undefined): Observable<Blob>;

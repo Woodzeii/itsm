@@ -621,10 +621,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("TenantId")
-                        .HasColumnType("integer")
-                        .HasColumnName("tenant_id");
-
                     b.Property<string>("Description")
                         .HasColumnType("text")
                         .HasColumnName("description");
@@ -637,6 +633,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_work_day");
 
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
+
                     b.Property<string>("WorkingHoursJson")
                         .HasColumnType("jsonb")
                         .HasColumnName("working_hours_json");
@@ -646,13 +646,13 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ExceptionDate")
                         .IsUnique()
-                        .HasFilter("tenant_id IS NULL")
-                        .HasDatabaseName("ix_calendar_exceptions_global_exception_date");
+                        .HasDatabaseName("ix_calendar_exceptions_global_exception_date")
+                        .HasFilter("tenant_id IS NULL");
 
                     b.HasIndex("TenantId", "ExceptionDate")
                         .IsUnique()
-                        .HasFilter("tenant_id IS NOT NULL")
-                        .HasDatabaseName("ix_calendar_exceptions_tenant_exception_date");
+                        .HasDatabaseName("ix_calendar_exceptions_tenant_exception_date")
+                        .HasFilter("tenant_id IS NOT NULL");
 
                     b.ToTable("calendar_exceptions", "public");
                 });
@@ -1564,10 +1564,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("criticality_level_id");
 
-                    b.Property<int?>("SlaPolicyId")
-                        .HasColumnType("integer")
-                        .HasColumnName("sla_policy_id");
-
                     b.Property<bool>("IsDisabled")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -1581,6 +1577,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Property<int?>("ResolutionTimeMinutes")
                         .HasColumnType("integer")
                         .HasColumnName("resolution_time_minutes");
+
+                    b.Property<int?>("SlaPolicyId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sla_policy_id");
 
                     b.Property<int>("TicketTypeId")
                         .HasColumnType("integer")
@@ -1759,6 +1759,24 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("name");
 
+                    b.Property<bool>("PortalSlaReactionVisible")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("portal_sla_reaction_visible");
+
+                    b.Property<bool>("PortalSlaResolutionVisible")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("portal_sla_resolution_visible");
+
+                    b.Property<bool>("SlaEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("sla_enabled");
+
                     b.Property<int>("TwoFactorGraceDays")
                         .HasColumnType("integer")
                         .HasColumnName("two_factor_grace_days");
@@ -1799,6 +1817,9 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             MaxTickets = 10000,
                             MaxUsers = 100,
                             Name = "Default Tenant",
+                            PortalSlaReactionVisible = true,
+                            PortalSlaResolutionVisible = true,
+                            SlaEnabled = true,
                             TwoFactorGraceDays = 0,
                             TwoFactorMode = "all"
                         });
@@ -1820,14 +1841,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("ActualResolutionTime")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("actual_resolution_time");
-
-                    b.Property<DateTimeOffset?>("SlaReactionBreachedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("sla_reaction_breached_at");
-
-                    b.Property<DateTimeOffset?>("SlaResolutionBreachedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("sla_resolution_breached_at");
 
                     b.Property<int?>("AssetId")
                         .HasColumnType("integer")
@@ -1917,9 +1930,21 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasDefaultValue(0)
                         .HasColumnName("sla_accumulated_pause_minutes");
 
+                    b.Property<string>("SlaCalendarSnapshot")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("sla_calendar_snapshot");
+
+                    b.Property<DateTimeOffset?>("SlaPausedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sla_paused_at");
+
                     b.Property<int?>("SlaPolicyId")
                         .HasColumnType("integer")
                         .HasColumnName("sla_policy_id");
+
+                    b.Property<DateTimeOffset?>("SlaReactionBreachedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sla_reaction_breached_at");
 
                     b.Property<DateTimeOffset?>("SlaReactionDeadline")
                         .HasColumnType("timestamp with time zone")
@@ -1929,6 +1954,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("sla_reaction_started_at");
 
+                    b.Property<DateTimeOffset?>("SlaResolutionBreachedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("sla_resolution_breached_at");
+
                     b.Property<DateTimeOffset?>("SlaResolutionDeadline")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("sla_resolution_deadline");
@@ -1936,14 +1965,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("SlaResolutionStartedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("sla_resolution_started_at");
-
-                    b.Property<DateTimeOffset?>("SlaPausedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("sla_paused_at");
-
-                    b.Property<string>("SlaCalendarSnapshot")
-                        .HasColumnType("jsonb")
-                        .HasColumnName("sla_calendar_snapshot");
 
                     b.Property<bool>("SlaTimerPaused")
                         .ValueGeneratedOnAdd()
@@ -2565,6 +2586,12 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("code");
 
+                    b.Property<bool>("IsArchived")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_archived");
+
                     b.Property<bool>("IsBuiltIn")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("boolean")
@@ -2576,6 +2603,12 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true)
                         .HasColumnName("is_portal_available");
+
+                    b.Property<bool>("IsSlaEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_sla_enabled");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -2606,8 +2639,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         {
                             Id = 1,
                             Code = "incident",
+                            IsArchived = false,
                             IsBuiltIn = false,
                             IsPortalAvailable = true,
+                            IsSlaEnabled = true,
                             Name = "Инцидент",
                             TenantId = 1
                         },
@@ -2615,8 +2650,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         {
                             Id = 2,
                             Code = "service_request",
+                            IsArchived = false,
                             IsBuiltIn = false,
                             IsPortalAvailable = true,
+                            IsSlaEnabled = true,
                             Name = "Запрос на обслуживание",
                             TenantId = 1
                         },
@@ -2624,8 +2661,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         {
                             Id = 3,
                             Code = "change",
+                            IsArchived = false,
                             IsBuiltIn = false,
                             IsPortalAvailable = true,
+                            IsSlaEnabled = true,
                             Name = "Изменение",
                             TenantId = 1
                         },
@@ -2633,8 +2672,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         {
                             Id = 4,
                             Code = "access",
+                            IsArchived = false,
                             IsBuiltIn = false,
                             IsPortalAvailable = true,
+                            IsSlaEnabled = true,
                             Name = "Запрос на доступ",
                             TenantId = 1
                         },
@@ -2642,8 +2683,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         {
                             Id = 5,
                             Code = "repair",
+                            IsArchived = false,
                             IsBuiltIn = true,
                             IsPortalAvailable = false,
+                            IsSlaEnabled = true,
                             Name = "Тикет на ремонт",
                             TenantId = 1
                         });
@@ -2851,10 +2894,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<int?>("TenantId")
-                        .HasColumnType("integer")
-                        .HasColumnName("tenant_id");
-
                     b.Property<DateTimeOffset>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -2878,6 +2917,10 @@ namespace itsm.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasDefaultValue("24x7")
                         .HasColumnName("schedule_type");
+
+                    b.Property<int?>("TenantId")
+                        .HasColumnType("integer")
+                        .HasColumnName("tenant_id");
 
                     b.Property<string>("TimeZoneId")
                         .IsRequired()
@@ -2908,7 +2951,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             IsActive = true,
                             Name = "24x7",
                             ScheduleType = "24x7",
-                            TenantId = (int?)null,
                             TimeZoneId = "Europe/Moscow",
                             Version = 1
                         },
@@ -2919,7 +2961,6 @@ namespace itsm.Infrastructure.Persistence.Migrations
                             IsActive = true,
                             Name = "8x5 Стандартный",
                             ScheduleType = "work_hours",
-                            TenantId = (int?)null,
                             TimeZoneId = "Europe/Moscow",
                             Version = 1
                         });
@@ -3275,18 +3316,18 @@ namespace itsm.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("itsm.Domain.Entities.SlaValue", b =>
                 {
-                    b.HasOne("itsm.Domain.Entities.SlaPolicy", "SlaPolicy")
-                        .WithMany()
-                        .HasForeignKey("SlaPolicyId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .HasConstraintName("fk_sla_values_sla_policies_sla_policy_id");
-
                     b.HasOne("itsm.Domain.Entities.CriticalityLevel", "CriticalityLevel")
                         .WithMany()
                         .HasForeignKey("CriticalityLevelId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("fk_sla_values_criticality_levels_criticality_level_id");
+
+                    b.HasOne("itsm.Domain.Entities.SlaPolicy", "SlaPolicy")
+                        .WithMany()
+                        .HasForeignKey("SlaPolicyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("fk_sla_values_sla_policies_sla_policy_id");
 
                     b.HasOne("itsm.Domain.Entities.TicketType", "TicketType")
                         .WithMany()

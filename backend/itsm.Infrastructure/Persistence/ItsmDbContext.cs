@@ -177,6 +177,8 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.HasOne(x => x.AssignmentGroup).WithMany().HasForeignKey(x => x.AssignmentGroupId).OnDelete(DeleteBehavior.Restrict);
             entity.Property(x => x.IsBuiltIn).HasDefaultValue(false);
             entity.Property(x => x.IsPortalAvailable).HasDefaultValue(true);
+            entity.Property(x => x.IsSlaEnabled).HasDefaultValue(true);
+            entity.Property(x => x.IsArchived).HasDefaultValue(false);
         });
 
         modelBuilder.Entity<TicketStatus>(entity =>
@@ -525,6 +527,9 @@ public class ItsmDbContext(DbContextOptions<ItsmDbContext> options, ITenantConte
             entity.HasIndex(x => x.Code).IsUnique();
             entity.Property(x => x.IsActive).HasDefaultValue(true);
             entity.Property(x => x.AllowAdminsCreateAdmins).HasDefaultValue(true);
+            entity.Property(x => x.SlaEnabled).HasDefaultValue(true);
+            entity.Property(x => x.PortalSlaReactionVisible).HasDefaultValue(true);
+            entity.Property(x => x.PortalSlaResolutionVisible).HasDefaultValue(true);
             entity.Property(x => x.CreatedAt).HasDefaultValueSql("now()");
         });
 

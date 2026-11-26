@@ -49,7 +49,7 @@ import {
 
 @Injectable({ providedIn: 'root' })
 export class HttpWorkspaceApiService extends WorkspaceApi {
-    readonly supportsTicketTypeConfiguration = false;
+    readonly supportsTicketTypeConfiguration = true;
 
     private readonly http = inject(HttpClient);
     private readonly baseUrl = environment.apiBaseUrl;
@@ -144,8 +144,21 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
 
         return this.http.post<BackendTicket>(`${this.baseUrl}/tickets`, body).pipe(map(toTicket));
     }
-    getTicketTypes() { return this.unsupported<TicketType[]>('ticket types'); }
-    saveTicketTypes(_ticketTypes: TicketType[]) { return this.unsupported<TicketType[]>('ticket types'); }
+    getTicketTypes() {
+        return this.http.get<BackendTicketType[]>(`${this.baseUrl}/ticket-types`)
+            .pipe(map(types => types.map(toTicketType)));
+    }
+    saveTicketTypes(ticketTypes: TicketType[]) {
+        const requests: Observable<BackendTicketType>[] = ticketTypes.map(type => this.saveTicketType(type));
+        return requests.length ? forkJoin(requests).pipe(map(types => types.map(toTicketType))) : of([] as TicketType[]);
+    }
+    private saveTicketType(type: TicketType): Observable<BackendTicketType> {
+        const persistedId = persistedTicketTypeId(type.id);
+        const body = { name: type.name, isPortalAvailable: type.portalAvailable, isSlaEnabled: type.slaEnabled };
+        return persistedId === null
+            ? this.http.post<BackendTicketType>(`${this.baseUrl}/ticket-types`, { ...body, code: ticketTypeCode(type.name) })
+            : this.http.put<BackendTicketType>(`${this.baseUrl}/ticket-types/${persistedId}`, body);
+    }
     changeTicketStatus(ticketId: string, statusId: number) {
         return this.http
             .put<BackendTicket>(`${this.baseUrl}/tickets/${ticketId}/status`, { statusId })
@@ -409,14 +422,15 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
         return of([] as EscalationHistoryEntry[]);
     }
     getAdminSettings() {
-        return this.getTenantAdminCreationPolicy().pipe(
+        return this.http.get<BackendServiceDeskSettings>(`${this.baseUrl}/service-desk-settings`).pipe(
             map(settings => toAdminSettings(settings)),
         );
     }
-    saveAdminSettings(settings: AdminSettings) {
-        return this.saveTenantAdminCreationPolicy(settings.allowAdminsCreateAdmins ?? true).pipe(
-            map(saved => toAdminSettings(saved)),
-        );
+    saveAdminSettings(settings: AdminSettings, ticketTypes?: TicketType[]) {
+        return this.http.put<BackendServiceDeskSettings>(
+            `${this.baseUrl}/service-desk-settings`,
+            buildServiceDeskSettingsPayload(settings, ticketTypes),
+        ).pipe(map(saved => toAdminSettings(saved)));
     }
     getTenantAdminCreationPolicy() {
         return this.http.get<TenantAdminCreationPolicy>(`${this.baseUrl}/tenants/settings`).pipe(
@@ -531,8 +545,27 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     reviewPortalTicket(_ticketId: string, _accepted: boolean) {
         return this.unsupported<Ticket>('portal ticket review');
     }
-    createPortalAccount(_request: CreatePortalAccountRequest) {
-        return this.unsupported<string>('portal account creation');
+    createPortalAccount(request: CreatePortalAccountRequest) {
+        const username = request.username.trim();
+        return this.getSystemRoles().pipe(switchMap(roles => {
+            const portalRole = roles.find(role => role.code === 'portal_user');
+            if (!portalRole) {
+                return throwError(() => new Error('Роль «Пользователь портала» не найдена.'));
+            }
+
+            const body: CreateUserRequest = {
+                username,
+                email: `${username}@portal.local`,
+                password: request.temporaryPassword,
+                fullName: username,
+                department: '',
+                managerId: null,
+                tenantId: null,
+                isManager: false,
+                roleIds: [portalRole.id],
+            };
+            return this.http.post(`${this.baseUrl}/users`, body).pipe(map(() => username));
+        }));
     }
     getTenants() { return this.http.get<TenantRecord[]>(`${this.baseUrl}/tenants`); }
     getTenant(tenantId: number) { return this.http.get<TenantRecord>(`${this.baseUrl}/tenants/${tenantId}`); }
@@ -607,7 +640,7 @@ export class HttpWorkspaceApiService extends WorkspaceApi {
     }
 }
 
-function toAdminSettings(settings?: Partial<BackendTenantSettings> | null): AdminSettings {
+function toAdminSettings(settings?: Partial<BackendServiceDeskSettings> | null): AdminSettings {
     const defaults: AdminSettings = {
         assignmentMode: 'automatic',
         manager: '',
@@ -634,36 +667,187 @@ function toAdminSettings(settings?: Partial<BackendTenantSettings> | null): Admi
         engineers: [],
         tenantMode: 'saas',
         passwordPolicy: {
-            minLength: 12,
-            requireUppercase: true,
-            requireSpecial: true,
-            expiryDays: 90,
+            minLength: 8,
+            requireDigit: true,
+            requireUppercase: false,
+            requireLowercase: true,
+            requireSpecial: false,
+            expiryDays: 0,
             maxFailedAttempts: 5,
             lockoutMinutes: 15,
         },
         reportAccessRoles: ['admin', 'manager'],
         allowAdminsCreateAdmins: true,
+        canManageAdminCreation: false,
         twoFactorMode: 'all',
         twoFactorGraceDays: 0,
+        maxCriticalityLevels: 5,
+        minCriticalityLevels: 3,
     };
+
+    const levels = (settings?.criticalities ?? []).map((level, index) => ({
+        id: level.id ?? 0,
+        code: level.code ?? '',
+        name: (level.name ?? '').trim(),
+        sortOrder: level.sortOrder ?? index + 1,
+        isActive: level.isActive ?? true,
+        assignedTicketCount: level.assignedTicketCount ?? 0,
+        canDelete: level.canDelete ?? (level.assignedTicketCount ?? 0) === 0,
+    }));
+    const criticalities = levels.map(level => level.name).filter(Boolean);
+    const policy = settings?.passwordPolicy;
 
     return {
         ...defaults,
-        ...settings,
-        workingDays: settings?.workingDays?.length ? [...settings.workingDays] : defaults.workingDays,
-        holidays: settings?.holidays?.length ? [...settings.holidays] : defaults.holidays,
-        criticalities: settings?.criticalities?.length ? [...settings.criticalities] : defaults.criticalities,
-        statuses: settings?.statuses?.length ? settings.statuses.map(status => ({ ...status })) : defaults.statuses,
-        statusTransitions: settings?.statusTransitions ? { ...settings.statusTransitions } : defaults.statusTransitions,
-        portalSlaFields: settings?.portalSlaFields?.length ? [...settings.portalSlaFields] : defaults.portalSlaFields,
-        portalAccounts: settings?.portalAccounts?.length ? [...settings.portalAccounts] : defaults.portalAccounts,
-        engineers: settings?.engineers?.length ? [...settings.engineers] : defaults.engineers,
-        reportAccessRoles: settings?.reportAccessRoles?.length ? [...settings.reportAccessRoles] : defaults.reportAccessRoles,
-        passwordPolicy: settings?.passwordPolicy ? { ...settings.passwordPolicy } : defaults.passwordPolicy,
+        assignmentMode: settings?.assignmentMode === 'manual' ? 'manual' : defaults.assignmentMode,
+        manualAssignerUserId: settings?.manualAssignerUserId ?? null,
+        slaEnabled: settings?.slaEnabled ?? defaults.slaEnabled,
+        criticalities: criticalities.length ? criticalities : defaults.criticalities,
+        criticalityLevels: levels.length
+            ? levels
+            : defaults.criticalities.map((name, index) => ({
+                id: 0,
+                code: '',
+                name,
+                sortOrder: index + 1,
+                isActive: true,
+                assignedTicketCount: 0,
+                canDelete: true,
+            })),
+        maxCriticalityLevels: settings?.maxCriticalityLevels ?? defaults.maxCriticalityLevels,
+        minCriticalityLevels: settings?.minCriticalityLevels ?? defaults.minCriticalityLevels,
+        portalSlaFields: [
+            ...(settings?.portalSlaFields?.showReactionTime ? ['Время реакции'] : []),
+            ...(settings?.portalSlaFields?.showResolutionTime ? ['Время решения'] : []),
+        ],
+        portalAccounts: [...(settings?.portalAccounts ?? [])],
+        passwordPolicy: policy
+            ? {
+                minLength: policy.minLength ?? 8,
+                requireDigit: policy.requireDigit ?? true,
+                requireUppercase: policy.requireUppercase ?? false,
+                requireLowercase: policy.requireLowercase ?? true,
+                requireSpecial: policy.requireSpecial ?? false,
+                expiryDays: policy.expirationDays ?? 0,
+                maxFailedAttempts: policy.maxFailedAttempts ?? 5,
+                lockoutMinutes: policy.lockoutMinutes ?? 15,
+            }
+            : defaults.passwordPolicy,
         allowAdminsCreateAdmins: settings?.allowAdminsCreateAdmins ?? defaults.allowAdminsCreateAdmins,
-        twoFactorMode: settings?.twoFactorMode ?? 'all',
-        twoFactorGraceDays: settings?.twoFactorGraceDays ?? 0,
+        canManageAdminCreation: settings?.canManageAdminCreation ?? defaults.canManageAdminCreation,
+        twoFactorMode: defaults.twoFactorMode,
+        twoFactorGraceDays: defaults.twoFactorGraceDays,
     };
+}
+
+function buildServiceDeskSettingsPayload(settings: AdminSettings, ticketTypes?: TicketType[]) {
+    const levels = settings.criticalityLevels?.length
+        ? settings.criticalityLevels.map((level, index) => ({
+            id: level.id,
+            code: level.code || null,
+            name: (settings.criticalities[index] ?? level.name).trim(),
+            sortOrder: index + 1,
+            isActive: level.isActive,
+        }))
+        : settings.criticalities.map((name, index) => ({
+            id: 0,
+            code: null,
+            name: name.trim(),
+            sortOrder: index + 1,
+            isActive: true,
+        }));
+
+    const policy = settings.passwordPolicy;
+    return {
+        allowAdminsCreateAdmins: settings.allowAdminsCreateAdmins,
+        slaEnabled: settings.slaEnabled,
+        assignmentMode: settings.assignmentMode === 'manual' ? 'manual' : 'auto',
+        manualAssignerUserId: settings.assignmentMode === 'manual' ? (settings.manualAssignerUserId ?? null) : null,
+        portalSlaFields: {
+            showReactionTime: settings.portalSlaFields.includes('Время реакции'),
+            showResolutionTime: settings.portalSlaFields.includes('Время решения'),
+        },
+        passwordPolicy: policy
+            ? {
+                minLength: policy.minLength,
+                requireDigit: policy.requireDigit ?? true,
+                requireUppercase: policy.requireUppercase,
+                requireLowercase: policy.requireLowercase ?? true,
+                requireSpecial: policy.requireSpecial,
+                expirationDays: policy.expiryDays > 0 ? policy.expiryDays : null,
+                maxFailedAttempts: policy.maxFailedAttempts,
+                lockoutMinutes: policy.lockoutMinutes,
+            }
+            : null,
+        criticalities: levels,
+        ticketTypes: (ticketTypes ?? []).map(type => ({
+            id: persistedTicketTypeId(type.id) ?? 0,
+            code: persistedTicketTypeId(type.id) === null ? ticketTypeCode(type.name) : null,
+            name: type.name.trim(),
+            isPortalAvailable: type.portalAvailable,
+            isSlaEnabled: type.slaEnabled,
+            slaValues: settings.criticalities.map((name, index) => ({
+                criticalityLevelId: settings.criticalityLevels?.[index]?.id ?? 0,
+                criticalityName: name,
+                reactionTimeMinutes: minutesFromText(type.slaByCriticality?.[name]?.reaction ?? type.reactionSla),
+                resolutionTimeMinutes: minutesFromText(type.slaByCriticality?.[name]?.resolution ?? type.resolutionSla),
+                isDisabled: false,
+            })),
+        })),
+    };
+}
+
+function toTicketType(type: BackendTicketType): TicketType {
+    const slaValues = (type.slaValues ?? []).map(value => ({
+        criticalityLevelId: value.criticalityLevelId ?? null,
+        criticalityName: '',
+        reactionTimeMinutes: value.reactionTimeMinutes ?? null,
+        resolutionTimeMinutes: value.resolutionTimeMinutes ?? null,
+        isDisabled: value.isDisabled ?? false,
+    }));
+    const slaByCriticality: Record<string, { reaction: string; resolution: string }> = {};
+    for (const value of slaValues) {
+        if (value.criticalityLevelId == null) continue;
+        slaByCriticality[String(value.criticalityLevelId)] = {
+            reaction: value.reactionTimeMinutes == null ? '' : String(value.reactionTimeMinutes),
+            resolution: value.resolutionTimeMinutes == null ? '' : String(value.resolutionTimeMinutes),
+        };
+    }
+
+    return {
+        id: String(type.id ?? 0),
+        name: type.name ?? '',
+        portalAvailable: type.isPortalAvailable ?? true,
+        repair: type.code === 'repair',
+        builtIn: type.isBuiltIn ?? false,
+        slaEnabled: type.isSlaEnabled ?? true,
+        reactionSla: '',
+        resolutionSla: '',
+        slaByCriticality,
+        slaValues,
+        activeTicketCount: type.activeTicketCount ?? 0,
+    };
+}
+
+function persistedTicketTypeId(id: string): number | null {
+    const numeric = Number(id);
+    return Number.isInteger(numeric) && numeric > 0 ? numeric : null;
+}
+
+function ticketTypeCode(name: string): string {
+    const slug = name.trim().toLocaleLowerCase()
+        .replace(/[^a-z0-9]+/g, '_')
+        .replace(/^_+|_+$/g, '');
+    return slug.length >= 3 ? slug.slice(0, 60) : `custom_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function minutesFromText(value: string | null | undefined): number | null {
+    const text = (value ?? '').trim();
+    if (!text) return null;
+    const numeric = Number.parseFloat(text.replace(',', '.'));
+    if (!Number.isFinite(numeric)) return null;
+    if (/ч|hour/i.test(text)) return Math.round(numeric * 60);
+    return Math.round(numeric);
 }
 
 function normalizeTenantAdminCreationPolicy(policy: TenantAdminCreationPolicy): TenantAdminCreationPolicy {
@@ -766,6 +950,53 @@ interface BackendTenantSettings {
     tenantMode?: AdminSettings['tenantMode'];
     passwordPolicy?: AdminSettings['passwordPolicy'];
     reportAccessRoles?: string[];
+}
+
+interface BackendSlaValue {
+    ticketTypeId?: number;
+    criticalityLevelId?: number;
+    reactionTimeMinutes?: number | null;
+    resolutionTimeMinutes?: number | null;
+    isDisabled?: boolean;
+    updatedAt?: string;
+}
+
+interface BackendTicketType {
+    id?: number;
+    code?: string | null;
+    name?: string;
+    isBuiltIn?: boolean;
+    isPortalAvailable?: boolean;
+    isSlaEnabled?: boolean;
+    assignmentGroupId?: number | null;
+    activeTicketCount?: number;
+    slaValues?: BackendSlaValue[];
+}
+
+interface BackendCriticalityLevel {
+    id?: number;
+    code?: string;
+    name?: string;
+    sortOrder?: number;
+    isActive?: boolean;
+    assignedTicketCount?: number;
+    canDelete?: boolean;
+}
+
+interface BackendServiceDeskSettings {
+    allowAdminsCreateAdmins?: boolean;
+    canManageAdminCreation?: boolean;
+    slaEnabled?: boolean;
+    assignmentMode?: string;
+    manualAssignerUserId?: number | null;
+    manualAssignerName?: string | null;
+    portalSlaFields?: { showReactionTime?: boolean; showResolutionTime?: boolean };
+    passwordPolicy?: AdminSettings['passwordPolicy'] & { expirationDays?: number | null };
+    maxCriticalityLevels?: number;
+    minCriticalityLevels?: number;
+    criticalities?: BackendCriticalityLevel[];
+    ticketTypes?: BackendTicketType[];
+    portalAccounts?: string[];
 }
 
 interface BackendAssignmentHistoryItem {

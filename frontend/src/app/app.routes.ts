@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 import { AppLayoutComponent } from './layout/app-layout/app-layout';
 import { authGuard } from './core/auth/auth.guard';
 import { adminAccessGuard, adminOnlyAccessGuard, internalAccessGuard, portalAccessGuard, reportAccessGuard, roleSelectionRequiredGuard, selectRoleGuard, tenantAdminAccessGuard } from './core/auth/role.guard';
+import { pendingChangesGuard } from './core/auth/pending-changes.guard';
 
 export const routes: Routes = [
     { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
@@ -26,11 +27,11 @@ export const routes: Routes = [
             { path: 'admin/tenants', loadComponent: () => import('./pages/tenant-admin/tenant-management').then(module => module.TenantManagementComponent), canActivate: [tenantAdminAccessGuard] },
             { path: 'admin', redirectTo: '/admin/settings', pathMatch: 'full' },
             { path: 'admin/users/new', loadComponent: () => import('./pages/admin/user-create').then(module => module.UserCreateComponent), canActivate: [adminOnlyAccessGuard] },
-            { path: 'admin/users', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'users' }, canActivate: [adminOnlyAccessGuard] },
-            { path: 'admin/settings', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'settings' }, canActivate: [adminAccessGuard] },
-            { path: 'admin/forms', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'forms' }, canActivate: [adminAccessGuard] },
-            { path: 'admin/escalation-policies', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'escalations' }, canActivate: [adminAccessGuard] },
-            { path: 'admin/reports', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'reports' }, canActivate: [reportAccessGuard] },
+            { path: 'admin/users', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'users' }, canActivate: [adminOnlyAccessGuard], canDeactivate: [pendingChangesGuard] },
+            { path: 'admin/settings', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'settings' }, canActivate: [adminAccessGuard], canDeactivate: [pendingChangesGuard] },
+            { path: 'admin/forms', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'forms' }, canActivate: [adminAccessGuard], canDeactivate: [pendingChangesGuard] },
+            { path: 'admin/escalation-policies', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'escalations' }, canActivate: [adminAccessGuard], canDeactivate: [pendingChangesGuard] },
+            { path: 'admin/reports', loadComponent: () => import('./pages/admin/admin-workspace').then(module => module.AdminWorkspaceComponent), data: { section: 'reports' }, canActivate: [reportAccessGuard], canDeactivate: [pendingChangesGuard] },
             { path: 'dictionaries', loadComponent: () => import('./pages/dictionaries/dictionaries').then(module => module.DictionariesComponent), canActivate: [adminAccessGuard] },
             { path: 'asset-classes', loadComponent: () => import('./pages/asset-classes/asset-classes').then(module => module.AssetClassesComponent), canActivate: [adminAccessGuard] },
             { path: 'profile/security', loadComponent: () => import('./pages/profile/security').then(module => module.SecurityComponent) },

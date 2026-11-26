@@ -576,7 +576,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
     saveEscalationPolicies(policies: EscalationPolicy[]): Observable<EscalationPolicy[]> { this.policies = policies.map(policy => ({ ...policy })); return of(this.policies); }
     getEscalationHistory(): Observable<EscalationHistoryEntry[]> { return of(this.escalationHistory.map(entry => ({ ...entry, recipients: [...entry.recipients] }))); }
     getAdminSettings(): Observable<AdminSettings> { return of({ ...this.settings, criticalities: [...this.settings.criticalities], statuses: this.settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(this.settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...this.settings.workingDays], holidays: [...this.settings.holidays],     portalSlaFields: [...this.settings.portalSlaFields], portalAccounts: [...(this.settings.portalAccounts ?? [])], engineers: [...(this.settings.engineers ?? [])], passwordPolicy: this.settings.passwordPolicy ? { ...this.settings.passwordPolicy } : undefined, reportAccessRoles: [...(this.settings.reportAccessRoles ?? [])], allowAdminsCreateAdmins: this.settings.allowAdminsCreateAdmins ?? true }); }
-    saveAdminSettings(settings: AdminSettings): Observable<AdminSettings> {
+    saveAdminSettings(settings: AdminSettings, ticketTypes?: TicketType[]): Observable<AdminSettings> {
         if (settings.criticalities.length < 3 || settings.criticalities.length > 5) return this.fail('Шкала критичности должна содержать от 3 до 5 уровней.');
         if (settings.slaMode === 'working-hours' && !settings.workingDays.length) return this.fail('Выберите хотя бы один рабочий день.');
         for (const required of ['Открыта', 'Ожидает выполнения', 'В работе', 'Проверка', 'Закрыта']) {
@@ -586,6 +586,7 @@ export class MockWorkspaceApiService extends WorkspaceApi {
         const statusNames = new Set(settings.statuses.map(status => status.name));
         if (Object.entries(settings.statusTransitions).some(([source, targets]) => !statusNames.has(source) || targets.some(target => !statusNames.has(target) || target === 'Открыта' || target === source))) return this.fail('Переходы должны ссылаться на существующие статусы и не открывать закрытые заявки заново.');
         this.settings = { ...settings, criticalities: [...settings.criticalities], statuses: settings.statuses.map(status => ({ ...status })), statusTransitions: Object.fromEntries(Object.entries(settings.statusTransitions).map(([status, targets]) => [status, [...targets]])), workingDays: [...settings.workingDays], holidays: [...settings.holidays], portalSlaFields: [...settings.portalSlaFields], portalAccounts: [...(settings.portalAccounts ?? [])], engineers: [...(settings.engineers ?? [])], passwordPolicy: settings.passwordPolicy ? { ...settings.passwordPolicy } : undefined, reportAccessRoles: [...(settings.reportAccessRoles ?? [])], allowAdminsCreateAdmins: settings.allowAdminsCreateAdmins ?? true };
+        if (ticketTypes) this.ticketTypes.splice(0, this.ticketTypes.length, ...ticketTypes.map(type => ({ ...type, slaByCriticality: type.slaByCriticality ? { ...type.slaByCriticality } : undefined })));
         return this.getAdminSettings();
     }
 

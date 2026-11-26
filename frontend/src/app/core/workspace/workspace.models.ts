@@ -64,6 +64,18 @@ export interface TicketType {
     reactionSla: string;
     resolutionSla: string;
     slaByCriticality?: Record<string, { reaction: string; resolution: string }>;
+    slaValues?: { criticalityLevelId: number | null; criticalityName: string; reactionTimeMinutes: number | null; resolutionTimeMinutes: number | null; isDisabled: boolean }[];
+    activeTicketCount?: number;
+}
+
+export interface CriticalityLevelOption {
+    id: number;
+    code: string;
+    name: string;
+    sortOrder: number;
+    isActive: boolean;
+    assignedTicketCount: number;
+    canDelete: boolean;
 }
 
 export interface PortalTicketType {
@@ -289,6 +301,7 @@ export interface EscalationHistoryEntry {
 
 export interface AdminSettings {
     assignmentMode: 'automatic' | 'manual';
+    manualAssignerUserId?: number | null;
     manager: string;
     slaEnabled: boolean;
     slaMode: '24/7' | 'working-hours';
@@ -296,13 +309,17 @@ export interface AdminSettings {
     workingDays: string[];
     holidays: string[];
     criticalities: string[];
+    criticalityLevels?: CriticalityLevelOption[];
+    maxCriticalityLevels?: number;
+    minCriticalityLevels?: number;
+    canManageAdminCreation?: boolean;
     statuses: { name: string; pausesSla: boolean; immutable: boolean }[];
     statusTransitions: Record<string, string[]>;
     portalSlaFields: string[];
     portalAccounts?: string[];
     engineers?: string[];
     tenantMode?: 'on-premise' | 'saas';
-    passwordPolicy?: { minLength: number; requireUppercase: boolean; requireSpecial: boolean; expiryDays: number; maxFailedAttempts: number; lockoutMinutes: number };
+    passwordPolicy?: { minLength: number; requireDigit?: boolean; requireUppercase: boolean; requireLowercase?: boolean; requireSpecial: boolean; expiryDays: number; maxFailedAttempts: number; lockoutMinutes: number };
     reportAccessRoles?: string[];
     allowAdminsCreateAdmins?: boolean;
     twoFactorMode?: 'all' | 'admins' | 'optional';
