@@ -59,7 +59,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
     public async Task<IReadOnlyList<PortalTicketTypeResponse>> GetPortalTicketTypesAsync(CancellationToken ct = default) =>
         await db.TicketTypes
             .AsNoTracking()
-            .Where(type => type.IsPortalAvailable && type.Code != RepairTypeCode)
+            .Where(type => type.IsPortalAvailable && !type.IsArchived && type.Code != RepairTypeCode)
             .OrderBy(type => type.Id)
             .Select(type => new PortalTicketTypeResponse(type.Id, type.Name))
             .ToArrayAsync(ct);
@@ -68,6 +68,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
     {
         var types = await db.TicketTypes
             .AsNoTracking()
+            .Where(type => !type.IsArchived)
             .OrderBy(type => type.Id)
             .Select(type => new TicketTypeLookup(type.Id, type.Code ?? string.Empty, type.Name))
             .ToArrayAsync(ct);
@@ -116,7 +117,7 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         bool isEngineer,
         CancellationToken ct = default)
     {
-        var type = await db.TicketTypes.FirstOrDefaultAsync(type => type.Id == request.TypeId, ct)
+        var type = await db.TicketTypes.FirstOrDefaultAsync(type => type.Id == request.TypeId && !type.IsArchived, ct)
             ?? throw new ArgumentException("Тип заявки не найден.");
 
         if (!isStaff && (!type.IsPortalAvailable || type.Code == RepairTypeCode))
@@ -756,9 +757,94 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
         var query = db.TicketAuditLogs.AsNoTracking().Where(log => log.FieldName == "autoAssigned");
         if (from is DateTimeOffset start) query = query.Where(log => log.ChangedAt >= start);
         if (to is DateTimeOffset end) query = query.Where(log => log.ChangedAt <= end);
-        var logs = await query.Include(log => log.Ticket).ThenInclude(ticket => ticket.Assignee).Include(log => log.User).OrderByDescending(log => log.ChangedAt).ToListAsync(ct);
-        return logs.Where(log => assigneeId == null || log.Ticket.AssigneeId == assigneeId).Select(log => new AssignmentHistoryItem(log.TicketId, log.Ticket.TicketNumber, log.Ticket.Title, null, null, log.Ticket.AssigneeId, log.Ticket.Assignee?.FullName, "least-loaded", 0, log.ChangedAt, log.User.FullName)).ToArray();
+        var logs = await query
+            .Include(log => log.Ticket)
+            .Include(log => log.User)
+            .OrderByDescending(log => log.ChangedAt)
+            .ToListAsync(ct);
+
+        var entries = logs
+            .Select(log => new
+            {
+                Log = log,
+                Payload = ParseAssignmentPayload(log.NewValue),
+                PreviousAssigneeId = ParseAssigneeId(log.OldValue)
+            })
+            .ToArray();
+
+        var userIds = entries
+            .SelectMany(entry => new[] { entry.Payload.AssigneeId, entry.PreviousAssigneeId })
+            .Where(id => id is not null)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToArray();
+        var names = userIds.Length == 0
+            ? new Dictionary<int, string>()
+            : await db.Users
+                .AsNoTracking()
+                .Where(user => userIds.Contains(user.Id))
+                .ToDictionaryAsync(user => user.Id, user => user.FullName, ct);
+
+        return entries
+            .Where(entry => assigneeId is null || entry.Payload.AssigneeId == assigneeId)
+            .Select(entry => new AssignmentHistoryItem(
+                entry.Log.TicketId,
+                entry.Log.Ticket.TicketNumber,
+                entry.Log.Ticket.Title,
+                entry.PreviousAssigneeId,
+                entry.PreviousAssigneeId is int previousId ? names.GetValueOrDefault(previousId) : null,
+                entry.Payload.AssigneeId,
+                entry.Payload.AssigneeId is int newId ? names.GetValueOrDefault(newId) : null,
+                entry.Payload.Strategy,
+                entry.Payload.OpenTickets,
+                entry.Log.ChangedAt,
+                entry.Log.User.FullName))
+            .ToArray();
     }
+
+    private static int? ParseAssigneeId(string? value) =>
+        int.TryParse(value, out var parsedId) ? parsedId : null;
+
+    private static AssignmentPayload ParseAssignmentPayload(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return new AssignmentPayload(null, 0, "least-loaded");
+
+        try
+        {
+            using var document = JsonDocument.Parse(raw);
+            var root = document.RootElement;
+
+            int? assigneeId = root.TryGetProperty("assigneeId", out var assigneeProperty)
+                && assigneeProperty.ValueKind == JsonValueKind.Number
+                && assigneeProperty.TryGetInt32(out var parsedAssigneeId)
+                    ? parsedAssigneeId
+                    : null;
+
+            var openTickets = root.TryGetProperty("openTickets", out var openTicketsProperty)
+                && openTicketsProperty.ValueKind == JsonValueKind.Number
+                && openTicketsProperty.TryGetInt32(out var parsedOpenTickets)
+                    ? parsedOpenTickets
+                    : 0;
+
+            var strategy = root.TryGetProperty("strategy", out var strategyProperty)
+                && strategyProperty.ValueKind == JsonValueKind.String
+                    ? strategyProperty.GetString()
+                    : null;
+            strategy ??= root.TryGetProperty("reason", out var reasonProperty)
+                && reasonProperty.ValueKind == JsonValueKind.String
+                    ? reasonProperty.GetString()
+                    : null;
+
+            return new AssignmentPayload(assigneeId, openTickets, strategy ?? "least-loaded");
+        }
+        catch (JsonException)
+        {
+            return new AssignmentPayload(null, 0, "least-loaded");
+        }
+    }
+
+    private readonly record struct AssignmentPayload(int? AssigneeId, int OpenTickets, string Strategy);
 
     public async Task<IReadOnlyList<AgentGroupOption>> GetAgentGroupsAsync(CancellationToken ct = default) =>
         await db.AgentGroups.AsNoTracking().OrderBy(group => group.Name).Select(group => new AgentGroupOption(group.Id, group.Code ?? "", group.Name, group.Members.Count)).ToArrayAsync(ct);
@@ -783,9 +869,15 @@ public sealed class TicketService(ItsmDbContext db, ITicketAttachmentStorage att
             var groupId = await db.TicketTypes.Where(type => type.Id == ticket.TypeId).Select(type => type.AssignmentGroupId).FirstOrDefaultAsync(ct);
             var candidate = await PickLeastLoadedAgentAsync(groupId, userId, ct);
             ticket.AssigneeId = candidate?.UserId;
-            ticket.AssigneeGroupId = candidate is null ? ticket.AssigneeGroupId : null;
+            ticket.AssigneeGroupId = candidate is null ? ticket.AssigneeGroupId : groupId;
             AddAudit(ticket, actorId, "assigneeId", userId.ToString(), candidate?.UserId.ToString());
-            AddAudit(ticket, actorId, "autoAssigned", null, JsonSerializer.Serialize(new { reason = "assignee-deactivated", assigneeId = candidate?.UserId }));
+            AddAudit(ticket, actorId, "autoAssigned", null, JsonSerializer.Serialize(new
+            {
+                reason = "assignee-deactivated",
+                assigneeId = candidate?.UserId,
+                openTickets = candidate?.OpenTickets ?? 0,
+                strategy = "assignee-deactivated"
+            }));
         }
         await db.SaveChangesAsync(ct);
     }
